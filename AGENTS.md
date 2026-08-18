@@ -26,7 +26,11 @@ The accepted product and architecture decisions live in `docs/architecture.md`. 
 
 ## Local development
 
-The repository is currently in its documentation-only bootstrap state. Add and verify concrete install, development, test, lint, and build commands here when the application scaffold is committed.
+- Install dependencies with `npm install`. The postinstall hook applies the required pinned `h3-js`/Expo runtime patch.
+- Run `npm run typecheck`, `npm run lint`, and `npm test` before committing.
+- Run native development builds with `npm run ios` or `npm run android`; Expo Go is not a supported end-to-end runtime for this project.
+- Set `EXPO_PUBLIC_MAP_STYLE_URL` for a non-demo map style. Public Expo environment variables are bundled into the client and must not contain secrets.
+- Re-run the Hermes compatibility spike and update the patch/tests before changing the exact `h3-js` version.
 
 ## Change safety
 

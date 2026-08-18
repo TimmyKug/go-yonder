@@ -1,7 +1,8 @@
 # Architecture and implementation plan
 
-- Status: Accepted
+- Status: Accepted and implemented for the core phase
 - Date: 2026-08-12
+- Last verified: 2026-08-18
 - Scope: Core scratch-map functionality
 
 ## Product scope
@@ -43,7 +44,7 @@ MapLibre Native will render the base map and unlocked-cell overlay.
 - The base-map style URL is configuration, not a domain dependency.
 - MapLibre demo tiles may be used during development only; a production tile/style provider is a separate deployment decision.
 
-This keeps map interaction native and leaves the project independent of a proprietary map SDK. A development spike must verify the current MapLibre React Native release against the selected Expo SDK and new architecture before deeper implementation.
+This keeps map interaction native and leaves the project independent of a proprietary map SDK. The installed MapLibre React Native 11 API, config plugin, and generated iOS/Android projects have been verified against Expo SDK 57's new architecture. A native compile and physical-device smoke test remain required before distribution.
 
 ### Spatial index: H3
 
@@ -56,7 +57,7 @@ H3 is the canonical internal grid.
 
 Resolution 11 is an initial balance between visible detail, ordinary GPS accuracy, storage growth, and background sampling frequency. A visual/device spike will validate it before real history is relied upon. Changing it later requires regenerating derived cells from retained normalized observations.
 
-The implementation will verify `h3-js` under React Native's Hermes runtime before adopting it fully. If the official JavaScript package is incompatible with the selected runtime, the fallback is a small native H3 binding behind the same `HexGrid` interface—not a change to the persisted/domain contracts.
+The exact Expo 57/Hermes compatibility spike found that `h3-js` 4.5.0 eagerly constructs an unused UTF-16LE `TextDecoder`, while Expo's native decoder accepts UTF-8 only. The app therefore pins 4.5.0 and applies a checked-in `patch-package` patch that removes only that unused initializer from the executable bundles. A regression test guards the patch and known H3 output. This keeps the official H3 implementation and does not change its grid behavior; the patch must be re-evaluated before upgrading H3 or Expo.
 
 ### Persistence: Expo SQLite
 
@@ -119,7 +120,7 @@ Future Bump adapter ─────┘          │
 
 Dependency direction is inward: route/UI code composes interfaces; domain logic knows neither Expo nor SQLite; adapters implement platform and persistence details.
 
-## Planned repository structure
+## Repository structure
 
 ```text
 app/
@@ -132,23 +133,28 @@ src/
   domain/
     hex-grid.ts                  HexGrid contract and H3 implementation
     location-sample.ts           Normalized model and validation
-    scratch-map.ts               Ingestion rules
+    ingest-location.ts           Validation-to-persistence orchestration
+    scratch-map.ts               Shared geographic records
   data/
-    database.ts                  SQLite opening and migration runner
+    database.ts                  Configured SQLite singleton
     migrations/                  Ordered schema migrations
     scratch-map-repository.ts    Transactional samples/cells access
   location/
     background-location-task.ts  Module-scope task definition
-    expo-location-source.ts      Foreground/background adapter
+    background-location-task.web.ts  Informational web no-op
+    location-ingestion.ts        Expo-to-domain normalization
     location-service.ts          Permission and lifecycle orchestration
+    location-state.ts            External state store for the UI
   import/
     import-adapter.ts            Future source-adapter contract
   config/
-    scratch-map-config.ts        H3 and tracking configuration
-  testing/
-    fixtures/                    Synthetic location routes only
+    scratch-map-config.ts        Persistence and H3 configuration
+tests/
+  support/                       Node SQLite adapter for real DB tests
 docs/
   architecture.md                This decision record
+patches/
+  h3-js+4.5.0.patch              Expo native runtime compatibility patch
 ```
 
 Expo Router's `app/` directory will contain routes and layouts only.
@@ -311,6 +317,7 @@ If Bump supplies coordinates and timestamps, import is straightforward. If it su
 - Cell upsert first/last timestamp behavior.
 - Viewport queries, including antimeridian bounds.
 - Import-adapter contract using synthetic fixtures.
+- Guard against regression of the H3/Expo native-runtime compatibility patch.
 - Static TypeScript and lint checks.
 
 ### Native smoke tests
@@ -328,16 +335,24 @@ If Bump supplies coordinates and timestamps, import is straightforward. If it su
 
 Physical-device tests are required for meaningful background-location verification.
 
+### Current verification status
+
+- TypeScript, lint, and 37 automated tests pass. The tests include real in-memory SQLite transactions rather than repository mocks.
+- Production JS/Hermes bundles export successfully for iOS and Android; the informational web fallback also bundles successfully.
+- Expo Doctor passes 20 of 21 checks. Its only failure is host tooling: CocoaPods is not installed.
+- A local iOS simulator build cannot proceed until the developer reviews and accepts the installed Xcode license. No Android SDK is currently configured on the host.
+- `npm audit --omit=dev` reports 23 transitive Expo/React Native build-tool advisories (8 moderate, 15 high, 0 critical). npm's proposed forced fixes downgrade the compatible Expo/React Native stack, so they were not applied. Reassess these advisories with future SDK patches rather than overriding native-tool dependencies blindly.
+
 ## Delivery sequence
 
-1. Commit and push this architecture record before product implementation.
-2. Scaffold Expo with strict TypeScript, Router, linting, and tests.
-3. Run a native compatibility spike for MapLibre and H3/Hermes.
-4. Implement domain contracts, migrations, repository, and ingestion tests.
-5. Implement permission handling and foreground/background location sources.
-6. Implement the full-screen map and viewport-aware GeoJSON overlay.
-7. Exercise synthetic routes, run checks, and smoke-test development builds.
-8. Commit and push the verified core implementation.
+1. [x] Commit and push this architecture record before product implementation.
+2. [x] Scaffold Expo with strict TypeScript, Router, linting, and tests.
+3. [x] Run MapLibre configuration and exact H3/Hermes compatibility spikes.
+4. [x] Implement domain contracts, migrations, repository, and ingestion tests.
+5. [x] Implement permission handling and foreground/background location sources.
+6. [x] Implement the full-screen map and viewport-aware GeoJSON overlay.
+7. [ ] Complete native builds and physical-device smoke tests on both platforms.
+8. [x] Commit and push the verified core implementation.
 
 ## Deferred decisions
 

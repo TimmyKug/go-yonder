@@ -6,6 +6,7 @@ node_modules/
 .expo/
 dist/
 coverage/
+*.tsbuildinfo
 ios/
 android/
 *.db
