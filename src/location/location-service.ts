@@ -15,7 +15,7 @@ import {
 } from "./location-state";
 
 const LOCATION_DISTANCE_INTERVAL_M = 20;
-const LOCATION_TIME_INTERVAL_MS = 15_000;
+const LOCATION_TIME_INTERVAL_MS = 1_000;
 
 const FOREGROUND_LOCATION_OPTIONS: Location.LocationOptions = {
   accuracy: Location.Accuracy.High,
@@ -255,6 +255,7 @@ async function startBestAvailableUpdates(): Promise<void> {
   if (await isBackgroundTrackingStarted()) {
     stopForegroundUpdates();
     updateLocationState({ trackingMode: "background", error: null });
+    await seedCurrentCoordinate();
     return;
   }
 
@@ -294,6 +295,19 @@ async function startBackgroundUpdates(): Promise<void> {
   }
 
   updateLocationState({ trackingMode: "background", error: null });
+  await seedCurrentCoordinate();
+}
+
+async function seedCurrentCoordinate(): Promise<void> {
+  try {
+    const location = await Location.getCurrentPositionAsync(
+      FOREGROUND_LOCATION_OPTIONS,
+    );
+    await ingestExpoLocations([location], "live-foreground");
+  } catch {
+    // Background tracking remains active even if a foreground camera fix is
+    // temporarily unavailable. A later background batch can still update it.
+  }
 }
 
 async function startForegroundUpdates(): Promise<void> {
