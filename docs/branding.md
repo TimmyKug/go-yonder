@@ -19,9 +19,11 @@ of a mosaic, matching the way individual visited cells accumulate into a
 personal picture of the world. The tagline immediately explains the otherwise
 unfamiliar name and gives the brand a simple verbal rhythm.
 
-The choice is intentionally reversible before a full public release. Platform
-package identifiers remain unchanged during beta so renaming does not strand
-existing on-device data or break signed updates.
+The choice is intentionally reversible before a full public release. The
+Tessera beta starts a new platform identity at `com.timothykugler.tessera` with
+a dedicated Android production signing key. It does not attempt an in-place
+upgrade or automatic data migration from the earlier Scratch Map development
+build.
 
 ## Shortlisted alternatives
 

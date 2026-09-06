@@ -8,9 +8,11 @@
 ## Product scope
 
 The working product name is **Tessera**, with the tagline **Tile by Tile**.
-Branding may change before the full public release. Existing Android package and
-iOS bundle identifiers remain stable so beta updates retain access to on-device
-data. The considered alternatives and naming rationale are recorded in
+Branding may change before the full public release. Its Android package and iOS
+bundle identifier are `com.timothykugler.tessera`. This deliberately replaces
+the pre-release `com.timothykugler.bumpclone` identity: operating systems treat
+Tessera as a separate app, and pre-release on-device data is not migrated
+automatically. The considered alternatives and naming rationale are recorded in
 [`docs/branding.md`](branding.md).
 
 The application will provide:
@@ -118,9 +120,11 @@ installer such as Obtainium can discover and install them. Release tags use the
 form `vMAJOR.MINOR.PATCH`; CI embeds that semantic version and a monotonically
 increasing Android `versionCode` into the APK before building it.
 
-Every update must be signed by the same key as the currently installed app.
+Every Tessera update must be signed by the same dedicated production key.
 Signing material is supplied to CI through encrypted repository secrets and is
-never committed. Because this repository is private, Obtainium must use a
+never committed. The earlier Scratch Map beta used an Android debug key and a
+different package identifier; it is not part of Tessera's update lineage.
+Because this repository is private, Obtainium must use a
 fine-grained GitHub token restricted to read-only access to this repository.
 Publishing an APK does not change the local-first data architecture: releases
 contain application code and assets only, never the on-device database or an
