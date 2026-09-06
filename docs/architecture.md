@@ -298,7 +298,17 @@ To avoid fabricating travel, the first implementation will unlock the cell conta
 - SQLite returns unlocked cells whose stored centers intersect that box plus a small padding margin.
 - Antimeridian-crossing bounds are handled explicitly.
 - H3 boundaries are converted to GeoJSON longitude/latitude order.
-- A single GeoJSON source feeds a translucent fill and subtle outline layer.
+- H3 cells remain the canonical persisted and queried coverage geometry, while
+  the map derives a deterministic decorative tessera for each cell at render
+  time. Each tessera is an irregular inward deformation of its H3 boundary,
+  seeded only by the cell identifier, so its shape and mineral colour remain
+  stable across launches and devices.
+- Decorative tesserae must remain wholly inside their canonical H3 cells. The
+  presentation may leave narrow grout-like gaps and vary inset, edge shape,
+  colour, and opacity, but it must never imply that an unvisited neighbouring
+  area was unlocked.
+- A single GeoJSON source feeds data-driven fill and subtle outline layers; the
+  decorative geometry is derived in pure domain code and is never persisted.
 - Map updates are batched after committed ingestion rather than issued for every render.
 - On app activation, the visible query refreshes so cells written by a background task appear immediately.
 - A successfully persisted live sample clears a prior transient location-update or ingestion error; permission and tracking-start failures remain explicit until their own conditions change.
