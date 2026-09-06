@@ -1,4 +1,6 @@
-# Bump Clone
+# Tessera
+
+**Tile by Tile.**
 
 A private, local-first mobile scratch map. The app records where the device has been, maps accepted location samples to stable H3 cells, persists those cells on-device, and displays them over a native vector map.
 
@@ -92,7 +94,7 @@ Run the complete native check with:
 npm run qa:ios
 ```
 
-The script resets only Scratch Map's simulator installation, builds the current native app, grants simulator location access, drives a synthetic central-Berlin route, verifies that at least three H3 cells reach SQLite, relaunches the app, and confirms no cells were lost. Screenshots and diagnostic logs are written under the ignored `.artifacts/ios-qa/` directory.
+The script resets only Tessera's simulator installation, builds the current native app, grants simulator location access, drives a synthetic central-Berlin route, verifies that at least three H3 cells reach SQLite, relaunches the app, and confirms no cells were lost. Screenshots and diagnostic logs are written under the ignored `.artifacts/ios-qa/` directory.
 
 Set `IOS_QA_DEVICE_NAME` to select a different installed simulator. This loop validates foreground native integration and persistence; background/locked-screen behavior still requires a physical device.
 

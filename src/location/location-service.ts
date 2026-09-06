@@ -33,7 +33,7 @@ const BACKGROUND_LOCATION_OPTIONS: Location.LocationTaskOptions = {
   pausesUpdatesAutomatically: false,
   showsBackgroundLocationIndicator: true,
   foregroundService: {
-    notificationTitle: "Scratch Map is tracking your location",
+    notificationTitle: "Tessera is tracking your location",
     notificationBody: "Visited places are being saved on this device.",
     notificationColor: "#2563EB",
     killServiceOnDestroy: false,

@@ -58,13 +58,13 @@ if ! curl --silent --fail --max-time 2 http://127.0.0.1:8081/status | grep -q "p
   fail "Metro is not running. Start it with 'npx expo start --dev-client' and rerun this command."
 fi
 
-log "Resetting only Scratch Map's simulator installation."
+log "Resetting only Tessera's simulator installation."
 xcrun simctl uninstall "$qa_device_id" "$QA_APP_ID" >/dev/null 2>&1 || true
 
 log "Building and installing the current native app."
 if ! npx expo run:ios --device "$qa_device_id" --no-bundler; then
   if ! xcrun simctl get_app_container "$qa_device_id" "$QA_APP_ID" app >/dev/null 2>&1; then
-    fail "The native build did not leave an installed Scratch Map app."
+    fail "The native build did not leave an installed Tessera app."
   fi
 
   log "Expo's development-URL handoff timed out, but the build installed successfully; continuing with the installed app."

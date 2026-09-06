@@ -1,5 +1,5 @@
 appId: com.timothykugler.bumpclone
-name: Verify persisted Scratch Map after relaunch
+name: Verify persisted Tessera data after relaunch
 tags:
   - ios
   - smoke

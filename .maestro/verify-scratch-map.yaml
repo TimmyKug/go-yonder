@@ -1,5 +1,5 @@
 appId: com.timothykugler.bumpclone
-name: Verify active Scratch Map route
+name: Verify active Tessera route
 tags:
   - ios
   - smoke

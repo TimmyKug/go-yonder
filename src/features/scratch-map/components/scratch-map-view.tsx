@@ -295,7 +295,7 @@ export function ScratchMapView({
             selectable
             style={{ color: "#F6FCFF", fontSize: 13, fontWeight: "600" }}
           >
-            {tracking.kind === "active" ? "Saving on-device" : "Scratch Map"}
+            {tracking.kind === "active" ? "Saving on-device" : "Tessera"}
           </Text>
           {isLoadingHexagons ? (
             <ActivityIndicator color="#BFD2DD" size="small" />
@@ -303,7 +303,7 @@ export function ScratchMapView({
         </View>
 
         <Pressable
-          accessibilityLabel="Export Scratch Map backup"
+          accessibilityLabel="Export Tessera backup"
           accessibilityRole="button"
           disabled={isExportingBackup}
           onPress={onExportBackup}

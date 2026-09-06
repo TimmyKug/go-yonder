@@ -79,10 +79,10 @@ export function ScratchMapScreen() {
           : "Open settings",
         detail: location.permissions.canAskForForeground
           ? "Your coordinates stay on this device and unlock the hexes you visit."
-          : "Enable precise location for Scratch Map in system settings.",
+          : "Enable precise location for Tessera in system settings.",
         isBusy: location.busy,
         kind: "needs-action",
-        title: "Start your scratch map",
+        title: "Start Tessera",
       };
     }
 
@@ -224,7 +224,7 @@ export function ScratchMapScreen() {
       const result = await exportScratchMapBackup();
       Alert.alert(
         "Backup saved",
-        `${result.fileName} is a complete, consistent copy of your Scratch Map data.`,
+        `${result.fileName} is a complete, consistent copy of your Tessera data.`,
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Export failed.";

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Scratch Map",
-    "slug": "bump-clone",
+    "name": "Tessera",
+    "slug": "tessera",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -33,8 +33,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Scratch Map to use your precise location to unlock places while you use the app.",
-          "locationAlwaysAndWhenInUsePermission": "Allow Scratch Map to record the places you explore, including while the app is in the background.",
+          "locationWhenInUsePermission": "Allow Tessera to use your precise location to unlock places while you use the app.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Tessera to record the places you explore, including while the app is in the background.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true

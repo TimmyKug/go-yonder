@@ -15,7 +15,7 @@ export function ScratchMapScreen() {
         selectable
         style={{ color: "#FFFFFF", fontSize: 24, fontWeight: "700" }}
       >
-        Scratch Map is a mobile app
+        Tessera is a mobile app
       </Text>
       <Text
         selectable
