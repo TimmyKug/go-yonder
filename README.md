@@ -49,6 +49,28 @@ The app defaults to the official OpenStreetMap standard raster tiles, displays t
 
 The web route is an informational fallback only. The scratch map itself targets iOS and Android.
 
+## Android updates with Obtainium
+
+Android release APKs are published from tags named `vMAJOR.MINOR.PATCH`. Add
+`https://github.com/TimmyKug/bump-clone` to Obtainium as a GitHub source.
+
+The repository is private, so first add a fine-grained GitHub personal access
+token in Obtainium's GitHub source settings. Restrict the token to this
+repository with read-only access. Do not share or commit the token.
+
+Maintainers must configure the `RELEASE_KEYSTORE_BASE64` GitHub Actions secret
+with the Base64-encoded keystore used for the currently installed Android app.
+Create and push a new semantic-version tag to publish an update, for example:
+
+```sh
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+Android only accepts an in-place update when its version code is higher and its
+signing certificate matches the installed app. The release workflow enforces
+the former and uses the repository secret for the latter.
+
 ## Native iOS QA
 
 The repository includes a local iOS Simulator smoke test built around Maestro and CoreSimulator. It deliberately sends a synthetic route through the operating system's location service; it does not bypass the production ingestion pipeline.
