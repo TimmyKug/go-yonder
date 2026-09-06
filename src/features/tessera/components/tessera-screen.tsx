@@ -240,7 +240,7 @@ export function TesseraScreen() {
   return (
     <TesseraMapView
       currentCoordinate={location.latestCoordinate}
-      hexagons={visibleCells.hexagons}
+      tesserae={visibleCells.tesserae}
       isLoadingHexagons={visibleCells.isLoading}
       isExportingBackup={isExportingBackup}
       onBoundsChange={visibleCells.setBounds}

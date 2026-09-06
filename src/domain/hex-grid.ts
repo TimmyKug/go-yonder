@@ -2,8 +2,11 @@ import type { Feature, FeatureCollection, Polygon, Position } from "geojson";
 import {
   cellToBoundary,
   cellToLatLng,
+  getHexagonAreaAvg,
   getResolution,
   latLngToCell,
+  polygonToCells,
+  UNITS,
 } from "h3-js";
 
 import type { GeographicCoordinate, UnlockedCell } from "./tessera";
@@ -64,6 +67,15 @@ const TESSERA_COLORS = [
   "#B78045",
   "#C69958",
 ] as const;
+
+const MAX_VISIBLE_TESSERAE = 8_000;
+
+export type MapBounds = [
+  west: number,
+  south: number,
+  east: number,
+  north: number,
+];
 
 function hashCellId(cellId: string): number {
   let hash = 2166136261;
@@ -197,4 +209,80 @@ export function unlockedCellsToFeatureCollection(
   );
 
   return { type: "FeatureCollection", features };
+}
+
+export function lockedCellsToFeatureCollection(
+  bounds: MapBounds,
+  unlockedCellIds: ReadonlySet<string>,
+  resolution: number,
+  hexGrid: HexGrid = h3HexGrid,
+): FeatureCollection<Polygon, UnlockedCellFeatureProperties> {
+  assertValidResolution(resolution);
+  const [west, south, east, north] = bounds;
+  if (
+    ![west, south, east, north].every(Number.isFinite) ||
+    south < -90 ||
+    north > 90 ||
+    south >= north ||
+    west < -180 ||
+    west > 180 ||
+    east < -180 ||
+    east > 180
+  ) {
+    throw new Error("invalid map bounds");
+  }
+
+  const longitudeRanges: readonly (readonly [number, number])[] =
+    west <= east
+      ? [[west, east]]
+      : [
+          [west, 180],
+          [-180, east],
+        ];
+  const latitudeKilometres = (north - south) * 111.32;
+  const midpointLatitudeRadians = ((north + south) / 2) * (Math.PI / 180);
+  const longitudeDegrees = longitudeRanges.reduce(
+    (total, [rangeWest, rangeEast]) => total + rangeEast - rangeWest,
+    0,
+  );
+  const longitudeKilometres =
+    longitudeDegrees * 111.32 * Math.cos(midpointLatitudeRadians);
+  const estimatedCellCount =
+    (latitudeKilometres * longitudeKilometres) /
+    getHexagonAreaAvg(resolution, UNITS.km2);
+  if (estimatedCellCount > MAX_VISIBLE_TESSERAE) {
+    return { type: "FeatureCollection", features: [] };
+  }
+  const visibleCellIds = new Set<string>();
+
+  for (const [rangeWest, rangeEast] of longitudeRanges) {
+    const polygon = [
+      [south, rangeWest],
+      [south, rangeEast],
+      [north, rangeEast],
+      [north, rangeWest],
+    ];
+    for (const cellId of polygonToCells(polygon, resolution)) {
+      visibleCellIds.add(cellId);
+      if (visibleCellIds.size > MAX_VISIBLE_TESSERAE) {
+        return { type: "FeatureCollection", features: [] };
+      }
+    }
+  }
+
+  const lockedCells = [...visibleCellIds]
+    .filter((cellId) => !unlockedCellIds.has(cellId))
+    .map<UnlockedCell>((cellId) => {
+      const center = hexGrid.centerForCell(cellId);
+      return {
+        cellId,
+        resolution,
+        centerLatitude: center.latitude,
+        centerLongitude: center.longitude,
+        firstSeenAtMs: 0,
+        lastSeenAtMs: 0,
+      };
+    });
+
+  return unlockedCellsToFeatureCollection(lockedCells, hexGrid);
 }

@@ -3,6 +3,7 @@ import { gridDisk } from "h3-js";
 
 import {
   H3HexGrid,
+  lockedCellsToFeatureCollection,
   unlockedCellsToFeatureCollection,
 } from "../src/domain/hex-grid";
 
@@ -142,5 +143,34 @@ describe("H3HexGrid", () => {
         },
       ]),
     ).toThrow(/resolution/);
+  });
+
+  it("covers visible locked cells while leaving unlocked cells out", () => {
+    const unlockedCellId = grid.cellForCoordinate(
+      { latitude: 10, longitude: 20 },
+      11,
+    );
+    const collection = lockedCellsToFeatureCollection(
+      [19.998, 9.998, 20.002, 10.002],
+      new Set([unlockedCellId]),
+      11,
+    );
+
+    expect(collection.features.length).toBeGreaterThan(0);
+    expect(
+      collection.features.some(
+        (feature) => feature.properties.cellId === unlockedCellId,
+      ),
+    ).toBe(false);
+  });
+
+  it("skips canonical tessellation when a low-zoom viewport is too large", () => {
+    const collection = lockedCellsToFeatureCollection(
+      [13.1, 52.35, 13.7, 52.7],
+      new Set(),
+      11,
+    );
+
+    expect(collection.features).toEqual([]);
   });
 });
