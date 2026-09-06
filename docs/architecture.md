@@ -92,7 +92,11 @@ location data or retain access to the selected provider after export finishes.
 - Route foreground and background samples through the same ingestion service.
 - When an already-authorized app becomes active with background tracking registered, request one foreground fix to seed the current-position UI and camera; failure to obtain that convenience fix must not stop background collection.
 
-The first tuning baseline is high location accuracy with an approximately 20-25 metre distance interval. These are runtime configuration values, not persistence semantics, and will be adjusted after device testing for accuracy and battery use.
+The current tuning baseline is high location accuracy with a 20-metre distance
+interval. Foreground tracking requests updates at most once per second;
+background tracking requests them at most once every three seconds. These are
+runtime configuration values, not persistence semantics, and will be adjusted
+after device testing for accuracy and battery use.
 
 Platform constraints will be communicated honestly:
 
