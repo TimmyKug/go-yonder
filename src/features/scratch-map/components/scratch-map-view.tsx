@@ -9,6 +9,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   type LayoutChangeEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -19,7 +20,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   INITIAL_MAP_VIEW,
-  MAP_STYLE_URL,
+  MAP_STYLE,
+  OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
 
 export type MapCoordinate = {
@@ -38,8 +40,10 @@ export type TrackingPresentation = {
 type ScratchMapViewProps = {
   currentCoordinate?: MapCoordinate;
   hexagons: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
+  isExportingBackup: boolean;
   isLoadingHexagons: boolean;
   onBoundsChange: (bounds: [number, number, number, number]) => void;
+  onExportBackup: () => void;
   onTrackingAction?: () => void;
   tracking: TrackingPresentation;
 };
@@ -52,8 +56,10 @@ const EMPTY_POINT_COLLECTION: GeoJSON.FeatureCollection<GeoJSON.Point> = {
 export function ScratchMapView({
   currentCoordinate,
   hexagons,
+  isExportingBackup,
   isLoadingHexagons,
   onBoundsChange,
+  onExportBackup,
   onTrackingAction,
   tracking,
 }: ScratchMapViewProps) {
@@ -125,16 +131,15 @@ export function ScratchMapView({
     <View
       onLayout={handleLayout}
       style={{ flex: 1, backgroundColor: "#071520" }}
+      testID="scratch-map-screen"
     >
       {canMountMap ? (
         <Map
-          attribution
-          attributionPosition={{ bottom: 132 + insets.bottom, right: 12 }}
+          attribution={false}
           compass
           compassPosition={{ top: insets.top + 14, right: 14 }}
-          logo
-          logoPosition={{ bottom: 132 + insets.bottom, left: 12 }}
-          mapStyle={MAP_STYLE_URL}
+          logo={false}
+          mapStyle={MAP_STYLE}
           onDidFailLoadingMap={() => setMapFailed(true)}
           onDidFinishLoadingMap={() => {
             setMapFailed(false);
@@ -266,7 +271,6 @@ export function ScratchMapView({
         <View
           style={{
             alignItems: "center",
-            alignSelf: "flex-start",
             backgroundColor: "rgba(7, 21, 32, 0.88)",
             borderColor: "rgba(234, 247, 255, 0.18)",
             borderCurve: "continuous",
@@ -297,6 +301,39 @@ export function ScratchMapView({
             <ActivityIndicator color="#BFD2DD" size="small" />
           ) : null}
         </View>
+
+        <Pressable
+          accessibilityLabel="Export Scratch Map backup"
+          accessibilityRole="button"
+          disabled={isExportingBackup}
+          onPress={onExportBackup}
+          testID="export-backup"
+          style={({ pressed }) => ({
+            alignItems: "center",
+            alignSelf: "flex-end",
+            backgroundColor: pressed
+              ? "rgba(19, 48, 66, 0.98)"
+              : "rgba(7, 21, 32, 0.88)",
+            borderColor: "rgba(234, 247, 255, 0.18)",
+            borderCurve: "continuous",
+            borderRadius: 18,
+            borderWidth: 1,
+            justifyContent: "center",
+            minHeight: 38,
+            minWidth: 78,
+            paddingHorizontal: 12,
+            position: "absolute",
+            right: 0,
+          })}
+        >
+          {isExportingBackup ? (
+            <ActivityIndicator color="#EAF7FF" size="small" />
+          ) : (
+            <Text style={{ color: "#F6FCFF", fontSize: 13, fontWeight: "700" }}>
+              Backup
+            </Text>
+          )}
+        </Pressable>
       </View>
 
       {currentCoordinate ? (
@@ -304,6 +341,7 @@ export function ScratchMapView({
           accessibilityLabel="Center map on my location"
           accessibilityRole="button"
           onPress={handleRecenter}
+          testID="recenter-map"
           style={({ pressed }) => ({
             alignItems: "center",
             backgroundColor: pressed
@@ -324,7 +362,31 @@ export function ScratchMapView({
         </Pressable>
       ) : null}
 
+      <Pressable
+        accessibilityLabel="Open OpenStreetMap copyright and licence information"
+        accessibilityRole="link"
+        onPress={() => {
+          void Linking.openURL(OPENSTREETMAP_COPYRIGHT_URL);
+        }}
+        style={({ pressed }) => ({
+          backgroundColor: pressed
+            ? "rgba(7, 21, 32, 0.92)"
+            : "rgba(7, 21, 32, 0.76)",
+          borderRadius: 8,
+          bottom: 190 + insets.bottom,
+          left: 12,
+          paddingHorizontal: 8,
+          paddingVertical: 5,
+          position: "absolute",
+        })}
+      >
+        <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "600" }}>
+          © OpenStreetMap contributors
+        </Text>
+      </Pressable>
+
       <View
+        testID="tracking-status-card"
         style={{
           backgroundColor: "rgba(7, 21, 32, 0.94)",
           borderColor: "rgba(234, 247, 255, 0.16)",
@@ -364,9 +426,11 @@ export function ScratchMapView({
 
           {tracking.actionLabel && onTrackingAction ? (
             <Pressable
+              accessibilityLabel={tracking.actionLabel}
               accessibilityRole="button"
               disabled={tracking.isBusy}
               onPress={onTrackingAction}
+              testID="tracking-action"
               style={({ pressed }) => ({
                 alignItems: "center",
                 backgroundColor: pressed ? "#8DEBD8" : "#B8FFEA",

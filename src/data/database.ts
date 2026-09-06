@@ -1,4 +1,4 @@
-import { openDatabaseAsync } from "expo-sqlite";
+import { openDatabaseAsync, type SQLiteDatabase } from "expo-sqlite";
 
 import { SCRATCH_MAP_DATABASE_NAME } from "../config/scratch-map-config";
 
@@ -6,9 +6,14 @@ import { ExpoSqliteDatabase } from "./expo-sqlite-database";
 import { runMigrations } from "./migrations";
 import type { SqlDatabase } from "./sql-database";
 
-let databasePromise: Promise<SqlDatabase> | undefined;
+type ConfiguredDatabase = {
+  database: SqlDatabase;
+  nativeDatabase: SQLiteDatabase;
+};
 
-async function openConfiguredDatabase(): Promise<SqlDatabase> {
+let databasePromise: Promise<ConfiguredDatabase> | undefined;
+
+async function openConfiguredDatabase(): Promise<ConfiguredDatabase> {
   const nativeDatabase = await openDatabaseAsync(SCRATCH_MAP_DATABASE_NAME);
   const database = new ExpoSqliteDatabase(nativeDatabase);
 
@@ -17,13 +22,21 @@ async function openConfiguredDatabase(): Promise<SqlDatabase> {
   await database.execute("PRAGMA busy_timeout = 5000");
   await runMigrations(database);
 
-  return database;
+  return { database, nativeDatabase };
 }
 
-export function getDatabase(): Promise<SqlDatabase> {
+function getConfiguredDatabase(): Promise<ConfiguredDatabase> {
   databasePromise ??= openConfiguredDatabase().catch((error: unknown) => {
     databasePromise = undefined;
     throw error;
   });
   return databasePromise;
+}
+
+export async function getDatabase(): Promise<SqlDatabase> {
+  return (await getConfiguredDatabase()).database;
+}
+
+export async function getNativeDatabase(): Promise<SQLiteDatabase> {
+  return (await getConfiguredDatabase()).nativeDatabase;
 }

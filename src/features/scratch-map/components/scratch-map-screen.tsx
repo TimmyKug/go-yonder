@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
-import { AppState, Linking } from "react-native";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { Alert, AppState, Linking } from "react-native";
 
 import { useVisibleCells } from "../hooks/use-visible-cells";
 
@@ -8,6 +14,10 @@ import {
   type TrackingPresentation,
 } from "./scratch-map-view";
 
+import {
+  exportScratchMapBackup,
+  refreshAutomaticScratchMapBackup,
+} from "@/src/data/scratch-map-backup";
 import {
   getLocationSnapshot,
   initializeLocationTracking,
@@ -18,6 +28,7 @@ import {
 } from "@/src/location";
 
 export function ScratchMapScreen() {
+  const [isExportingBackup, setIsExportingBackup] = useState(false);
   const location = useSyncExternalStore(
     subscribeToLocationState,
     getLocationSnapshot,
@@ -33,6 +44,8 @@ export function ScratchMapScreen() {
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") {
         void initializeLocationTracking();
+      } else if (nextState === "background") {
+        void refreshAutomaticScratchMapBackup().catch(() => undefined);
       }
     });
 
@@ -201,12 +214,37 @@ export function ScratchMapScreen() {
     location.servicesEnabled,
   ]);
 
+  const handleExportBackup = useCallback(async () => {
+    if (isExportingBackup) {
+      return;
+    }
+
+    setIsExportingBackup(true);
+    try {
+      const result = await exportScratchMapBackup();
+      Alert.alert(
+        "Backup saved",
+        `${result.fileName} is a complete, consistent copy of your Scratch Map data.`,
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Export failed.";
+
+      if (!/cancel/i.test(message)) {
+        Alert.alert("Backup not saved", message);
+      }
+    } finally {
+      setIsExportingBackup(false);
+    }
+  }, [isExportingBackup]);
+
   return (
     <ScratchMapView
       currentCoordinate={location.latestCoordinate}
       hexagons={visibleCells.hexagons}
       isLoadingHexagons={visibleCells.isLoading}
+      isExportingBackup={isExportingBackup}
       onBoundsChange={visibleCells.setBounds}
+      onExportBackup={handleExportBackup}
       onTrackingAction={handleTrackingAction}
       tracking={tracking}
     />

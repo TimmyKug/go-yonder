@@ -56,6 +56,15 @@ export async function ingestExpoLocations(
     if (result.acceptedCount > 0 && newestAcceptedCoordinate) {
       updateLatestCoordinate(newestAcceptedCoordinate);
     }
+
+    if (result.acceptedCount > 0) {
+      updateLocationState((current) =>
+        current.error?.code === "location-update-failed" ||
+        current.error?.code === "ingestion-failed"
+          ? { error: null }
+          : {},
+      );
+    }
   } catch {
     updateLocationState({
       error: {

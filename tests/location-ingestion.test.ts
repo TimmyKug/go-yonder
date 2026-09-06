@@ -11,7 +11,10 @@ import {
   ingestExpoLocations,
   normalizeExpoLocation,
 } from "../src/location/location-ingestion";
-import { getLocationSnapshot } from "../src/location/location-state";
+import {
+  getLocationSnapshot,
+  updateLocationState,
+} from "../src/location/location-state";
 
 function locationObject(
   overrides: {
@@ -97,5 +100,31 @@ describe("ingestExpoLocations", () => {
       accuracyM: reading.coords.accuracy,
       timestampMs: reading.timestamp,
     });
+  });
+
+  it("clears a recoverable location error after a sample is saved", async () => {
+    updateLocationState({
+      error: {
+        code: "location-update-failed",
+        message: "Temporary native location failure.",
+      },
+    });
+    vi.mocked(ingestNormalizedSamples).mockResolvedValueOnce({
+      receivedCount: 1,
+      acceptedCount: 1,
+      rejectedCount: 0,
+      insertedSampleCount: 1,
+      duplicateSampleCount: 0,
+      insertedCellCount: 1,
+      updatedCellCount: 0,
+      rejections: [],
+    });
+
+    await ingestExpoLocations(
+      [locationObject({ timestamp: Date.parse("2026-01-01T12:01:00.000Z") })],
+      "live-background",
+    );
+
+    expect(getLocationSnapshot().error).toBeNull();
   });
 });
