@@ -10,18 +10,18 @@ vi.mock("@/src/data/database", () => ({
 }));
 
 import {
-  exportScratchMapBackup,
-  SCRATCH_MAP_BACKUP_FILE_NAME,
-} from "@/src/data/scratch-map-backup";
+  exportTesseraBackup,
+  TESSERA_BACKUP_FILE_NAME,
+} from "@/src/data/tessera-backup";
 
-describe("Scratch Map backup export", () => {
+describe("Tessera backup export", () => {
   it("writes one serialized SQLite snapshot to the selected directory", async () => {
     const write = vi.fn();
     const createFile = vi.fn(() => ({ write }));
     const directory = {} as never;
     const bytes = new Uint8Array([83, 81, 76, 105, 116, 101]);
 
-    const result = await exportScratchMapBackup({
+    const result = await exportTesseraBackup({
       createFile,
       pickDirectory: async () => directory,
       serializeDatabase: async () => bytes,
@@ -30,7 +30,7 @@ describe("Scratch Map backup export", () => {
     expect(createFile).toHaveBeenCalledWith(directory);
     expect(write).toHaveBeenCalledWith(bytes);
     expect(result).toEqual({
-      fileName: SCRATCH_MAP_BACKUP_FILE_NAME,
+      fileName: TESSERA_BACKUP_FILE_NAME,
       sizeBytes: bytes.byteLength,
     });
   });
@@ -39,7 +39,7 @@ describe("Scratch Map backup export", () => {
     const serializeDatabase = vi.fn<() => Promise<Uint8Array>>();
 
     await expect(
-      exportScratchMapBackup({
+      exportTesseraBackup({
         createFile: vi.fn(),
         pickDirectory: async () => {
           throw new Error("canceled");

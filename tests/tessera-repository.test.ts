@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { runMigrations } from "../src/data/migrations";
-import { SqliteScratchMapRepository } from "../src/data/scratch-map-repository";
+import { SqliteTesseraRepository } from "../src/data/tessera-repository";
 import { H3HexGrid } from "../src/domain/hex-grid";
-import { ScratchMapIngestionService } from "../src/domain/ingest-location";
+import { TesseraIngestionService } from "../src/domain/ingest-location";
 import type { NormalizedLocationSample } from "../src/domain/location-sample";
 
 import { NodeSqliteDatabase } from "./support/node-sqlite-database";
@@ -23,17 +23,17 @@ function sample(
   };
 }
 
-describe("SqliteScratchMapRepository", () => {
+describe("SqliteTesseraRepository", () => {
   let database: NodeSqliteDatabase;
-  let repository: SqliteScratchMapRepository;
-  let service: ScratchMapIngestionService;
+  let repository: SqliteTesseraRepository;
+  let service: TesseraIngestionService;
 
   beforeEach(async () => {
     database = new NodeSqliteDatabase();
     await database.execute("PRAGMA foreign_keys = ON");
     await runMigrations(database);
-    repository = new SqliteScratchMapRepository(database);
-    service = new ScratchMapIngestionService(repository, new H3HexGrid());
+    repository = new SqliteTesseraRepository(database);
+    service = new TesseraIngestionService(repository, new H3HexGrid());
   });
 
   afterEach(() => {
@@ -91,7 +91,7 @@ describe("SqliteScratchMapRepository", () => {
       service.ingest([
         sample(),
         sample({
-          source: "bump-import",
+          source: "external-import",
           sourceRecordId: "external-1",
           importBatchId: "not-created",
           recordedAt: "2026-01-01T00:01:00.000Z",

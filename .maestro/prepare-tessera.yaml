@@ -1,4 +1,4 @@
-appId: com.timothykugler.bumpclone
+appId: com.timothykugler.tessera
 name: Prepare Tessera for synthetic route
 tags:
   - ios
@@ -13,7 +13,7 @@ tags:
 - tapOn: "Close"
 - extendedWaitUntil:
     visible:
-      id: scratch-map-screen
+      id: tessera-screen
     timeout: 30000
 - extendedWaitUntil:
     notVisible: "Loading map…"

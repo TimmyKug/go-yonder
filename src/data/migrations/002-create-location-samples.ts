@@ -7,7 +7,7 @@ export const createLocationSamplesMigration: DatabaseMigration = {
     CREATE TABLE location_samples (
       id INTEGER PRIMARY KEY,
       source TEXT NOT NULL
-        CHECK (source IN ('live-foreground', 'live-background', 'bump-import')),
+        CHECK (source IN ('live-foreground', 'live-background', 'external-import')),
       source_record_id TEXT
         CHECK (
           source_record_id IS NULL OR

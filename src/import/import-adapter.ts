@@ -1,6 +1,6 @@
 import type { NormalizedLocationSample } from "../domain/location-sample";
 
-/** A local file abstraction that does not assume JSON, CSV, GPX, or Bump's schema. */
+/** A local file abstraction that does not assume JSON, CSV, GPX, or a provider schema. */
 export interface ImportFile {
   readonly name: string;
   readonly sizeBytes?: number;

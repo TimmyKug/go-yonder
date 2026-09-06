@@ -1,6 +1,6 @@
 import { openDatabaseAsync, type SQLiteDatabase } from "expo-sqlite";
 
-import { SCRATCH_MAP_DATABASE_NAME } from "../config/scratch-map-config";
+import { TESSERA_DATABASE_NAME } from "../config/tessera-config";
 
 import { ExpoSqliteDatabase } from "./expo-sqlite-database";
 import { runMigrations } from "./migrations";
@@ -14,7 +14,7 @@ type ConfiguredDatabase = {
 let databasePromise: Promise<ConfiguredDatabase> | undefined;
 
 async function openConfiguredDatabase(): Promise<ConfiguredDatabase> {
-  const nativeDatabase = await openDatabaseAsync(SCRATCH_MAP_DATABASE_NAME);
+  const nativeDatabase = await openDatabaseAsync(TESSERA_DATABASE_NAME);
   const database = new ExpoSqliteDatabase(nativeDatabase);
 
   await database.execute("PRAGMA journal_mode = WAL");

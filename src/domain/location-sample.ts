@@ -1,9 +1,9 @@
-import { MAX_LIVE_HORIZONTAL_ACCURACY_M } from "../config/scratch-map-config";
+import { MAX_LIVE_HORIZONTAL_ACCURACY_M } from "../config/tessera-config";
 
 export const LOCATION_SOURCES = [
   "live-foreground",
   "live-background",
-  "bump-import",
+  "external-import",
 ] as const;
 
 export type LocationSource = (typeof LOCATION_SOURCES)[number];
@@ -238,7 +238,7 @@ export function validateNormalizedLocationSample(
     });
   } else if (
     isLocationSource(source) &&
-    source !== "bump-import" &&
+    source !== "external-import" &&
     accuracy !== undefined &&
     policy.maxLiveHorizontalAccuracyM !== undefined &&
     accuracy > policy.maxLiveHorizontalAccuracyM

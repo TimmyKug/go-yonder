@@ -37,7 +37,7 @@ export type TrackingPresentation = {
   title: string;
 };
 
-type ScratchMapViewProps = {
+type TesseraMapViewProps = {
   currentCoordinate?: MapCoordinate;
   hexagons: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
   isExportingBackup: boolean;
@@ -53,7 +53,7 @@ const EMPTY_POINT_COLLECTION: GeoJSON.FeatureCollection<GeoJSON.Point> = {
   features: [],
 };
 
-export function ScratchMapView({
+export function TesseraMapView({
   currentCoordinate,
   hexagons,
   isExportingBackup,
@@ -62,7 +62,7 @@ export function ScratchMapView({
   onExportBackup,
   onTrackingAction,
   tracking,
-}: ScratchMapViewProps) {
+}: TesseraMapViewProps) {
   const cameraRef = useRef<CameraRef>(null);
   const hasCenteredOnUser = useRef(false);
   const insets = useSafeAreaInsets();
@@ -131,7 +131,7 @@ export function ScratchMapView({
     <View
       onLayout={handleLayout}
       style={{ flex: 1, backgroundColor: "#071520" }}
-      testID="scratch-map-screen"
+      testID="tessera-screen"
     >
       {canMountMap ? (
         <Map

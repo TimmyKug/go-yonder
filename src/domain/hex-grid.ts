@@ -6,8 +6,8 @@ import {
   latLngToCell,
 } from "h3-js";
 
-import type { GeographicCoordinate, UnlockedCell } from "./scratch-map";
-import { assertValidResolution } from "./scratch-map";
+import type { GeographicCoordinate, UnlockedCell } from "./tessera";
+import { assertValidResolution } from "./tessera";
 
 export interface HexGrid {
   cellForCoordinate(

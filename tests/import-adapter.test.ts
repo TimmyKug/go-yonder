@@ -25,7 +25,7 @@ class SyntheticAdapter implements ImportAdapter {
 
   async *read(_file: ImportFile): AsyncIterable<NormalizedLocationSample> {
     yield {
-      source: "bump-import",
+      source: "external-import",
       sourceRecordId: "synthetic-record",
       recordedAt: "2026-01-01T00:00:00.000Z",
       latitude: 10,
@@ -47,7 +47,7 @@ describe("ImportAdapter contract", () => {
 
     expect(records).toEqual([
       expect.objectContaining({
-        source: "bump-import",
+        source: "external-import",
         sourceRecordId: "synthetic-record",
       }),
     ]);

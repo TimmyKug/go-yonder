@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-readonly QA_APP_ID="com.timothykugler.bumpclone"
+readonly QA_APP_ID="com.timothykugler.tessera"
 readonly QA_DEVICE_NAME="${IOS_QA_DEVICE_NAME:-iPhone 17 Pro}"
 readonly QA_MINIMUM_CELL_COUNT="${IOS_QA_MINIMUM_CELL_COUNT:-3}"
 readonly QA_OUTPUT_ROOT=".artifacts/ios-qa"
@@ -82,10 +82,10 @@ log "Waiting for the native map to become testable."
 maestro test \
   --device "$qa_device_id" \
   --test-output-dir "$QA_OUTPUT_DIR/prepare" \
-  .maestro/prepare-scratch-map.yaml
+  .maestro/prepare-tessera.yaml
 
 qa_app_container="$(xcrun simctl get_app_container "$qa_device_id" "$QA_APP_ID" data)"
-qa_database_path="${qa_app_container}/Documents/SQLite/scratch-map.db"
+qa_database_path="${qa_app_container}/Documents/SQLite/tessera.db"
 
 log "Driving a synthetic route through central Berlin."
 xcrun simctl location "$qa_device_id" start \
@@ -120,7 +120,7 @@ log "Unlocked at least $qa_cell_count cells; capturing the active route."
 maestro test \
   --device "$qa_device_id" \
   --test-output-dir "$QA_OUTPUT_DIR/route" \
-  .maestro/verify-scratch-map.yaml
+  .maestro/verify-tessera.yaml
 
 log "Relaunching with a stationary synthetic jitter route to verify persistence."
 xcrun simctl location "$qa_device_id" set 52.5163,13.3777
@@ -140,7 +140,7 @@ qa_cell_count="$(sqlite3 "$qa_database_path" "SELECT COUNT(*) FROM unlocked_cell
 maestro test \
   --device "$qa_device_id" \
   --test-output-dir "$QA_OUTPUT_DIR/persistence" \
-  .maestro/verify-scratch-map-persistence.yaml
+  .maestro/verify-tessera-persistence.yaml
 
 qa_persisted_cell_count="$(sqlite3 "$qa_database_path" "SELECT COUNT(*) FROM unlocked_cells;")"
 if (( qa_persisted_cell_count < qa_cell_count )); then

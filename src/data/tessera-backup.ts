@@ -2,10 +2,10 @@ import { Directory, File, Paths } from "expo-file-system";
 
 import { getNativeDatabase } from "./database";
 
-export const SCRATCH_MAP_BACKUP_FILE_NAME = "scratch-map-backup.db";
+export const TESSERA_BACKUP_FILE_NAME = "tessera-backup.db";
 const AUTOMATIC_BACKUP_INTERVAL_MS = 15 * 60 * 1000;
 
-export type ScratchMapBackupResult = {
+export type TesseraBackupResult = {
   fileName: string;
   sizeBytes: number;
 };
@@ -16,15 +16,15 @@ type BackupFile = {
 
 type BackupDirectory = Directory;
 
-type ScratchMapBackupDependencies = {
+type TesseraBackupDependencies = {
   createFile: (directory: BackupDirectory) => BackupFile;
   pickDirectory: () => Promise<BackupDirectory>;
   serializeDatabase: () => Promise<Uint8Array>;
 };
 
-const defaultDependencies: ScratchMapBackupDependencies = {
+const defaultDependencies: TesseraBackupDependencies = {
   createFile: (directory) => {
-    const file = new File(directory, SCRATCH_MAP_BACKUP_FILE_NAME);
+    const file = new File(directory, TESSERA_BACKUP_FILE_NAME);
     file.create({ overwrite: true });
     return file;
   },
@@ -35,7 +35,7 @@ const defaultDependencies: ScratchMapBackupDependencies = {
 let automaticBackupPromise: Promise<void> | undefined;
 let lastAutomaticBackupAtMs = 0;
 
-export async function refreshAutomaticScratchMapBackup(): Promise<void> {
+export async function refreshAutomaticTesseraBackup(): Promise<void> {
   if (automaticBackupPromise) {
     return automaticBackupPromise;
   }
@@ -46,7 +46,7 @@ export async function refreshAutomaticScratchMapBackup(): Promise<void> {
     const backupDirectory = new Directory(Paths.document, "Backups");
     backupDirectory.create({ idempotent: true, intermediates: true });
 
-    const file = new File(backupDirectory, SCRATCH_MAP_BACKUP_FILE_NAME);
+    const file = new File(backupDirectory, TESSERA_BACKUP_FILE_NAME);
     file.create({ overwrite: true });
     file.write(bytes);
     lastAutomaticBackupAtMs = Date.now();
@@ -57,19 +57,19 @@ export async function refreshAutomaticScratchMapBackup(): Promise<void> {
   return automaticBackupPromise;
 }
 
-export async function refreshAutomaticScratchMapBackupIfDue(
+export async function refreshAutomaticTesseraBackupIfDue(
   nowMs: number = Date.now(),
 ): Promise<void> {
   if (nowMs - lastAutomaticBackupAtMs < AUTOMATIC_BACKUP_INTERVAL_MS) {
     return;
   }
 
-  await refreshAutomaticScratchMapBackup();
+  await refreshAutomaticTesseraBackup();
 }
 
-export async function exportScratchMapBackup(
-  dependencies: ScratchMapBackupDependencies = defaultDependencies,
-): Promise<ScratchMapBackupResult> {
+export async function exportTesseraBackup(
+  dependencies: TesseraBackupDependencies = defaultDependencies,
+): Promise<TesseraBackupResult> {
   const directory = await dependencies.pickDirectory();
   const bytes = await dependencies.serializeDatabase();
   const file = dependencies.createFile(directory);
@@ -77,7 +77,7 @@ export async function exportScratchMapBackup(
   file.write(bytes);
 
   return {
-    fileName: SCRATCH_MAP_BACKUP_FILE_NAME,
+    fileName: TESSERA_BACKUP_FILE_NAME,
     sizeBytes: bytes.byteLength,
   };
 }

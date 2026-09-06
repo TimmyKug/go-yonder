@@ -73,7 +73,7 @@ describe("database migrations", () => {
         `INSERT INTO location_samples
           (source, recorded_at_ms, latitude, longitude, import_batch_id, fingerprint)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        ["bump-import", 1, 0, 0, "missing-batch", "missing-batch-fingerprint"],
+        ["external-import", 1, 0, 0, "missing-batch", "missing-batch-fingerprint"],
       ),
     ).rejects.toThrow();
 

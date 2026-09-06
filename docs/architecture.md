@@ -3,16 +3,15 @@
 - Status: Accepted and implemented for the core phase
 - Date: 2026-08-12
 - Last verified: 2026-08-18
-- Scope: Core scratch-map functionality
+- Scope: Core Tessera functionality
 
 ## Product scope
 
 The working product name is **Tessera**, with the tagline **Tile by Tile**.
 Branding may change before the full public release. Its Android package and iOS
-bundle identifier are `com.timothykugler.tessera`. This deliberately replaces
-the pre-release `com.timothykugler.bumpclone` identity: operating systems treat
-Tessera as a separate app, and pre-release on-device data is not migrated
-automatically. The considered alternatives and naming rationale are recorded in
+bundle identifier are `com.timothykugler.tessera`. Operating systems treat this
+identity as a separate app from earlier development builds, and pre-release
+on-device data is not migrated automatically. The considered alternatives and naming rationale are recorded in
 [`docs/branding.md`](branding.md).
 
 The application will provide:
@@ -21,9 +20,9 @@ The application will provide:
 - Foreground and background location collection, subject to operating-system permissions and lifecycle limits.
 - Deterministic unlocking of geographic hexagonal cells as valid locations are observed.
 - Durable, device-local persistence across app restarts.
-- A source-neutral ingestion boundary so a future Bump data export can be imported without rewriting the map or persistence layers.
+- A source-neutral ingestion boundary so future location-history exports can be imported without rewriting the map or persistence layers.
 
-This phase deliberately excludes animations, explored percentages, recaps, nights, leaderboards, accounts, backend synchronization, and a Bump import user interface.
+This phase deliberately excludes animations, explored percentages, recaps, nights, leaderboards, accounts, backend synchronization, and an import user interface.
 
 ## Technology decisions
 
@@ -81,7 +80,7 @@ SQLite is the local source of truth. No backend is required.
 Location data remains on the device unless the user explicitly requests a future export or synchronization feature.
 
 Backups use SQLite's online serialization API to produce one consistent
-`scratch-map-backup.db` snapshot. An app-private snapshot is refreshed at most
+`tessera-backup.db` snapshot. An app-private snapshot is refreshed at most
 every 15 minutes after successful ingestion and whenever the foreground app
 moves to the background. A user can also force a fresh export: the system
 directory picker saves or replaces the snapshot in any writable Files provider
@@ -122,9 +121,7 @@ increasing Android `versionCode` into the APK before building it.
 
 Every Tessera update must be signed by the same dedicated production key.
 Signing material is supplied to CI through encrypted repository secrets and is
-never committed. The earlier Scratch Map beta used an Android debug key and a
-different package identifier; it is not part of Tessera's update lineage.
-Because this repository is private, Obtainium must use a
+never committed. Because this repository is private, Obtainium must use a
 fine-grained GitHub token restricted to read-only access to this repository.
 Publishing an APK does not change the local-first data architecture: releases
 contain application code and assets only, never the on-device database or an
@@ -135,7 +132,7 @@ export.
 ```text
 Live foreground GPS ─────┐
 Live background GPS ─────┼──> LocationSource
-Future Bump adapter ─────┘          │
+Future import adapter ───┘          │
                                     ▼
                          NormalizedLocationSample
                                     │
@@ -145,7 +142,7 @@ Future Bump adapter ─────┘          │
                                HexGrid (H3)
                                     │
                                     ▼
-                          ScratchMapRepository
+                           CoverageRepository
                          ┌──────────┴──────────┐
                          ▼                     ▼
                  location_samples       unlocked_cells
@@ -167,18 +164,20 @@ app/
   _layout.tsx                    Router composition and providers
   index.tsx                      Thin map route
 src/
-  features/scratch-map/
+  features/tessera/
     components/                  Map and permission UI
     hooks/                       Viewport and persisted-cell coordination
   domain/
     hex-grid.ts                  HexGrid contract and H3 implementation
     location-sample.ts           Normalized model and validation
     ingest-location.ts           Validation-to-persistence orchestration
-    scratch-map.ts               Shared geographic records
+    tessera.ts                   Shared geographic records
+    tessera-repository.ts        Persistence contract
   data/
     database.ts                  Configured SQLite singleton
     migrations/                  Ordered schema migrations
-    scratch-map-repository.ts    Transactional samples/cells access
+    tessera-repository.ts        Transactional samples/cells access
+    tessera-backup.ts            Consistent local backup snapshots
   location/
     background-location-task.ts  Module-scope task definition
     background-location-task.web.ts  Informational web no-op
@@ -188,7 +187,7 @@ src/
   import/
     import-adapter.ts            Future source-adapter contract
   config/
-    scratch-map-config.ts        Persistence and H3 configuration
+    tessera-config.ts            Persistence and H3 configuration
 tests/
   support/                       Node SQLite adapter for real DB tests
 docs/
@@ -201,10 +200,10 @@ Expo Router's `app/` directory will contain routes and layouts only.
 
 ## Domain contracts
 
-The normalized observation is independent of Expo and Bump:
+The normalized observation is independent of Expo and any import provider:
 
 ```ts
-type LocationSource = "live-foreground" | "live-background" | "bump-import";
+type LocationSource = "live-foreground" | "live-background" | "external-import";
 
 type NormalizedLocationSample = {
   source: LocationSource;
@@ -227,7 +226,7 @@ interface ImportAdapter {
 }
 ```
 
-The actual Bump adapter is deferred until a real export is available.
+Any provider-specific adapter is deferred until a real export is available.
 
 ## Persistence model
 
@@ -250,7 +249,7 @@ The fingerprint is unique. It is derived from stable normalized fields so replay
 
 ### `unlocked_cells`
 
-Stores the materialized scratch map.
+Stores the materialized coverage map.
 
 | Column | Purpose |
 | --- | --- |
@@ -319,11 +318,15 @@ The map remains usable when tracking is unavailable. A compact overlay presents 
 
 Permission requests are initiated by a clear user action and accompanied by concise privacy copy. Android's background settings transition is explained before opening system settings.
 
-## Bump portability strategy
+## External-data portability strategy
 
-amo's published privacy policy provides mechanisms to request access/portable data, but Bump publishes no export schema and does not promise raw GPS records or reusable Scratch Map cells.
-
-When making a request, ask for all raw and observed location-history records in a structured, machine-readable format, including latitude, longitude, timestamp, horizontal accuracy, and source where retained. Also request Scratch Map cell identifiers, grid/resolution metadata, boundaries, unlock timestamps, and a schema/data dictionary.
+Tessera does not assume that any external provider publishes raw GPS records,
+reusable coverage cells, or a stable export schema. When requesting portable
+data, ask for observed location-history records in a structured,
+machine-readable format, including latitude, longitude, timestamp, horizontal
+accuracy, and source where retained. Also request any cell identifiers,
+grid/resolution metadata, boundaries, unlock timestamps, and a schema/data
+dictionary.
 
 Once a real archive exists:
 
@@ -334,7 +337,10 @@ Once a real archive exists:
 5. Feed them through the same repository/H3 pipeline used by live GPS.
 6. Record parser version and batch results for deterministic retries.
 
-If Bump supplies coordinates and timestamps, import is straightforward. If it supplies only proprietary cell identifiers, screenshots, or PDFs without geographic/grid metadata, exact reconstruction may not be possible. The application must never assume Bump itself uses H3.
+If a provider supplies coordinates and timestamps, import is straightforward.
+If it supplies only proprietary cell identifiers, screenshots, or PDFs without
+geographic/grid metadata, exact reconstruction may not be possible. The
+application must never assume an external provider uses H3.
 
 ## Privacy and security
 
@@ -404,15 +410,13 @@ Physical-device tests are required for meaningful background-location verificati
 
 - A hosted or self-hosted tile source for wider distribution or offline-region support; direct OpenStreetMap community tiles remain a deliberately small-scale choice.
 - Guarded path interpolation, if device sampling creates visible holes.
-- User-facing Bump import flow and formats, pending a real export.
+- User-facing import flows and formats, pending a real export.
 - Encryption-at-rest requirements for wider distribution.
 - User-facing data export/reset controls.
 - Animations, progress metrics, recaps, and social features.
 
 ## References
 
-- [Bump Scratch Map help](https://help.bumpmaps.com/en/articles/11604738-scratch-map)
-- [amo privacy policy](https://amo.co/privacy-policy/)
 - [Expo Location](https://docs.expo.dev/versions/latest/sdk/location/)
 - [Expo Task Manager](https://docs.expo.dev/versions/latest/sdk/task-manager/)
 - [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/)

@@ -5,7 +5,7 @@ import { ingestExpoLocations } from "./location-ingestion";
 import { updateLocationState } from "./location-state";
 
 export const BACKGROUND_LOCATION_TASK_NAME =
-  "bump-clone-background-location";
+  "tessera-background-location";
 
 type BackgroundLocationTaskData = {
   locations?: Location.LocationObject[];

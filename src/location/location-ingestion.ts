@@ -2,7 +2,7 @@ import type * as Location from "expo-location";
 
 import { updateLatestCoordinate, updateLocationState } from "./location-state";
 
-import { MAX_LIVE_HORIZONTAL_ACCURACY_M } from "@/src/config/scratch-map-config";
+import { MAX_LIVE_HORIZONTAL_ACCURACY_M } from "@/src/config/tessera-config";
 import { ingestNormalizedSamples } from "@/src/data/app-repository";
 import type { NormalizedLocationSample } from "@/src/domain/location-sample";
 

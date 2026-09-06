@@ -1,17 +1,17 @@
-import { SCRATCH_MAP_H3_RESOLUTION } from "../config/scratch-map-config";
+import { TESSERA_H3_RESOLUTION } from "../config/tessera-config";
 import type {
   GeographicBounds,
   PreparedLocationObservation,
   UnlockedCell,
-} from "../domain/scratch-map";
+} from "../domain/tessera";
 import {
   assertValidGeographicBounds,
   assertValidResolution,
-} from "../domain/scratch-map";
+} from "../domain/tessera";
 import type {
   PersistenceIngestionResult,
-  ScratchMapRepository,
-} from "../domain/scratch-map-repository";
+  TesseraRepository,
+} from "../domain/tessera-repository";
 
 import type { SqlDatabase, SqlExecutor } from "./sql-database";
 
@@ -120,7 +120,7 @@ function toUnlockedCell(row: UnlockedCellRow): UnlockedCell {
   };
 }
 
-export class SqliteScratchMapRepository implements ScratchMapRepository {
+export class SqliteTesseraRepository implements TesseraRepository {
   constructor(private readonly database: SqlDatabase) {}
 
   async ingestObservations(
@@ -169,7 +169,7 @@ export class SqliteScratchMapRepository implements ScratchMapRepository {
 
   async listUnlockedCells(
     bounds: GeographicBounds,
-    resolution = SCRATCH_MAP_H3_RESOLUTION,
+    resolution = TESSERA_H3_RESOLUTION,
   ): Promise<UnlockedCell[]> {
     assertValidGeographicBounds(bounds);
     assertValidResolution(resolution);
@@ -208,8 +208,8 @@ export class SqliteScratchMapRepository implements ScratchMapRepository {
   }
 }
 
-export function createScratchMapRepository(
+export function createTesseraRepository(
   database: SqlDatabase,
-): ScratchMapRepository {
-  return new SqliteScratchMapRepository(database);
+): TesseraRepository {
+  return new SqliteTesseraRepository(database);
 }

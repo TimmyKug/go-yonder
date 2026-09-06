@@ -10,14 +10,14 @@ import { Alert, AppState, Linking } from "react-native";
 import { useVisibleCells } from "../hooks/use-visible-cells";
 
 import {
-  ScratchMapView,
+  TesseraMapView,
   type TrackingPresentation,
-} from "./scratch-map-view";
+} from "./tessera-map-view";
 
 import {
-  exportScratchMapBackup,
-  refreshAutomaticScratchMapBackup,
-} from "@/src/data/scratch-map-backup";
+  exportTesseraBackup,
+  refreshAutomaticTesseraBackup,
+} from "@/src/data/tessera-backup";
 import {
   getLocationSnapshot,
   initializeLocationTracking,
@@ -27,7 +27,7 @@ import {
   subscribeToLocationState,
 } from "@/src/location";
 
-export function ScratchMapScreen() {
+export function TesseraScreen() {
   const [isExportingBackup, setIsExportingBackup] = useState(false);
   const location = useSyncExternalStore(
     subscribeToLocationState,
@@ -45,7 +45,7 @@ export function ScratchMapScreen() {
       if (nextState === "active") {
         void initializeLocationTracking();
       } else if (nextState === "background") {
-        void refreshAutomaticScratchMapBackup().catch(() => undefined);
+        void refreshAutomaticTesseraBackup().catch(() => undefined);
       }
     });
 
@@ -221,7 +221,7 @@ export function ScratchMapScreen() {
 
     setIsExportingBackup(true);
     try {
-      const result = await exportScratchMapBackup();
+      const result = await exportTesseraBackup();
       Alert.alert(
         "Backup saved",
         `${result.fileName} is a complete, consistent copy of your Tessera data.`,
@@ -238,7 +238,7 @@ export function ScratchMapScreen() {
   }, [isExportingBackup]);
 
   return (
-    <ScratchMapView
+    <TesseraMapView
       currentCoordinate={location.latestCoordinate}
       hexagons={visibleCells.hexagons}
       isLoadingHexagons={visibleCells.isLoading}

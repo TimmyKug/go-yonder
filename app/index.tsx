@@ -1,5 +1,5 @@
-import { ScratchMapScreen } from "@/src/features/scratch-map/components/scratch-map-screen";
+import { TesseraScreen } from "@/src/features/tessera/components/tessera-screen";
 
-export default function ScratchMapRoute() {
-  return <ScratchMapScreen />;
+export default function TesseraRoute() {
+  return <TesseraScreen />;
 }

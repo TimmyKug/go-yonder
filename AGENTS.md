@@ -13,7 +13,7 @@ The accepted product and architecture decisions live in `docs/architecture.md`. 
 - Access SQLite through repositories and migrations. UI components must not issue SQL.
 - Treat the selected H3 resolution as versioned persisted data. Do not change it without a documented migration strategy.
 - Keep location history on-device. Do not add analytics, cloud sync, or location uploads without explicit user approval.
-- Do not assume a Bump export schema. Add an adapter only after inspecting a real export.
+- Do not assume an external export schema. Add an adapter only after inspecting a real export.
 - Never log coordinates, raw imported records, secrets, or map-provider tokens.
 
 ## Coding conventions

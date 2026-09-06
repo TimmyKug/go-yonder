@@ -2,7 +2,7 @@ import type {
   GeographicBounds,
   PreparedLocationObservation,
   UnlockedCell,
-} from "./scratch-map";
+} from "./tessera";
 
 export type PersistenceIngestionResult = {
   processedCount: number;
@@ -12,7 +12,7 @@ export type PersistenceIngestionResult = {
   updatedCellCount: number;
 };
 
-export interface ScratchMapRepository {
+export interface TesseraRepository {
   ingestObservations(
     observations: readonly PreparedLocationObservation[],
   ): Promise<PersistenceIngestionResult>;

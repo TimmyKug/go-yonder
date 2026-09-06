@@ -1,7 +1,7 @@
 import {
   MAX_LIVE_HORIZONTAL_ACCURACY_M,
-  SCRATCH_MAP_H3_RESOLUTION,
-} from "../config/scratch-map-config";
+  TESSERA_H3_RESOLUTION,
+} from "../config/tessera-config";
 
 import type { HexGrid } from "./hex-grid";
 import type {
@@ -9,9 +9,9 @@ import type {
   NormalizedLocationSample,
 } from "./location-sample";
 import { validateNormalizedLocationSample } from "./location-sample";
-import type { PreparedLocationObservation } from "./scratch-map";
-import { assertValidResolution } from "./scratch-map";
-import type { ScratchMapRepository } from "./scratch-map-repository";
+import type { PreparedLocationObservation } from "./tessera";
+import { assertValidResolution } from "./tessera";
+import type { TesseraRepository } from "./tessera-repository";
 
 export type RejectedLocationSample = {
   index: number;
@@ -29,21 +29,21 @@ export type IngestionResult = {
   rejections: readonly RejectedLocationSample[];
 };
 
-export type ScratchMapIngestionOptions = {
+export type TesseraIngestionOptions = {
   resolution?: number;
   maxLiveHorizontalAccuracyM?: number;
 };
 
-export class ScratchMapIngestionService {
+export class TesseraIngestionService {
   private readonly resolution: number;
   private readonly maxLiveHorizontalAccuracyM: number;
 
   constructor(
-    private readonly repository: ScratchMapRepository,
+    private readonly repository: TesseraRepository,
     private readonly hexGrid: HexGrid,
-    options: ScratchMapIngestionOptions = {},
+    options: TesseraIngestionOptions = {},
   ) {
-    this.resolution = options.resolution ?? SCRATCH_MAP_H3_RESOLUTION;
+    this.resolution = options.resolution ?? TESSERA_H3_RESOLUTION;
     this.maxLiveHorizontalAccuracyM =
       options.maxLiveHorizontalAccuracyM ?? MAX_LIVE_HORIZONTAL_ACCURACY_M;
     assertValidResolution(this.resolution);

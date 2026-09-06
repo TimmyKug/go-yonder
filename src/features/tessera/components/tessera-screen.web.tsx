@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 
-export function ScratchMapScreen() {
+export function TesseraScreen() {
   return (
     <View
       style={{

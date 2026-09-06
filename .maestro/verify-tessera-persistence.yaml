@@ -1,5 +1,5 @@
-appId: com.timothykugler.bumpclone
-name: Verify active Tessera route
+appId: com.timothykugler.tessera
+name: Verify persisted Tessera data after relaunch
 tags:
   - ios
   - smoke
@@ -8,12 +8,15 @@ tags:
     stopApp: false
 - extendedWaitUntil:
     visible:
-      id: recenter-map
+      id: tessera-screen
     timeout: 30000
 - extendedWaitUntil:
     notVisible: "Loading map…"
     timeout: 30000
 - assertNotVisible: "The map could not load"
+- assertVisible:
+    id: recenter-map
+- assertVisible:
+    id: tracking-status-card
 - assertVisible: "Background tracking is on"
-- takeScreenshot: scratch-map-after-route
-- stopApp
+- takeScreenshot: tessera-after-relaunch

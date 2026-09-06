@@ -2,7 +2,7 @@
 
 **Tile by Tile.**
 
-A private, local-first mobile scratch map. The app records where the device has been, maps accepted location samples to stable H3 cells, persists those cells on-device, and displays them over a native vector map.
+A private, local-first coverage map. The app records where the device has been, maps accepted location samples to stable H3 cells, persists those cells on-device, and displays them over a native vector map.
 
 The first release is intentionally narrow: map, location tracking, hex unlocking, and persistence. It does not include progress statistics, animations, social features, accounts, or cloud sync.
 
@@ -17,7 +17,7 @@ See [Architecture and implementation plan](docs/architecture.md) for the accepte
 - Resolution-11 H3 unlocking with a 50-metre live-accuracy threshold.
 - Durable, idempotent SQLite storage of normalized observations and unlocked cells.
 - A viewport-aware GeoJSON overlay on a native MapLibre map.
-- A format-neutral adapter seam for a future Bump export.
+- A format-neutral adapter seam for future location-history imports.
 
 There is deliberately no progress UI, animation, account, backend, or import screen yet.
 
@@ -49,12 +49,12 @@ npm run android
 
 The app defaults to the official OpenStreetMap standard raster tiles, displays the required attribution, and identifies its native tile requests. This is appropriate for the current small private deployment, but the app does not preload or offer offline downloads from that service. Set `EXPO_PUBLIC_MAP_STYLE_URL` to replace the complete MapLibre style; any value with an `EXPO_PUBLIC_` prefix is bundled into the app and must not be treated as a secret.
 
-The web route is an informational fallback only. The scratch map itself targets iOS and Android.
+The web route is an informational fallback only. Tessera itself targets iOS and Android.
 
 ## Android updates with Obtainium
 
 Android release APKs are published from tags named `vMAJOR.MINOR.PATCH`. Add
-`https://github.com/TimmyKug/bump-clone` to Obtainium as a GitHub source.
+`https://github.com/TimmyKug/tessera` to Obtainium as a GitHub source.
 
 The repository is private, so first add a fine-grained GitHub personal access
 token in Obtainium's GitHub source settings. Restrict the token to this
@@ -100,4 +100,4 @@ Set `IOS_QA_DEVICE_NAME` to select a different installed simulator. This loop va
 
 ## Data model
 
-SQLite is the only source of truth. It stores accepted normalized observations, derived unlocked cells, and bookkeeping for future imports. Live readings and a future Bump adapter enter through the same validation, H3, and transactional upsert path. Re-importing or replaying an identical observation is safe.
+SQLite is the only source of truth. It stores accepted normalized observations, derived unlocked cells, and bookkeeping for future imports. Live readings and future import adapters enter through the same validation, H3, and transactional upsert path. Re-importing or replaying an identical observation is safe.

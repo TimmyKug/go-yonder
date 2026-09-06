@@ -59,7 +59,7 @@ describe("validateNormalizedLocationSample", () => {
     ],
     [
       "empty external id",
-      { source: "bump-import", recordedAt: "2026-01-01T00:00:00Z", latitude: 0, longitude: 0, sourceRecordId: "" },
+      { source: "external-import", recordedAt: "2026-01-01T00:00:00Z", latitude: 0, longitude: 0, sourceRecordId: "" },
       "invalid-source-record-id",
     ],
   ])("rejects %s", (_name, candidate, expectedCode) => {
@@ -83,7 +83,7 @@ describe("validateNormalizedLocationSample", () => {
     });
     const imported = validateNormalizedLocationSample({
       ...common,
-      source: "bump-import",
+      source: "external-import",
     });
 
     expect(live.accepted).toBe(false);
@@ -93,7 +93,7 @@ describe("validateNormalizedLocationSample", () => {
 
 describe("createLocationSampleFingerprint", () => {
   const base: Omit<ValidatedLocationSample, "fingerprint"> = {
-    source: "bump-import",
+    source: "external-import",
     recordedAt: "2026-01-01T00:00:00.000Z",
     recordedAtMs: 1_767_225_600_000,
     latitude: 10.5,
