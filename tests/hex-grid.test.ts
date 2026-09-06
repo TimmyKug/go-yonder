@@ -76,8 +76,8 @@ describe("H3HexGrid", () => {
       ),
     ).toBe(true);
     expect(feature?.properties.fillColor).toMatch(/^#[0-9A-F]{6}$/);
-    expect(feature?.properties.fillOpacity).toBeGreaterThanOrEqual(0.82);
-    expect(feature?.properties.fillOpacity).toBeLessThanOrEqual(0.92);
+    expect(feature?.properties.fillOpacity).toBeGreaterThanOrEqual(0.4);
+    expect(feature?.properties.fillOpacity).toBeLessThanOrEqual(0.46);
   });
 
   it("derives identical visual geometry and styling for the same cell", () => {

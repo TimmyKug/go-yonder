@@ -178,7 +178,7 @@ export function unlockedCellsToFeatureCollection(
         properties: {
           cellId: cell.cellId,
           fillColor: TESSERA_COLORS[visualSeed % TESSERA_COLORS.length]!,
-          fillOpacity: 0.82 + seededUnitValue(visualSeed ^ 0xa5a5a5a5) * 0.1,
+          fillOpacity: 0.4 + seededUnitValue(visualSeed ^ 0xa5a5a5a5) * 0.06,
           resolution: cell.resolution,
           firstSeenAtMs: cell.firstSeenAtMs,
           lastSeenAtMs: cell.lastSeenAtMs,
