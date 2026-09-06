@@ -101,6 +101,21 @@ Platform constraints will be communicated honestly:
 - Force-quitting the app can prevent continued collection, with behavior differing by platform and Android vendor.
 - Background behavior must be tested with development/release builds on physical devices.
 
+### Android distribution: signed GitHub releases
+
+Android updates are distributed as APK assets on tagged GitHub releases so an
+installer such as Obtainium can discover and install them. Release tags use the
+form `vMAJOR.MINOR.PATCH`; CI embeds that semantic version and a monotonically
+increasing Android `versionCode` into the APK before building it.
+
+Every update must be signed by the same key as the currently installed app.
+Signing material is supplied to CI through encrypted repository secrets and is
+never committed. Because this repository is private, Obtainium must use a
+fine-grained GitHub token restricted to read-only access to this repository.
+Publishing an APK does not change the local-first data architecture: releases
+contain application code and assets only, never the on-device database or an
+export.
+
 ## System boundaries
 
 ```text
