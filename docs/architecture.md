@@ -298,15 +298,18 @@ To avoid fabricating travel, the first implementation will unlock the cell conta
 - SQLite returns unlocked cells whose stored centers intersect that box plus a small padding margin.
 - Antimeridian-crossing bounds are handled explicitly.
 - H3 boundaries are converted to GeoJSON longitude/latitude order.
-- H3 cells remain the canonical persisted and queried coverage geometry, while
-  the map derives deterministic decorative tesserae at render time. Interior
-  edges shared by two unlocked cells bend to the same seeded midpoint, producing
-  irregular, gapless pieces whose shape and mineral colour remain stable across
-  launches and devices.
-- A tessera may cross its individual H3 edge only where the adjacent H3 cell is
-  also unlocked and shares the matching seam. Edges on the perimeter of the
-  unlocked set remain exact H3 edges, so the decorative union never implies
-  that an unvisited neighbouring area was unlocked.
+- H3 cells remain the canonical persisted and queried coverage geometry. The
+  map derives deterministic decorative tesserae for the locked cells in the
+  padded visible viewport and subtracts persisted unlocked cell identifiers.
+  Visiting therefore removes the mosaic cover and reveals the base map rather
+  than painting a marker over the visited place.
+- Interior edges shared by two locked cells bend to the same seeded midpoint,
+  producing irregular, gapless pieces whose shape and mineral colour remain
+  stable across launches and devices. Edges adjoining an unlocked cell remain
+  exact H3 edges, preserving a truthful revealed boundary.
+- Viewport tessellation is bounded to protect the UI at low zoom levels; a
+  future zoom-adaptive coarse cover may replace the street-level tiles when the
+  canonical resolution would exceed that bound.
 - A single GeoJSON source feeds data-driven fill and subtle outline layers; the
   decorative geometry is derived in pure domain code and is never persisted.
 - Map updates are batched after committed ingestion rather than issued for every render.
