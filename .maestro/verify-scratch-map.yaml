@@ -1,0 +1,19 @@
+appId: com.timothykugler.bumpclone
+name: Verify active Scratch Map route
+tags:
+  - ios
+  - smoke
+---
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: recenter-map
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: "Loading map…"
+    timeout: 30000
+- assertNotVisible: "The map could not load"
+- assertVisible: "Background tracking is on"
+- takeScreenshot: scratch-map-after-route
+- stopApp

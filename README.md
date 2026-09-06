@@ -45,9 +45,34 @@ npm run android
 
 `npm install` applies the checked-in `h3-js` compatibility patch required by Expo 57's native runtime. Do not remove the postinstall step or loosen the exact H3 version without rerunning the Hermes compatibility test.
 
-The app defaults to MapLibre's public demo style for development. Set `EXPO_PUBLIC_MAP_STYLE_URL` to an attributed production style before distribution; any value with an `EXPO_PUBLIC_` prefix is bundled into the app and must not be treated as a secret.
+The app defaults to the official OpenStreetMap standard raster tiles, displays the required attribution, and identifies its native tile requests. This is appropriate for the current small private deployment, but the app does not preload or offer offline downloads from that service. Set `EXPO_PUBLIC_MAP_STYLE_URL` to replace the complete MapLibre style; any value with an `EXPO_PUBLIC_` prefix is bundled into the app and must not be treated as a secret.
 
 The web route is an informational fallback only. The scratch map itself targets iOS and Android.
+
+## Native iOS QA
+
+The repository includes a local iOS Simulator smoke test built around Maestro and CoreSimulator. It deliberately sends a synthetic route through the operating system's location service; it does not bypass the production ingestion pipeline.
+
+Prerequisites:
+
+- A bootable iOS Simulator and Xcode command-line tools.
+- Maestro installed from its official Homebrew tap.
+- Metro already running with `npx expo start --dev-client`.
+
+```sh
+brew tap mobile-dev-inc/tap
+brew install mobile-dev-inc/tap/maestro
+```
+
+Run the complete native check with:
+
+```sh
+npm run qa:ios
+```
+
+The script resets only Scratch Map's simulator installation, builds the current native app, grants simulator location access, drives a synthetic central-Berlin route, verifies that at least three H3 cells reach SQLite, relaunches the app, and confirms no cells were lost. Screenshots and diagnostic logs are written under the ignored `.artifacts/ios-qa/` directory.
+
+Set `IOS_QA_DEVICE_NAME` to select a different installed simulator. This loop validates foreground native integration and persistence; background/locked-screen behavior still requires a physical device.
 
 ## Data model
 

@@ -1,0 +1,23 @@
+appId: com.timothykugler.bumpclone
+name: Prepare Scratch Map for synthetic route
+tags:
+  - ios
+  - smoke
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "Continue"
+    timeout: 15000
+- tapOn:
+    text: "Continue"
+- tapOn: "Close"
+- extendedWaitUntil:
+    visible:
+      id: scratch-map-screen
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: "Loading map…"
+    timeout: 30000
+- assertNotVisible: "The map could not load"
+- assertVisible:
+    id: tracking-status-card

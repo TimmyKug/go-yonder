@@ -20,3 +20,6 @@ android/
 *.pem
 *.key
 *.zip
+
+# Local native QA evidence
+.artifacts/

@@ -1,0 +1,22 @@
+appId: com.timothykugler.bumpclone
+name: Verify persisted Scratch Map after relaunch
+tags:
+  - ios
+  - smoke
+---
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: scratch-map-screen
+    timeout: 30000
+- extendedWaitUntil:
+    notVisible: "Loading map…"
+    timeout: 30000
+- assertNotVisible: "The map could not load"
+- assertVisible:
+    id: recenter-map
+- assertVisible:
+    id: tracking-status-card
+- assertVisible: "Background tracking is on"
+- takeScreenshot: scratch-map-after-relaunch
