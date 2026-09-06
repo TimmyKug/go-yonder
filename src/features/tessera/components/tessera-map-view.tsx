@@ -161,17 +161,17 @@ export function TesseraMapView({
             <Layer
               id="unlocked-hexagons-fill"
               paint={{
-                "fill-color": "#00D4A8",
-                "fill-opacity": 0.58,
+                "fill-color": ["get", "fillColor"],
+                "fill-opacity": ["get", "fillOpacity"],
               }}
               type="fill"
             />
             <Layer
               id="unlocked-hexagons-outline"
               paint={{
-                "line-color": "#D7FFF6",
-                "line-opacity": 0.78,
-                "line-width": 0.8,
+                "line-color": "#F6E9CC",
+                "line-opacity": 0.72,
+                "line-width": 0.65,
               }}
               type="line"
             />

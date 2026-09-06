@@ -142,7 +142,7 @@ export function TesseraScreen() {
 
     if (location.trackingMode === "background") {
       return {
-        detail: "Hexes unlock while the app is open or in the background.",
+        detail: "Tiles unlock while the app is open or in the background.",
         isBusy: location.busy,
         kind: "active",
         title: "Background tracking is on",
