@@ -5,6 +5,17 @@
 - Working name: **Tessera**
 - Tagline: **Tile by Tile**
 
+## Naming convention
+
+- Home-screen and in-app name: **Tessera**
+- Public/store name: **Tessera: Tile by Tile**
+- Repository name: **tessera-map**
+- Platform identifier: `com.timothykugler.tessera`
+
+The short device label stays uncluttered, while the public name and repository
+make the app's purpose clearer and distinguish it from unrelated projects named
+Tessera.
+
 ## Intent
 
 The name should evoke a map that permanently fills in as someone moves through
