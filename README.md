@@ -63,8 +63,8 @@ with the Base64-encoded keystore used for the currently installed Android app.
 Create and push a new semantic-version tag to publish an update, for example:
 
 ```sh
-git tag v1.0.1
-git push origin v1.0.1
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
 Android only accepts an in-place update when its version code is higher and its
