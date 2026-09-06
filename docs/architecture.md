@@ -7,6 +7,11 @@
 
 ## Product scope
 
+The working product name is **Tessera**, with the tagline **Tile by Tile**.
+Branding may change before the full public release. Existing Android package and
+iOS bundle identifiers remain stable so beta updates retain access to on-device
+data.
+
 The application will provide:
 
 - A full-screen, interactive map on iOS and Android.
