@@ -41,6 +41,9 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Install dependencies
         run: npm ci
 
@@ -55,9 +58,17 @@ jobs:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
           test -n "$RELEASE_KEYSTORE_BASE64"
-          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > android/app/debug.keystore
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > android/app/tessera-release.keystore
+
+      - name: Configure release signing
+        run: node .github/scripts/configure-android-signing.mjs
 
       - name: Build release APK
+        env:
+          TESSERA_RELEASE_STORE_FILE: tessera-release.keystore
+          TESSERA_RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          TESSERA_RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          TESSERA_RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
 

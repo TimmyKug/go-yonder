@@ -60,8 +60,9 @@ The repository is private, so first add a fine-grained GitHub personal access
 token in Obtainium's GitHub source settings. Restrict the token to this
 repository with read-only access. Do not share or commit the token.
 
-Maintainers must configure the `RELEASE_KEYSTORE_BASE64` GitHub Actions secret
-with the Base64-encoded keystore used for the currently installed Android app.
+Maintainers must configure the `RELEASE_KEYSTORE_BASE64`,
+`RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`
+GitHub Actions secrets for Tessera's dedicated production signing key.
 Create and push a new semantic-version tag to publish an update, for example:
 
 ```sh
