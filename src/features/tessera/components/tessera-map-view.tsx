@@ -170,8 +170,8 @@ export function TesseraMapView({
               id="unlocked-hexagons-outline"
               paint={{
                 "line-color": "#F6E9CC",
-                "line-opacity": 0.72,
-                "line-width": 0.65,
+                "line-opacity": 0.5,
+                "line-width": 0.35,
               }}
               type="line"
             />

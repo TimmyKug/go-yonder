@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { gridDisk } from "h3-js";
 
 import {
   H3HexGrid,
@@ -63,7 +64,7 @@ describe("H3HexGrid", () => {
     expect(feature).toBeDefined();
     expect(feature?.geometry.type).toBe("Polygon");
     const ring = feature?.geometry.coordinates[0];
-    expect(ring).toHaveLength(7);
+    expect(ring).toHaveLength(13);
     expect(ring?.at(-1)).toEqual(ring?.[0]);
 
     const h3Boundary = grid.boundaryForCell(cellId).map<GeoJSON.Position>(
@@ -75,8 +76,8 @@ describe("H3HexGrid", () => {
       ),
     ).toBe(true);
     expect(feature?.properties.fillColor).toMatch(/^#[0-9A-F]{6}$/);
-    expect(feature?.properties.fillOpacity).toBeGreaterThanOrEqual(0.72);
-    expect(feature?.properties.fillOpacity).toBeLessThanOrEqual(0.84);
+    expect(feature?.properties.fillOpacity).toBeGreaterThanOrEqual(0.82);
+    expect(feature?.properties.fillOpacity).toBeLessThanOrEqual(0.92);
   });
 
   it("derives identical visual geometry and styling for the same cell", () => {
@@ -93,6 +94,38 @@ describe("H3HexGrid", () => {
     expect(unlockedCellsToFeatureCollection([cell])).toEqual(
       unlockedCellsToFeatureCollection([cell]),
     );
+  });
+
+  it("gives adjacent unlocked tiles one connected bent seam", () => {
+    const origin = grid.cellForCoordinate({ latitude: 10, longitude: 20 }, 11);
+    const neighbor = gridDisk(origin, 1).find((cellId) => cellId !== origin)!;
+    const cells = [origin, neighbor].map((cellId) => {
+      const center = grid.centerForCell(cellId);
+      return {
+        cellId,
+        resolution: 11,
+        centerLatitude: center.latitude,
+        centerLongitude: center.longitude,
+        firstSeenAtMs: 100,
+        lastSeenAtMs: 200,
+      };
+    });
+    const [originRing, neighborRing] = unlockedCellsToFeatureCollection(
+      cells,
+    ).features.map((feature) => feature.geometry.coordinates[0]!.slice(0, -1));
+    const positionKey = (position: GeoJSON.Position) =>
+      `${position[0]!.toFixed(10)},${position[1]!.toFixed(10)}`;
+    const neighborPositions = new Set(neighborRing!.map(positionKey));
+    const sharedPositions = originRing!.filter((position) =>
+      neighborPositions.has(positionKey(position)),
+    );
+
+    expect(sharedPositions).toHaveLength(3);
+    const [start, bend, end] = sharedPositions;
+    const cross =
+      (end![0]! - start![0]!) * (bend![1]! - start![1]!) -
+      (end![1]! - start![1]!) * (bend![0]! - start![0]!);
+    expect(Math.abs(cross)).toBeGreaterThan(1e-12);
   });
 
   it("refuses persisted resolution metadata that disagrees with H3", () => {

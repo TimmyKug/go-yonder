@@ -86,33 +86,55 @@ function seededUnitValue(seed: number): number {
   return (value >>> 0) / 0xffffffff;
 }
 
+function coordinateKey(coordinate: GeographicCoordinate): string {
+  return `${coordinate.latitude.toFixed(12)},${coordinate.longitude.toFixed(12)}`;
+}
+
+function edgeKey(
+  start: GeographicCoordinate,
+  end: GeographicCoordinate,
+): string {
+  const startKey = coordinateKey(start);
+  const endKey = coordinateKey(end);
+  return startKey < endKey
+    ? `${startKey}|${endKey}`
+    : `${endKey}|${startKey}`;
+}
+
 function decorativeTesseraRing(
   boundary: readonly GeographicCoordinate[],
-  cellId: string,
+  sharedEdges: ReadonlySet<string>,
 ): Position[] {
   if (boundary.length === 0) {
     return [];
   }
 
-  const centroid = boundary.reduce(
-    (sum, coordinate) => ({
-      latitude: sum.latitude + coordinate.latitude / boundary.length,
-      longitude: sum.longitude + coordinate.longitude / boundary.length,
-    }),
-    { latitude: 0, longitude: 0 },
-  );
-  const seed = hashCellId(cellId);
-  const baseScale = 0.78 + seededUnitValue(seed) * 0.11;
-  const positions = boundary.map<Position>((coordinate, index) => {
-    const vertexVariation =
-      (seededUnitValue(seed + Math.imul(index + 1, 0x9e3779b1)) - 0.5) *
-      0.09;
-    const scale = Math.min(0.92, Math.max(0.72, baseScale + vertexVariation));
+  const positions: Position[] = [];
+  boundary.forEach((start, index) => {
+    const end = boundary[(index + 1) % boundary.length]!;
+    const key = edgeKey(start, end);
+    positions.push([start.longitude, start.latitude]);
 
-    return [
-      centroid.longitude + (coordinate.longitude - centroid.longitude) * scale,
-      centroid.latitude + (coordinate.latitude - centroid.latitude) * scale,
-    ];
+    const midpointLongitude = (start.longitude + end.longitude) / 2;
+    const midpointLatitude = (start.latitude + end.latitude) / 2;
+    if (!sharedEdges.has(key)) {
+      positions.push([midpointLongitude, midpointLatitude]);
+      return;
+    }
+
+    const [canonicalStart, canonicalEnd] =
+      coordinateKey(start) < coordinateKey(end) ? [start, end] : [end, start];
+    const latitudeDelta = canonicalEnd.latitude - canonicalStart.latitude;
+    const longitudeDelta = canonicalEnd.longitude - canonicalStart.longitude;
+    const seed = hashCellId(key);
+    const bend =
+      (seededUnitValue(seed) < 0.5 ? -1 : 1) *
+      (0.12 + seededUnitValue(seed ^ 0x85ebca6b) * 0.16);
+
+    positions.push([
+      midpointLongitude - latitudeDelta * bend,
+      midpointLatitude + longitudeDelta * bend,
+    ]);
   });
 
   positions.push([...positions[0]!]);
@@ -123,6 +145,22 @@ export function unlockedCellsToFeatureCollection(
   cells: readonly UnlockedCell[],
   hexGrid: HexGrid = h3HexGrid,
 ): FeatureCollection<Polygon, UnlockedCellFeatureProperties> {
+  const boundaries = new Map(
+    cells.map((cell) => [cell.cellId, hexGrid.boundaryForCell(cell.cellId)]),
+  );
+  const edgeCounts = new Map<string, number>();
+  boundaries.forEach((boundary) => {
+    boundary.forEach((start, index) => {
+      const end = boundary[(index + 1) % boundary.length]!;
+      const key = edgeKey(start, end);
+      edgeCounts.set(key, (edgeCounts.get(key) ?? 0) + 1);
+    });
+  });
+  const sharedEdges = new Set(
+    [...edgeCounts.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([key]) => key),
+  );
   const features: Feature<Polygon, UnlockedCellFeatureProperties>[] = cells.map(
     (cell) => {
       const actualResolution = hexGrid.resolutionForCell(cell.cellId);
@@ -140,7 +178,7 @@ export function unlockedCellsToFeatureCollection(
         properties: {
           cellId: cell.cellId,
           fillColor: TESSERA_COLORS[visualSeed % TESSERA_COLORS.length]!,
-          fillOpacity: 0.72 + seededUnitValue(visualSeed ^ 0xa5a5a5a5) * 0.12,
+          fillOpacity: 0.82 + seededUnitValue(visualSeed ^ 0xa5a5a5a5) * 0.1,
           resolution: cell.resolution,
           firstSeenAtMs: cell.firstSeenAtMs,
           lastSeenAtMs: cell.lastSeenAtMs,
@@ -149,8 +187,8 @@ export function unlockedCellsToFeatureCollection(
           type: "Polygon",
           coordinates: [
             decorativeTesseraRing(
-              hexGrid.boundaryForCell(cell.cellId),
-              cell.cellId,
+              boundaries.get(cell.cellId) ?? [],
+              sharedEdges,
             ),
           ],
         },
