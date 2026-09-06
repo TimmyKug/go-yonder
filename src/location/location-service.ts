@@ -15,16 +15,18 @@ import {
 } from "./location-state";
 
 const LOCATION_DISTANCE_INTERVAL_M = 20;
-const LOCATION_TIME_INTERVAL_MS = 1_000;
+const FOREGROUND_LOCATION_TIME_INTERVAL_MS = 1_000;
+const BACKGROUND_LOCATION_TIME_INTERVAL_MS = 3_000;
 
 const FOREGROUND_LOCATION_OPTIONS: Location.LocationOptions = {
   accuracy: Location.Accuracy.High,
   distanceInterval: LOCATION_DISTANCE_INTERVAL_M,
-  timeInterval: LOCATION_TIME_INTERVAL_MS,
+  timeInterval: FOREGROUND_LOCATION_TIME_INTERVAL_MS,
 };
 
 const BACKGROUND_LOCATION_OPTIONS: Location.LocationTaskOptions = {
   ...FOREGROUND_LOCATION_OPTIONS,
+  timeInterval: BACKGROUND_LOCATION_TIME_INTERVAL_MS,
   activityType: Location.ActivityType.OtherNavigation,
   deferredUpdatesDistance: 50,
   deferredUpdatesInterval: 60_000,
