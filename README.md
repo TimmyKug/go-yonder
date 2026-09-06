@@ -54,7 +54,7 @@ The web route is an informational fallback only. Tessera itself targets iOS and 
 ## Android updates with Obtainium
 
 Android release APKs are published from tags named `vMAJOR.MINOR.PATCH`. Add
-`https://github.com/TimmyKug/tessera` to Obtainium as a GitHub source.
+`https://github.com/TimmyKug/tessera-map` to Obtainium as a GitHub source.
 
 The repository is private, so first add a fine-grained GitHub personal access
 token in Obtainium's GitHub source settings. Restrict the token to this
