@@ -10,7 +10,8 @@
 The working product name is **Tessera**, with the tagline **Tile by Tile**.
 Branding may change before the full public release. Existing Android package and
 iOS bundle identifiers remain stable so beta updates retain access to on-device
-data.
+data. The considered alternatives and naming rationale are recorded in
+[`docs/branding.md`](branding.md).
 
 The application will provide:
 
