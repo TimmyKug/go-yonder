@@ -41,10 +41,11 @@ MapLibre Native will render the base map and unlocked-cell overlay.
 - Unlocked cells are supplied as a batched GeoJSON source.
 - Native fill and line layers render that source.
 - The app will not mount one React component per hexagon.
-- The base-map style URL is configuration, not a domain dependency.
-- MapLibre demo tiles may be used during development only; a production tile/style provider is a separate deployment decision.
+- The default base map uses the official OpenStreetMap standard raster tiles for the current private deployment of roughly ten or fewer users.
+- The app displays linked OpenStreetMap attribution, identifies native tile requests, relies on normal interactive caching, and does not preload or provide offline downloads from the community tile service.
+- `EXPO_PUBLIC_MAP_STYLE_URL` can replace the complete style without changing domain or map-overlay code.
 
-This keeps map interaction native and leaves the project independent of a proprietary map SDK. The installed MapLibre React Native 11 API, config plugin, and generated iOS/Android projects have been verified against Expo SDK 57's new architecture. A native compile and physical-device smoke test remain required before distribution.
+This keeps map interaction native and leaves the project independent of a proprietary map SDK. The installed MapLibre React Native 11 API, config plugin, and generated iOS/Android projects have been verified against Expo SDK 57's new architecture. iOS native builds have been exercised on both a simulator and a physical development device; Android native and cross-platform distribution checks remain required before distribution.
 
 ### Spatial index: H3
 
@@ -71,6 +72,15 @@ SQLite is the local source of truth. No backend is required.
 
 Location data remains on the device unless the user explicitly requests a future export or synchronization feature.
 
+Backups use SQLite's online serialization API to produce one consistent
+`scratch-map-backup.db` snapshot. An app-private snapshot is refreshed at most
+every 15 minutes after successful ingestion and whenever the foreground app
+moves to the background. A user can also force a fresh export: the system
+directory picker saves or replaces the snapshot in any writable Files provider
+on iOS or Android, including a provider-managed synchronized folder. The live
+WAL database is never exposed or copied directly, and the app does not upload
+location data or retain access to the selected provider after export finishes.
+
 ### Location: Expo Location and Task Manager
 
 `expo-location` supplies location readings and `expo-task-manager` hosts the background callback.
@@ -80,6 +90,7 @@ Location data remains on the device unless the user explicitly requests a future
 - Use an Android foreground-service notification while background tracking is active.
 - Prefer distance-driven updates around the size of the selected cells, with conservative deferred batching in the background.
 - Route foreground and background samples through the same ingestion service.
+- When an already-authorized app becomes active with background tracking registered, request one foreground fix to seed the current-position UI and camera; failure to obtain that convenience fix must not stop background collection.
 
 The first tuning baseline is high location accuracy with an approximately 20-25 metre distance interval. These are runtime configuration values, not persistence semantics, and will be adjusted after device testing for accuracy and battery use.
 
@@ -262,6 +273,7 @@ To avoid fabricating travel, the first implementation will unlock the cell conta
 - A single GeoJSON source feeds a translucent fill and subtle outline layer.
 - Map updates are batched after committed ingestion rather than issued for every render.
 - On app activation, the visible query refreshes so cells written by a background task appear immediately.
+- A successfully persisted live sample clears a prior transient location-update or ingestion error; permission and tracking-start failures remain explicit until their own conditions change.
 
 The first visual treatment highlights unlocked cells over a subdued base map. A true inverse scratch mask and visual effects belong to the later polish phase.
 
@@ -320,6 +332,8 @@ If Bump supplies coordinates and timestamps, import is straightforward. If it su
 - Guard against regression of the H3/Expo native-runtime compatibility patch.
 - Static TypeScript and lint checks.
 
+Vitest owns the fast domain and data-layer suite. Native end-to-end coverage stays intentionally small: Maestro drives accessibility-visible journeys while `simctl` supplies synthetic GPS at the operating-system boundary. The harness queries the app's actual Expo SQLite database, captures screenshots, and relaunches the app to prove persisted cells are not lost. It does not add a test-only ingestion path.
+
 ### Native smoke tests
 
 - Fresh install and foreground permission flow.
@@ -337,10 +351,13 @@ Physical-device tests are required for meaningful background-location verificati
 
 ### Current verification status
 
-- TypeScript, lint, and 37 automated tests pass. The tests include real in-memory SQLite transactions rather than repository mocks.
+- TypeScript, lint, and 41 automated tests pass. The tests include real in-memory SQLite transactions rather than repository mocks.
+- An iPhone 17 Pro simulator on iOS 26.4 passes the deterministic native foreground smoke test: a synthetic route unlocks at least three cells through Expo Location, MapLibre renders the overlay, and SQLite retains the cells across a terminate/relaunch cycle.
+- A physical iPhone development build has launched and rendered the native map successfully. Background and locked-screen collection still need a dedicated physical-device route test.
 - Production JS/Hermes bundles export successfully for iOS and Android; the informational web fallback also bundles successfully.
+- An Android 16 emulator passes foreground and background location delivery with the persisted-job permission declared; a physical GrapheneOS device has also launched the standalone APK and recorded location samples.
 - Expo Doctor passes 20 of 21 checks. Its only failure is host tooling: CocoaPods is not installed.
-- A local iOS simulator build cannot proceed until the developer reviews and accepts the installed Xcode license. No Android SDK is currently configured on the host.
+- Local iOS and Android native toolchains are configured on the host.
 - `npm audit --omit=dev` reports 23 transitive Expo/React Native build-tool advisories (8 moderate, 15 high, 0 critical). npm's proposed forced fixes downgrade the compatible Expo/React Native stack, so they were not applied. Reassess these advisories with future SDK patches rather than overriding native-tool dependencies blindly.
 
 ## Delivery sequence
@@ -356,7 +373,7 @@ Physical-device tests are required for meaningful background-location verificati
 
 ## Deferred decisions
 
-- Production map tile/style provider and its operating cost.
+- A hosted or self-hosted tile source for wider distribution or offline-region support; direct OpenStreetMap community tiles remain a deliberately small-scale choice.
 - Guarded path interpolation, if device sampling creates visible holes.
 - User-facing Bump import flow and formats, pending a real export.
 - Encryption-at-rest requirements for wider distribution.
@@ -371,5 +388,6 @@ Physical-device tests are required for meaningful background-location verificati
 - [Expo Task Manager](https://docs.expo.dev/versions/latest/sdk/task-manager/)
 - [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/)
 - [MapLibre React Native](https://maplibre.org/maplibre-react-native/docs/setup/getting-started/)
+- [OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/)
 - [H3 indexing functions](https://h3geo.org/docs/api/indexing/)
 - [H3 resolution statistics](https://h3geo.org/docs/core-library/restable/)
