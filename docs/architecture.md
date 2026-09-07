@@ -50,17 +50,16 @@ MapLibre Native will render the base map and unlocked-cell overlay.
 - The app will not mount one React component per hexagon.
 - The default base map uses the official OpenStreetMap standard raster tiles for the current private deployment of roughly ten or fewer users.
 - The app displays linked OpenStreetMap attribution, identifies native tile requests, relies on normal interactive caching, and does not preload or provide offline downloads from the community tile service.
-- The production basemap provider is Stadia Maps using the matched Alidade
-  Smooth and Alidade Smooth Dark vector styles.
+- The default basemap provider is OpenFreeMap using its subdued Positron light
+  style and Dark style. Its public instance requires no registration or API
+  key and explicitly supports MapLibre Native mobile apps.
 - The app follows the operating-system light/dark preference and changes the
   complete map style plus its UI and reveal-overlay palette.
-- `EXPO_PUBLIC_STADIA_MAPS_API_KEY` supplies the mobile API key at build time.
-  It is necessarily bundled in the client and must be scoped, monitored, and
-  rotated rather than treated as a secret.
 - Theme-specific style URL environment variables can replace either complete
   style without changing domain or map-overlay code.
-- The official OpenStreetMap standard raster tiles remain a keyless development
-  fallback, not the intended public production provider.
+- OpenFreeMap provides no uptime SLA. Because its production stack and styles
+  are open source, self-hosting the same data/style architecture is the fallback
+  if public-instance reliability becomes insufficient.
 
 This keeps map interaction native and leaves the project independent of a proprietary map SDK. The installed MapLibre React Native 11 API, config plugin, and generated iOS/Android projects have been verified against Expo SDK 57's new architecture. iOS native builds have been exercised on both a simulator and a physical development device; Android native and cross-platform distribution checks remain required before distribution.
 
@@ -90,7 +89,7 @@ SQLite is the local source of truth. No backend is required.
 Location data remains on the device unless the user explicitly requests a future export or synchronization feature.
 
 Backups use SQLite's online serialization API to produce one consistent
-`tessera-backup.db` snapshot. An app-private snapshot is refreshed at most
+`yonder-backup.db` snapshot. An app-private snapshot is refreshed at most
 every 15 minutes after successful ingestion and whenever the foreground app
 moves to the background. A user can also force a fresh export: the system
 directory picker saves or replaces the snapshot in any writable Files provider
@@ -129,7 +128,7 @@ installer such as Obtainium can discover and install them. Release tags use the
 form `vMAJOR.MINOR.PATCH`; CI embeds that semantic version and a monotonically
 increasing Android `versionCode` into the APK before building it.
 
-Every Tessera update must be signed by the same dedicated production key.
+Every Yonder update must be signed by the same dedicated production key.
 Signing material is supplied to CI through encrypted repository secrets and is
 never committed. Because this repository is private, Obtainium must use a
 fine-grained GitHub token restricted to read-only access to this repository.
@@ -174,20 +173,20 @@ app/
   _layout.tsx                    Router composition and providers
   index.tsx                      Thin map route
 src/
-  features/tessera/
+  features/yonder/
     components/                  Map and permission UI
     hooks/                       Viewport and persisted-cell coordination
   domain/
     hex-grid.ts                  HexGrid contract and H3 implementation
     location-sample.ts           Normalized model and validation
     ingest-location.ts           Validation-to-persistence orchestration
-    tessera.ts                   Shared geographic records
-    tessera-repository.ts        Persistence contract
+    yonder.ts                    Shared geographic records
+    yonder-repository.ts         Persistence contract
   data/
     database.ts                  Configured SQLite singleton
     migrations/                  Ordered schema migrations
-    tessera-repository.ts        Transactional samples/cells access
-    tessera-backup.ts            Consistent local backup snapshots
+    yonder-repository.ts         Transactional samples/cells access
+    yonder-backup.ts             Consistent local backup snapshots
   location/
     background-location-task.ts  Module-scope task definition
     background-location-task.web.ts  Informational web no-op
@@ -197,7 +196,7 @@ src/
   import/
     import-adapter.ts            Future source-adapter contract
   config/
-    tessera-config.ts            Persistence and H3 configuration
+    yonder-config.ts             Persistence and H3 configuration
 tests/
   support/                       Node SQLite adapter for real DB tests
 docs/
@@ -339,7 +338,7 @@ Permission requests are initiated by a clear user action and accompanied by conc
 
 ## External-data portability strategy
 
-Tessera does not assume that any external provider publishes raw GPS records,
+Yonder does not assume that any external provider publishes raw GPS records,
 reusable coverage cells, or a stable export schema. When requesting portable
 data, ask for observed location-history records in a structured,
 machine-readable format, including latitude, longitude, timestamp, horizontal

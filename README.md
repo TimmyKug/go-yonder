@@ -1,6 +1,6 @@
-# Tessera
+# Yonder
 
-**Tile by Tile.**
+**Unveil your world.**
 
 A private, local-first coverage map. The app records where the device has been, maps accepted location samples to stable H3 cells, persists those cells on-device, and displays them over a native vector map.
 
@@ -47,14 +47,18 @@ npm run android
 
 `npm install` applies the checked-in `h3-js` compatibility patch required by Expo 57's native runtime. Do not remove the postinstall step or loosen the exact H3 version without rerunning the Hermes compatibility test.
 
-The app defaults to the official OpenStreetMap standard raster tiles, displays the required attribution, and identifies its native tile requests. This is appropriate for the current small private deployment, but the app does not preload or offer offline downloads from that service. Set `EXPO_PUBLIC_MAP_STYLE_URL` to replace the complete MapLibre style; any value with an `EXPO_PUBLIC_` prefix is bundled into the app and must not be treated as a secret.
+Yonder uses OpenFreeMap's Positron and Dark vector styles and follows the device
+appearance automatically. The public service requires no registration or API
+key. `EXPO_PUBLIC_MAP_STYLE_LIGHT_URL` and
+`EXPO_PUBLIC_MAP_STYLE_DARK_URL` can override either complete MapLibre style.
+Yonder does not preload or offer offline downloads from the hosted service.
 
-The web route is an informational fallback only. Tessera itself targets iOS and Android.
+The web route is an informational fallback only. Yonder itself targets iOS and Android.
 
 ## Android updates with Obtainium
 
 Android release APKs are published from tags named `vMAJOR.MINOR.PATCH`. Add
-`https://github.com/TimmyKug/tessera-map` to Obtainium as a GitHub source.
+`https://github.com/TimmyKug/yonder-map` to Obtainium as a GitHub source.
 
 The repository is private, so first add a fine-grained GitHub personal access
 token in Obtainium's GitHub source settings. Restrict the token to this
@@ -62,7 +66,7 @@ repository with read-only access. Do not share or commit the token.
 
 Maintainers must configure the `RELEASE_KEYSTORE_BASE64`,
 `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`
-GitHub Actions secrets for Tessera's dedicated production signing key.
+GitHub Actions secrets for Yonder's dedicated production signing key.
 Create and push a new semantic-version tag to publish an update, for example:
 
 ```sh
@@ -95,7 +99,7 @@ Run the complete native check with:
 npm run qa:ios
 ```
 
-The script resets only Tessera's simulator installation, builds the current native app, grants simulator location access, drives a synthetic central-Berlin route, verifies that at least three H3 cells reach SQLite, relaunches the app, and confirms no cells were lost. Screenshots and diagnostic logs are written under the ignored `.artifacts/ios-qa/` directory.
+The script resets only Yonder's simulator installation, builds the current native app, grants simulator location access, drives a synthetic central-Berlin route, verifies that at least three H3 cells reach SQLite, relaunches the app, and confirms no cells were lost. Screenshots and diagnostic logs are written under the ignored `.artifacts/ios-qa/` directory.
 
 Set `IOS_QA_DEVICE_NAME` to select a different installed simulator. This loop validates foreground native integration and persistence; background/locked-screen behavior still requires a physical device.
 
