@@ -2,6 +2,7 @@ import type { Feature, FeatureCollection, Polygon, Position } from "geojson";
 import {
   cellToBoundary,
   cellToLatLng,
+  cellsToMultiPolygon,
   getResolution,
   latLngToCell,
 } from "h3-js";
@@ -178,7 +179,7 @@ export function unlockedCellsToFeatureCollection(
         properties: {
           cellId: cell.cellId,
           fillColor: TESSERA_COLORS[visualSeed % TESSERA_COLORS.length]!,
-          fillOpacity: 0.4 + seededUnitValue(visualSeed ^ 0xa5a5a5a5) * 0.06,
+          fillOpacity: 0.18 + seededUnitValue(visualSeed ^ 0xa5a5a5a5) * 0.06,
           resolution: cell.resolution,
           firstSeenAtMs: cell.firstSeenAtMs,
           lastSeenAtMs: cell.lastSeenAtMs,
@@ -197,4 +198,37 @@ export function unlockedCellsToFeatureCollection(
   );
 
   return { type: "FeatureCollection", features };
+}
+
+export function unlockedCellIdsToVeilMask(
+  cellIds: readonly string[],
+): FeatureCollection<Polygon> {
+  const worldRing: Position[] = [
+    [-180, -85],
+    [180, -85],
+    [180, 85],
+    [-180, 85],
+    [-180, -85],
+  ];
+  const unlockedRegionRings = cellsToMultiPolygon([...cellIds], true).flatMap(
+    (polygon) => {
+      const exteriorRing = polygon[0];
+
+      return exteriorRing ? [[...exteriorRing].reverse() as Position[]] : [];
+    },
+  );
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "Polygon",
+          coordinates: [worldRing, ...unlockedRegionRings],
+        },
+      },
+    ],
+  };
 }

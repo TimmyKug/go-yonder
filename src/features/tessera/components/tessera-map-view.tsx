@@ -23,6 +23,7 @@ import {
   MAP_STYLE,
   OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
+import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
 
 export type MapCoordinate = {
   latitude: number;
@@ -92,6 +93,17 @@ export function TesseraMapView({
       ],
     };
   }, [currentCoordinate]);
+  const mapVeil = useMemo(
+    () =>
+      unlockedCellIdsToVeilMask(
+        hexagons.features.flatMap((feature) => {
+          const cellId = feature.properties?.cellId;
+
+          return typeof cellId === "string" ? [cellId] : [];
+        }),
+      ),
+    [hexagons],
+  );
 
   useEffect(() => {
     if (mapReady && currentCoordinate && !hasCenteredOnUser.current) {
@@ -156,6 +168,17 @@ export function TesseraMapView({
             minZoom={2}
             ref={cameraRef}
           />
+
+          <GeoJSONSource data={mapVeil} id="map-veil">
+            <Layer
+              id="map-veil-fill"
+              paint={{
+                "fill-color": "#071520",
+                "fill-opacity": 0.38,
+              }}
+              type="fill"
+            />
+          </GeoJSONSource>
 
           <GeoJSONSource data={hexagons} id="unlocked-hexagons">
             <Layer

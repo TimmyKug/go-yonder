@@ -3,6 +3,7 @@ import { gridDisk } from "h3-js";
 
 import {
   H3HexGrid,
+  unlockedCellIdsToVeilMask,
   unlockedCellsToFeatureCollection,
 } from "../src/domain/hex-grid";
 
@@ -76,8 +77,8 @@ describe("H3HexGrid", () => {
       ),
     ).toBe(true);
     expect(feature?.properties.fillColor).toMatch(/^#[0-9A-F]{6}$/);
-    expect(feature?.properties.fillOpacity).toBeGreaterThanOrEqual(0.4);
-    expect(feature?.properties.fillOpacity).toBeLessThanOrEqual(0.46);
+    expect(feature?.properties.fillOpacity).toBeGreaterThanOrEqual(0.18);
+    expect(feature?.properties.fillOpacity).toBeLessThanOrEqual(0.24);
   });
 
   it("derives identical visual geometry and styling for the same cell", () => {
@@ -126,6 +127,29 @@ describe("H3HexGrid", () => {
       (end![0]! - start![0]!) * (bend![1]! - start![1]!) -
       (end![1]! - start![1]!) * (bend![0]! - start![0]!);
     expect(Math.abs(cross)).toBeGreaterThan(1e-12);
+  });
+
+  it("cuts connected unlocked cells out of one world veil", () => {
+    const origin = grid.cellForCoordinate({ latitude: 10, longitude: 20 }, 11);
+    const connectedCells = gridDisk(origin, 1);
+    const veil = unlockedCellIdsToVeilMask(connectedCells);
+    const rings = veil.features[0]?.geometry.coordinates;
+
+    expect(rings).toHaveLength(2);
+    expect(rings?.[0]).toEqual([
+      [-180, -85],
+      [180, -85],
+      [180, 85],
+      [-180, 85],
+      [-180, -85],
+    ]);
+    expect(rings?.[1]?.at(-1)).toEqual(rings?.[1]?.[0]);
+  });
+
+  it("keeps the full veil when no cells are unlocked", () => {
+    const veil = unlockedCellIdsToVeilMask([]);
+
+    expect(veil.features[0]?.geometry.coordinates).toHaveLength(1);
   });
 
   it("refuses persisted resolution metadata that disagrees with H3", () => {
