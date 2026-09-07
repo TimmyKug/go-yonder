@@ -313,7 +313,12 @@ To avoid fabricating travel, the first implementation will unlock the cell conta
 - On app activation, the visible query refreshes so cells written by a background task appear immediately.
 - A successfully persisted live sample clears a prior transient location-update or ingestion error; permission and tracking-start failures remain explicit until their own conditions change.
 
-The first visual treatment highlights unlocked cells over a subdued base map. A true inverse scratch mask and visual effects belong to the later polish phase.
+The map uses a charcoal veil over unvisited areas and cuts the union of unlocked
+H3 cells out of that veil. This preserves map context everywhere while making
+visited ground visibly clearer. A light, translucent decorative tessera layer
+may still tint unlocked cells, but it must remain less opaque than the hidden
+area. The exact tessera geometry, palette, and broader visual branding remain
+provisional and can change without altering the persisted H3 coverage model.
 
 ## Permission and error states
 
