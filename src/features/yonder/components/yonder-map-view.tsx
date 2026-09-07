@@ -61,6 +61,7 @@ const MAP_THEME = {
     background: "#071520",
     border: "rgba(234, 247, 255, 0.18)",
     frontier: "#D5F0E9",
+    frontierOpacity: 0.7,
     location: "#087CFF",
     pressedSurface: "rgba(19, 48, 66, 0.98)",
     secondaryText: "#BFD2DD",
@@ -72,16 +73,17 @@ const MAP_THEME = {
   },
   dark: {
     background: "#03090D",
-    border: "rgba(113, 230, 203, 0.2)",
-    frontier: "#71E6CB",
+    border: "rgba(196, 207, 210, 0.2)",
+    frontier: "#C4CFD2",
+    frontierOpacity: 0.38,
     location: "#29D8B5",
     pressedSurface: "rgba(18, 48, 55, 0.98)",
     secondaryText: "#B7CEC9",
     surface: "rgba(3, 12, 17, 0.9)",
     strongSurface: "rgba(3, 12, 17, 0.95)",
     text: "#F2FCF9",
-    veil: "#00070B",
-    veilOpacity: 0.5,
+    veil: "#AEB7BB",
+    veilOpacity: 0.3,
   },
 } as const;
 
@@ -218,7 +220,7 @@ export function YonderMapView({
               id="map-veil-frontier"
               paint={{
                 "line-color": colors.frontier,
-                "line-opacity": 0.7,
+                "line-opacity": colors.frontierOpacity,
                 "line-width": 1.2,
               }}
               type="line"
