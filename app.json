@@ -8,6 +8,10 @@
     "scheme": "yonder",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "icon": {
+        "light": "./assets/icon-light.png",
+        "dark": "./assets/icon-dark.png"
+      },
       "supportsTablet": true,
       "bundleIdentifier": "com.timothykugler.yonder"
     },
@@ -17,9 +21,8 @@
         "android.permission.RECEIVE_BOOT_COMPLETED"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#020D2A",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
