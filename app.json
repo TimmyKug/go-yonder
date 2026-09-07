@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "Tessera",
-    "slug": "tessera",
+    "name": "Yonder",
+    "slug": "yonder",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "tessera",
+    "scheme": "yonder",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.timothykugler.tessera"
+      "bundleIdentifier": "com.timothykugler.yonder"
     },
     "android": {
-      "package": "com.timothykugler.tessera",
+      "package": "com.timothykugler.yonder",
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED"
       ],
@@ -33,8 +33,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Tessera to use your precise location to unlock places while you use the app.",
-          "locationAlwaysAndWhenInUsePermission": "Allow Tessera to record the places you explore, including while the app is in the background.",
+          "locationWhenInUsePermission": "Allow Yonder to use your precise location to unlock places while you use the app.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Yonder to record the places you explore, including while the app is in the background.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true

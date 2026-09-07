@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
-import { getTesseraRepository } from "@/src/data/app-repository";
+import { getYonderRepository } from "@/src/data/app-repository";
 import { unlockedCellsToFeatureCollection } from "@/src/domain/hex-grid";
 
 const EMPTY_HEXAGONS: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
@@ -46,7 +46,7 @@ export function useVisibleCells(refreshToken?: number): VisibleCellsState {
       setIsLoading(true);
 
       try {
-        const repository = await getTesseraRepository();
+        const repository = await getYonderRepository();
         const [west, south, east, north] = bounds;
         const cells = await repository.listUnlockedCells({
           east,

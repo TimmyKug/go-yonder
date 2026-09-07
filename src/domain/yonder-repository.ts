@@ -2,7 +2,7 @@ import type {
   GeographicBounds,
   PreparedLocationObservation,
   UnlockedCell,
-} from "./tessera";
+} from "./yonder";
 
 export type PersistenceIngestionResult = {
   processedCount: number;
@@ -12,7 +12,7 @@ export type PersistenceIngestionResult = {
   updatedCellCount: number;
 };
 
-export interface TesseraRepository {
+export interface YonderRepository {
   ingestObservations(
     observations: readonly PreparedLocationObservation[],
   ): Promise<PersistenceIngestionResult>;

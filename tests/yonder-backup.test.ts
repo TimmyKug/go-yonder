@@ -10,18 +10,18 @@ vi.mock("@/src/data/database", () => ({
 }));
 
 import {
-  exportTesseraBackup,
-  TESSERA_BACKUP_FILE_NAME,
-} from "@/src/data/tessera-backup";
+  exportYonderBackup,
+  YONDER_BACKUP_FILE_NAME,
+} from "@/src/data/yonder-backup";
 
-describe("Tessera backup export", () => {
+describe("Yonder backup export", () => {
   it("writes one serialized SQLite snapshot to the selected directory", async () => {
     const write = vi.fn();
     const createFile = vi.fn(() => ({ write }));
     const directory = {} as never;
     const bytes = new Uint8Array([83, 81, 76, 105, 116, 101]);
 
-    const result = await exportTesseraBackup({
+    const result = await exportYonderBackup({
       createFile,
       pickDirectory: async () => directory,
       serializeDatabase: async () => bytes,
@@ -30,7 +30,7 @@ describe("Tessera backup export", () => {
     expect(createFile).toHaveBeenCalledWith(directory);
     expect(write).toHaveBeenCalledWith(bytes);
     expect(result).toEqual({
-      fileName: TESSERA_BACKUP_FILE_NAME,
+      fileName: YONDER_BACKUP_FILE_NAME,
       sizeBytes: bytes.byteLength,
     });
   });
@@ -39,7 +39,7 @@ describe("Tessera backup export", () => {
     const serializeDatabase = vi.fn<() => Promise<Uint8Array>>();
 
     await expect(
-      exportTesseraBackup({
+      exportYonderBackup({
         createFile: vi.fn(),
         pickDirectory: async () => {
           throw new Error("canceled");

@@ -1,4 +1,4 @@
-import { MAX_LIVE_HORIZONTAL_ACCURACY_M } from "../config/tessera-config";
+import { MAX_LIVE_HORIZONTAL_ACCURACY_M } from "../config/yonder-config";
 
 export const LOCATION_SOURCES = [
   "live-foreground",

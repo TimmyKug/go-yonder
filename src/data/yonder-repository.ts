@@ -1,17 +1,17 @@
-import { TESSERA_H3_RESOLUTION } from "../config/tessera-config";
+import { YONDER_H3_RESOLUTION } from "../config/yonder-config";
 import type {
   GeographicBounds,
   PreparedLocationObservation,
   UnlockedCell,
-} from "../domain/tessera";
+} from "../domain/yonder";
 import {
   assertValidGeographicBounds,
   assertValidResolution,
-} from "../domain/tessera";
+} from "../domain/yonder";
 import type {
   PersistenceIngestionResult,
-  TesseraRepository,
-} from "../domain/tessera-repository";
+  YonderRepository,
+} from "../domain/yonder-repository";
 
 import type { SqlDatabase, SqlExecutor } from "./sql-database";
 
@@ -120,7 +120,7 @@ function toUnlockedCell(row: UnlockedCellRow): UnlockedCell {
   };
 }
 
-export class SqliteTesseraRepository implements TesseraRepository {
+export class SqliteYonderRepository implements YonderRepository {
   constructor(private readonly database: SqlDatabase) {}
 
   async ingestObservations(
@@ -169,7 +169,7 @@ export class SqliteTesseraRepository implements TesseraRepository {
 
   async listUnlockedCells(
     bounds: GeographicBounds,
-    resolution = TESSERA_H3_RESOLUTION,
+    resolution = YONDER_H3_RESOLUTION,
   ): Promise<UnlockedCell[]> {
     assertValidGeographicBounds(bounds);
     assertValidResolution(resolution);
@@ -208,8 +208,8 @@ export class SqliteTesseraRepository implements TesseraRepository {
   }
 }
 
-export function createTesseraRepository(
+export function createYonderRepository(
   database: SqlDatabase,
-): TesseraRepository {
-  return new SqliteTesseraRepository(database);
+): YonderRepository {
+  return new SqliteYonderRepository(database);
 }

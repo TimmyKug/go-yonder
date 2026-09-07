@@ -10,14 +10,14 @@ import { Alert, AppState, Linking } from "react-native";
 import { useVisibleCells } from "../hooks/use-visible-cells";
 
 import {
-  TesseraMapView,
+  YonderMapView,
   type TrackingPresentation,
-} from "./tessera-map-view";
+} from "./yonder-map-view";
 
 import {
-  exportTesseraBackup,
-  refreshAutomaticTesseraBackup,
-} from "@/src/data/tessera-backup";
+  exportYonderBackup,
+  refreshAutomaticYonderBackup,
+} from "@/src/data/yonder-backup";
 import {
   getLocationSnapshot,
   initializeLocationTracking,
@@ -27,7 +27,7 @@ import {
   subscribeToLocationState,
 } from "@/src/location";
 
-export function TesseraScreen() {
+export function YonderScreen() {
   const [isExportingBackup, setIsExportingBackup] = useState(false);
   const location = useSyncExternalStore(
     subscribeToLocationState,
@@ -45,7 +45,7 @@ export function TesseraScreen() {
       if (nextState === "active") {
         void initializeLocationTracking();
       } else if (nextState === "background") {
-        void refreshAutomaticTesseraBackup().catch(() => undefined);
+        void refreshAutomaticYonderBackup().catch(() => undefined);
       }
     });
 
@@ -79,10 +79,10 @@ export function TesseraScreen() {
           : "Open settings",
         detail: location.permissions.canAskForForeground
           ? "Your coordinates stay on this device and unlock the hexes you visit."
-          : "Enable precise location for Tessera in system settings.",
+          : "Enable precise location for Yonder in system settings.",
         isBusy: location.busy,
         kind: "needs-action",
-        title: "Start Tessera",
+        title: "Start Yonder",
       };
     }
 
@@ -221,10 +221,10 @@ export function TesseraScreen() {
 
     setIsExportingBackup(true);
     try {
-      const result = await exportTesseraBackup();
+      const result = await exportYonderBackup();
       Alert.alert(
         "Backup saved",
-        `${result.fileName} is a complete, consistent copy of your Tessera data.`,
+        `${result.fileName} is a complete, consistent copy of your Yonder data.`,
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Export failed.";
@@ -238,7 +238,7 @@ export function TesseraScreen() {
   }, [isExportingBackup]);
 
   return (
-    <TesseraMapView
+    <YonderMapView
       currentCoordinate={location.latestCoordinate}
       hexagons={visibleCells.hexagons}
       isLoadingHexagons={visibleCells.isLoading}

@@ -1,5 +1,5 @@
-import { TesseraScreen } from "@/src/features/tessera/components/tessera-screen";
+import { YonderScreen } from "@/src/features/yonder/components/yonder-screen";
 
-export default function TesseraRoute() {
-  return <TesseraScreen />;
+export default function YonderRoute() {
+  return <YonderScreen />;
 }

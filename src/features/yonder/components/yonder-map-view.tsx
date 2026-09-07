@@ -14,13 +14,15 @@ import {
   type NativeSyntheticEvent,
   Pressable,
   Text,
+  useColorScheme,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
+  getMapStyle,
   INITIAL_MAP_VIEW,
-  MAP_STYLE,
+  OPENFREEMAP_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
 import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
@@ -38,7 +40,7 @@ export type TrackingPresentation = {
   title: string;
 };
 
-type TesseraMapViewProps = {
+type YonderMapViewProps = {
   currentCoordinate?: MapCoordinate;
   hexagons: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
   isExportingBackup: boolean;
@@ -54,7 +56,36 @@ const EMPTY_POINT_COLLECTION: GeoJSON.FeatureCollection<GeoJSON.Point> = {
   features: [],
 };
 
-export function TesseraMapView({
+const MAP_THEME = {
+  light: {
+    background: "#071520",
+    border: "rgba(234, 247, 255, 0.18)",
+    frontier: "#D5F0E9",
+    location: "#087CFF",
+    pressedSurface: "rgba(19, 48, 66, 0.98)",
+    secondaryText: "#BFD2DD",
+    surface: "rgba(7, 21, 32, 0.88)",
+    strongSurface: "rgba(7, 21, 32, 0.94)",
+    text: "#F6FCFF",
+    veil: "#071520",
+    veilOpacity: 0.38,
+  },
+  dark: {
+    background: "#03090D",
+    border: "rgba(113, 230, 203, 0.2)",
+    frontier: "#71E6CB",
+    location: "#29D8B5",
+    pressedSurface: "rgba(18, 48, 55, 0.98)",
+    secondaryText: "#B7CEC9",
+    surface: "rgba(3, 12, 17, 0.9)",
+    strongSurface: "rgba(3, 12, 17, 0.95)",
+    text: "#F2FCF9",
+    veil: "#00070B",
+    veilOpacity: 0.5,
+  },
+} as const;
+
+export function YonderMapView({
   currentCoordinate,
   hexagons,
   isExportingBackup,
@@ -63,10 +94,15 @@ export function TesseraMapView({
   onExportBackup,
   onTrackingAction,
   tracking,
-}: TesseraMapViewProps) {
+}: YonderMapViewProps) {
   const cameraRef = useRef<CameraRef>(null);
   const hasCenteredOnUser = useRef(false);
   const insets = useSafeAreaInsets();
+  const themeName = useColorScheme() === "dark" ? "dark" : "light";
+  const colors = MAP_THEME[themeName];
+  const mapStyle = useMemo(() => getMapStyle(themeName), [themeName]);
+  const usesOpenFreeMap =
+    typeof mapStyle === "string" && mapStyle.includes("openfreemap.org");
   const [mapReady, setMapReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
   const [mapSize, setMapSize] = useState({ height: 0, width: 0 });
@@ -142,8 +178,8 @@ export function TesseraMapView({
   return (
     <View
       onLayout={handleLayout}
-      style={{ flex: 1, backgroundColor: "#071520" }}
-      testID="tessera-screen"
+      style={{ flex: 1, backgroundColor: colors.background }}
+      testID="yonder-screen"
     >
       {canMountMap ? (
         <Map
@@ -151,7 +187,7 @@ export function TesseraMapView({
           compass
           compassPosition={{ top: insets.top + 14, right: 14 }}
           logo={false}
-          mapStyle={MAP_STYLE}
+          mapStyle={mapStyle}
           onDidFailLoadingMap={() => setMapFailed(true)}
           onDidFinishLoadingMap={() => {
             setMapFailed(false);
@@ -159,7 +195,7 @@ export function TesseraMapView({
           }}
           onRegionDidChange={handleRegionDidChange}
           style={{ flex: 1 }}
-          tintColor="#EAF7FF"
+          tintColor={colors.text}
           touchPitch={false}
         >
           <Camera
@@ -173,28 +209,17 @@ export function TesseraMapView({
             <Layer
               id="map-veil-fill"
               paint={{
-                "fill-color": "#071520",
-                "fill-opacity": 0.38,
-              }}
-              type="fill"
-            />
-          </GeoJSONSource>
-
-          <GeoJSONSource data={hexagons} id="unlocked-hexagons">
-            <Layer
-              id="unlocked-hexagons-fill"
-              paint={{
-                "fill-color": ["get", "fillColor"],
-                "fill-opacity": ["get", "fillOpacity"],
+                "fill-color": colors.veil,
+                "fill-opacity": colors.veilOpacity,
               }}
               type="fill"
             />
             <Layer
-              id="unlocked-hexagons-outline"
+              id="map-veil-frontier"
               paint={{
-                "line-color": "#F6E9CC",
-                "line-opacity": 0.5,
-                "line-width": 0.35,
+                "line-color": colors.frontier,
+                "line-opacity": 0.7,
+                "line-width": 1.2,
               }}
               type="line"
             />
@@ -204,7 +229,7 @@ export function TesseraMapView({
             <Layer
               id="current-location-halo"
               paint={{
-                "circle-color": "#F6FCFF",
+                "circle-color": colors.text,
                 "circle-opacity": 0.3,
                 "circle-radius": 15,
               }}
@@ -213,7 +238,7 @@ export function TesseraMapView({
             <Layer
               id="current-location-dot"
               paint={{
-                "circle-color": "#087CFF",
+                "circle-color": colors.location,
                 "circle-radius": 7,
                 "circle-stroke-color": "#FFFFFF",
                 "circle-stroke-width": 3,
@@ -237,10 +262,10 @@ export function TesseraMapView({
             top: 0,
           }}
         >
-          <ActivityIndicator color="#EAF7FF" size="large" />
+          <ActivityIndicator color={colors.text} size="large" />
           <Text
             selectable
-            style={{ color: "#BFD2DD", fontSize: 14, paddingTop: 12 }}
+            style={{ color: colors.secondaryText, fontSize: 14, paddingTop: 12 }}
           >
             Loading map…
           </Text>
@@ -262,14 +287,14 @@ export function TesseraMapView({
         >
           <Text
             selectable
-            style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "700" }}
+            style={{ color: colors.text, fontSize: 20, fontWeight: "700" }}
           >
             The map could not load
           </Text>
           <Text
             selectable
             style={{
-              color: "#BFD2DD",
+              color: colors.secondaryText,
               fontSize: 15,
               lineHeight: 21,
               paddingTop: 8,
@@ -294,8 +319,8 @@ export function TesseraMapView({
         <View
           style={{
             alignItems: "center",
-            backgroundColor: "rgba(7, 21, 32, 0.88)",
-            borderColor: "rgba(234, 247, 255, 0.18)",
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
             borderCurve: "continuous",
             borderRadius: 18,
             borderWidth: 1,
@@ -316,17 +341,17 @@ export function TesseraMapView({
           />
           <Text
             selectable
-            style={{ color: "#F6FCFF", fontSize: 13, fontWeight: "600" }}
+            style={{ color: colors.text, fontSize: 13, fontWeight: "600" }}
           >
-            {tracking.kind === "active" ? "Saving on-device" : "Tessera"}
+            {tracking.kind === "active" ? "Saving on-device" : "Yonder"}
           </Text>
           {isLoadingHexagons ? (
-            <ActivityIndicator color="#BFD2DD" size="small" />
+            <ActivityIndicator color={colors.secondaryText} size="small" />
           ) : null}
         </View>
 
         <Pressable
-          accessibilityLabel="Export Tessera backup"
+          accessibilityLabel="Export Yonder backup"
           accessibilityRole="button"
           disabled={isExportingBackup}
           onPress={onExportBackup}
@@ -335,9 +360,9 @@ export function TesseraMapView({
             alignItems: "center",
             alignSelf: "flex-end",
             backgroundColor: pressed
-              ? "rgba(19, 48, 66, 0.98)"
-              : "rgba(7, 21, 32, 0.88)",
-            borderColor: "rgba(234, 247, 255, 0.18)",
+              ? colors.pressedSurface
+              : colors.surface,
+            borderColor: colors.border,
             borderCurve: "continuous",
             borderRadius: 18,
             borderWidth: 1,
@@ -350,9 +375,9 @@ export function TesseraMapView({
           })}
         >
           {isExportingBackup ? (
-            <ActivityIndicator color="#EAF7FF" size="small" />
+            <ActivityIndicator color={colors.text} size="small" />
           ) : (
-            <Text style={{ color: "#F6FCFF", fontSize: 13, fontWeight: "700" }}>
+            <Text style={{ color: colors.text, fontSize: 13, fontWeight: "700" }}>
               Backup
             </Text>
           )}
@@ -368,9 +393,9 @@ export function TesseraMapView({
           style={({ pressed }) => ({
             alignItems: "center",
             backgroundColor: pressed
-              ? "rgba(19, 48, 66, 0.98)"
-              : "rgba(7, 21, 32, 0.9)",
-            borderColor: "rgba(234, 247, 255, 0.18)",
+              ? colors.pressedSurface
+              : colors.surface,
+            borderColor: colors.border,
             borderRadius: 24,
             borderWidth: 1,
             bottom: 134 + insets.bottom,
@@ -381,20 +406,24 @@ export function TesseraMapView({
             width: 48,
           })}
         >
-          <Text style={{ color: "#FFFFFF", fontSize: 24, lineHeight: 26 }}>◎</Text>
+          <Text style={{ color: colors.text, fontSize: 24, lineHeight: 26 }}>◎</Text>
         </Pressable>
       ) : null}
 
       <Pressable
-        accessibilityLabel="Open OpenStreetMap copyright and licence information"
+        accessibilityLabel="Open map attribution and licence information"
         accessibilityRole="link"
         onPress={() => {
-          void Linking.openURL(OPENSTREETMAP_COPYRIGHT_URL);
+          void Linking.openURL(
+            usesOpenFreeMap
+              ? OPENFREEMAP_URL
+              : OPENSTREETMAP_COPYRIGHT_URL,
+          );
         }}
         style={({ pressed }) => ({
           backgroundColor: pressed
-            ? "rgba(7, 21, 32, 0.92)"
-            : "rgba(7, 21, 32, 0.76)",
+            ? colors.pressedSurface
+            : colors.surface,
           borderRadius: 8,
           bottom: 190 + insets.bottom,
           left: 12,
@@ -403,16 +432,18 @@ export function TesseraMapView({
           position: "absolute",
         })}
       >
-        <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "600" }}>
-          © OpenStreetMap contributors
+        <Text style={{ color: colors.text, fontSize: 11, fontWeight: "600" }}>
+          {usesOpenFreeMap
+            ? "OpenFreeMap · © OpenMapTiles · © OpenStreetMap"
+            : "© OpenStreetMap contributors"}
         </Text>
       </Pressable>
 
       <View
         testID="tracking-status-card"
         style={{
-          backgroundColor: "rgba(7, 21, 32, 0.94)",
-          borderColor: "rgba(234, 247, 255, 0.16)",
+          backgroundColor: colors.strongSurface,
+          borderColor: colors.border,
           borderCurve: "continuous",
           borderRadius: 24,
           borderWidth: 1,
@@ -435,13 +466,13 @@ export function TesseraMapView({
           <View style={{ flex: 1, gap: 4 }}>
             <Text
               selectable
-              style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}
+              style={{ color: colors.text, fontSize: 16, fontWeight: "700" }}
             >
               {tracking.title}
             </Text>
             <Text
               selectable
-              style={{ color: "#BFD2DD", fontSize: 13, lineHeight: 18 }}
+              style={{ color: colors.secondaryText, fontSize: 13, lineHeight: 18 }}
             >
               {tracking.detail}
             </Text>

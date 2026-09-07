@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 
-export function TesseraScreen() {
+export function YonderScreen() {
   return (
     <View
       style={{
@@ -15,7 +15,7 @@ export function TesseraScreen() {
         selectable
         style={{ color: "#FFFFFF", fontSize: 24, fontWeight: "700" }}
       >
-        Tessera is a mobile app
+        Yonder is a mobile app
       </Text>
       <Text
         selectable

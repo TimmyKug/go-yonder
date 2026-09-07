@@ -7,33 +7,6 @@ import {
   unlockedCellsToFeatureCollection,
 } from "../src/domain/hex-grid";
 
-function pointInsideConvexPolygon(
-  point: GeoJSON.Position,
-  polygon: readonly GeoJSON.Position[],
-): boolean {
-  let direction = 0;
-
-  for (let index = 0; index < polygon.length; index += 1) {
-    const start = polygon[index]!;
-    const end = polygon[(index + 1) % polygon.length]!;
-    const cross =
-      (end[0]! - start[0]!) * (point[1]! - start[1]!) -
-      (end[1]! - start[1]!) * (point[0]! - start[0]!);
-
-    if (Math.abs(cross) < 1e-12) {
-      continue;
-    }
-
-    const nextDirection = Math.sign(cross);
-    if (direction !== 0 && nextDirection !== direction) {
-      return false;
-    }
-    direction = nextDirection;
-  }
-
-  return true;
-}
-
 describe("H3HexGrid", () => {
   const grid = new H3HexGrid();
 
@@ -47,7 +20,7 @@ describe("H3HexGrid", () => {
     expect(grid.resolutionForCell(cellId)).toBe(11);
   });
 
-  it("emits a closed decorative tessera contained by its H3 cell", () => {
+  it("emits the closed canonical boundary for an unlocked H3 cell", () => {
     const cellId = grid.cellForCoordinate({ latitude: 10, longitude: 20 }, 11);
     const center = grid.centerForCell(cellId);
     const collection = unlockedCellsToFeatureCollection([
@@ -65,20 +38,13 @@ describe("H3HexGrid", () => {
     expect(feature).toBeDefined();
     expect(feature?.geometry.type).toBe("Polygon");
     const ring = feature?.geometry.coordinates[0];
-    expect(ring).toHaveLength(13);
+    expect(ring).toHaveLength(7);
     expect(ring?.at(-1)).toEqual(ring?.[0]);
 
     const h3Boundary = grid.boundaryForCell(cellId).map<GeoJSON.Position>(
       ({ latitude, longitude }) => [longitude, latitude],
     );
-    expect(
-      ring?.slice(0, -1).every((point) =>
-        pointInsideConvexPolygon(point, h3Boundary),
-      ),
-    ).toBe(true);
-    expect(feature?.properties.fillColor).toMatch(/^#[0-9A-F]{6}$/);
-    expect(feature?.properties.fillOpacity).toBeGreaterThanOrEqual(0.18);
-    expect(feature?.properties.fillOpacity).toBeLessThanOrEqual(0.24);
+    expect(ring?.slice(0, -1)).toEqual(h3Boundary);
   });
 
   it("derives identical visual geometry and styling for the same cell", () => {
@@ -95,38 +61,6 @@ describe("H3HexGrid", () => {
     expect(unlockedCellsToFeatureCollection([cell])).toEqual(
       unlockedCellsToFeatureCollection([cell]),
     );
-  });
-
-  it("gives adjacent unlocked tiles one connected bent seam", () => {
-    const origin = grid.cellForCoordinate({ latitude: 10, longitude: 20 }, 11);
-    const neighbor = gridDisk(origin, 1).find((cellId) => cellId !== origin)!;
-    const cells = [origin, neighbor].map((cellId) => {
-      const center = grid.centerForCell(cellId);
-      return {
-        cellId,
-        resolution: 11,
-        centerLatitude: center.latitude,
-        centerLongitude: center.longitude,
-        firstSeenAtMs: 100,
-        lastSeenAtMs: 200,
-      };
-    });
-    const [originRing, neighborRing] = unlockedCellsToFeatureCollection(
-      cells,
-    ).features.map((feature) => feature.geometry.coordinates[0]!.slice(0, -1));
-    const positionKey = (position: GeoJSON.Position) =>
-      `${position[0]!.toFixed(10)},${position[1]!.toFixed(10)}`;
-    const neighborPositions = new Set(neighborRing!.map(positionKey));
-    const sharedPositions = originRing!.filter((position) =>
-      neighborPositions.has(positionKey(position)),
-    );
-
-    expect(sharedPositions).toHaveLength(3);
-    const [start, bend, end] = sharedPositions;
-    const cross =
-      (end![0]! - start![0]!) * (bend![1]! - start![1]!) -
-      (end![1]! - start![1]!) * (bend![0]! - start![0]!);
-    expect(Math.abs(cross)).toBeGreaterThan(1e-12);
   });
 
   it("cuts connected unlocked cells out of one world veil", () => {

@@ -1,5 +1,5 @@
-appId: com.timothykugler.tessera
-name: Verify persisted Tessera data after relaunch
+appId: com.timothykugler.yonder
+name: Verify persisted Yonder data after relaunch
 tags:
   - ios
   - smoke
@@ -8,7 +8,7 @@ tags:
     stopApp: false
 - extendedWaitUntil:
     visible:
-      id: tessera-screen
+      id: yonder-screen
     timeout: 30000
 - extendedWaitUntil:
     notVisible: "Loading map…"
@@ -19,4 +19,4 @@ tags:
 - assertVisible:
     id: tracking-status-card
 - assertVisible: "Background tracking is on"
-- takeScreenshot: tessera-after-relaunch
+- takeScreenshot: yonder-after-relaunch

@@ -1,5 +1,5 @@
-appId: com.timothykugler.tessera
-name: Prepare Tessera for synthetic route
+appId: com.timothykugler.yonder
+name: Prepare Yonder for synthetic route
 tags:
   - ios
   - smoke
@@ -13,7 +13,7 @@ tags:
 - tapOn: "Close"
 - extendedWaitUntil:
     visible:
-      id: tessera-screen
+      id: yonder-screen
     timeout: 30000
 - extendedWaitUntil:
     notVisible: "Loading map…"

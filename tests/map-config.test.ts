@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getMapStyle,
+  OPENFREEMAP_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
   OPENSTREETMAP_RASTER_STYLE,
 } from "@/src/config/map-config";
@@ -29,5 +31,15 @@ describe("default map configuration", () => {
         },
       ],
     });
+  });
+
+  it("selects the paired keyless OpenFreeMap styles", () => {
+    expect(getMapStyle("light")).toBe(
+      "https://tiles.openfreemap.org/styles/positron",
+    );
+    expect(getMapStyle("dark")).toBe(
+      "https://tiles.openfreemap.org/styles/dark",
+    );
+    expect(OPENFREEMAP_URL).toBe("https://openfreemap.org/");
   });
 });

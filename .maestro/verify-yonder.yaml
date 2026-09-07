@@ -1,5 +1,5 @@
-appId: com.timothykugler.tessera
-name: Verify active Tessera route
+appId: com.timothykugler.yonder
+name: Verify active Yonder route
 tags:
   - ios
   - smoke
@@ -15,5 +15,5 @@ tags:
     timeout: 30000
 - assertNotVisible: "The map could not load"
 - assertVisible: "Background tracking is on"
-- takeScreenshot: tessera-after-route
+- takeScreenshot: yonder-after-route
 - stopApp

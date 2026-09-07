@@ -1,7 +1,7 @@
 import {
   MAX_LIVE_HORIZONTAL_ACCURACY_M,
-  TESSERA_H3_RESOLUTION,
-} from "../config/tessera-config";
+  YONDER_H3_RESOLUTION,
+} from "../config/yonder-config";
 
 import type { HexGrid } from "./hex-grid";
 import type {
@@ -9,9 +9,9 @@ import type {
   NormalizedLocationSample,
 } from "./location-sample";
 import { validateNormalizedLocationSample } from "./location-sample";
-import type { PreparedLocationObservation } from "./tessera";
-import { assertValidResolution } from "./tessera";
-import type { TesseraRepository } from "./tessera-repository";
+import type { PreparedLocationObservation } from "./yonder";
+import { assertValidResolution } from "./yonder";
+import type { YonderRepository } from "./yonder-repository";
 
 export type RejectedLocationSample = {
   index: number;
@@ -29,21 +29,21 @@ export type IngestionResult = {
   rejections: readonly RejectedLocationSample[];
 };
 
-export type TesseraIngestionOptions = {
+export type YonderIngestionOptions = {
   resolution?: number;
   maxLiveHorizontalAccuracyM?: number;
 };
 
-export class TesseraIngestionService {
+export class YonderIngestionService {
   private readonly resolution: number;
   private readonly maxLiveHorizontalAccuracyM: number;
 
   constructor(
-    private readonly repository: TesseraRepository,
+    private readonly repository: YonderRepository,
     private readonly hexGrid: HexGrid,
-    options: TesseraIngestionOptions = {},
+    options: YonderIngestionOptions = {},
   ) {
-    this.resolution = options.resolution ?? TESSERA_H3_RESOLUTION;
+    this.resolution = options.resolution ?? YONDER_H3_RESOLUTION;
     this.maxLiveHorizontalAccuracyM =
       options.maxLiveHorizontalAccuracyM ?? MAX_LIVE_HORIZONTAL_ACCURACY_M;
     assertValidResolution(this.resolution);

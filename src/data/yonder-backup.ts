@@ -2,10 +2,10 @@ import { Directory, File, Paths } from "expo-file-system";
 
 import { getNativeDatabase } from "./database";
 
-export const TESSERA_BACKUP_FILE_NAME = "tessera-backup.db";
+export const YONDER_BACKUP_FILE_NAME = "yonder-backup.db";
 const AUTOMATIC_BACKUP_INTERVAL_MS = 15 * 60 * 1000;
 
-export type TesseraBackupResult = {
+export type YonderBackupResult = {
   fileName: string;
   sizeBytes: number;
 };
@@ -16,15 +16,15 @@ type BackupFile = {
 
 type BackupDirectory = Directory;
 
-type TesseraBackupDependencies = {
+type YonderBackupDependencies = {
   createFile: (directory: BackupDirectory) => BackupFile;
   pickDirectory: () => Promise<BackupDirectory>;
   serializeDatabase: () => Promise<Uint8Array>;
 };
 
-const defaultDependencies: TesseraBackupDependencies = {
+const defaultDependencies: YonderBackupDependencies = {
   createFile: (directory) => {
-    const file = new File(directory, TESSERA_BACKUP_FILE_NAME);
+    const file = new File(directory, YONDER_BACKUP_FILE_NAME);
     file.create({ overwrite: true });
     return file;
   },
@@ -35,7 +35,7 @@ const defaultDependencies: TesseraBackupDependencies = {
 let automaticBackupPromise: Promise<void> | undefined;
 let lastAutomaticBackupAtMs = 0;
 
-export async function refreshAutomaticTesseraBackup(): Promise<void> {
+export async function refreshAutomaticYonderBackup(): Promise<void> {
   if (automaticBackupPromise) {
     return automaticBackupPromise;
   }
@@ -46,7 +46,7 @@ export async function refreshAutomaticTesseraBackup(): Promise<void> {
     const backupDirectory = new Directory(Paths.document, "Backups");
     backupDirectory.create({ idempotent: true, intermediates: true });
 
-    const file = new File(backupDirectory, TESSERA_BACKUP_FILE_NAME);
+    const file = new File(backupDirectory, YONDER_BACKUP_FILE_NAME);
     file.create({ overwrite: true });
     file.write(bytes);
     lastAutomaticBackupAtMs = Date.now();
@@ -57,19 +57,19 @@ export async function refreshAutomaticTesseraBackup(): Promise<void> {
   return automaticBackupPromise;
 }
 
-export async function refreshAutomaticTesseraBackupIfDue(
+export async function refreshAutomaticYonderBackupIfDue(
   nowMs: number = Date.now(),
 ): Promise<void> {
   if (nowMs - lastAutomaticBackupAtMs < AUTOMATIC_BACKUP_INTERVAL_MS) {
     return;
   }
 
-  await refreshAutomaticTesseraBackup();
+  await refreshAutomaticYonderBackup();
 }
 
-export async function exportTesseraBackup(
-  dependencies: TesseraBackupDependencies = defaultDependencies,
-): Promise<TesseraBackupResult> {
+export async function exportYonderBackup(
+  dependencies: YonderBackupDependencies = defaultDependencies,
+): Promise<YonderBackupResult> {
   const directory = await dependencies.pickDirectory();
   const bytes = await dependencies.serializeDatabase();
   const file = dependencies.createFile(directory);
@@ -77,7 +77,7 @@ export async function exportTesseraBackup(
   file.write(bytes);
 
   return {
-    fileName: TESSERA_BACKUP_FILE_NAME,
+    fileName: YONDER_BACKUP_FILE_NAME,
     sizeBytes: bytes.byteLength,
   };
 }

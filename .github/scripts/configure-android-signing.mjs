@@ -12,10 +12,10 @@ gradle = gradle.replace(
   signingMarker,
   `    signingConfigs {
         release {
-            storeFile file(System.getenv("TESSERA_RELEASE_STORE_FILE"))
-            storePassword System.getenv("TESSERA_RELEASE_STORE_PASSWORD")
-            keyAlias System.getenv("TESSERA_RELEASE_KEY_ALIAS")
-            keyPassword System.getenv("TESSERA_RELEASE_KEY_PASSWORD")
+            storeFile file(System.getenv("YONDER_RELEASE_STORE_FILE"))
+            storePassword System.getenv("YONDER_RELEASE_STORE_PASSWORD")
+            keyAlias System.getenv("YONDER_RELEASE_KEY_ALIAS")
+            keyPassword System.getenv("YONDER_RELEASE_KEY_PASSWORD")
         }
         debug {`,
 );

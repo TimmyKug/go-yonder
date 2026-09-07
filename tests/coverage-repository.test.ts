@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { runMigrations } from "../src/data/migrations";
-import { SqliteTesseraRepository } from "../src/data/tessera-repository";
+import { SqliteYonderRepository } from "../src/data/yonder-repository";
 import { H3HexGrid } from "../src/domain/hex-grid";
-import { TesseraIngestionService } from "../src/domain/ingest-location";
+import { YonderIngestionService } from "../src/domain/ingest-location";
 import type { NormalizedLocationSample } from "../src/domain/location-sample";
 
 import { NodeSqliteDatabase } from "./support/node-sqlite-database";
@@ -23,17 +23,17 @@ function sample(
   };
 }
 
-describe("SqliteTesseraRepository", () => {
+describe("SqliteYonderRepository", () => {
   let database: NodeSqliteDatabase;
-  let repository: SqliteTesseraRepository;
-  let service: TesseraIngestionService;
+  let repository: SqliteYonderRepository;
+  let service: YonderIngestionService;
 
   beforeEach(async () => {
     database = new NodeSqliteDatabase();
     await database.execute("PRAGMA foreign_keys = ON");
     await runMigrations(database);
-    repository = new SqliteTesseraRepository(database);
-    service = new TesseraIngestionService(repository, new H3HexGrid());
+    repository = new SqliteYonderRepository(database);
+    service = new YonderIngestionService(repository, new H3HexGrid());
   });
 
   afterEach(() => {
