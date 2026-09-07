@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
-import { TESSERA_H3_RESOLUTION } from "@/src/config/tessera-config";
 import { getTesseraRepository } from "@/src/data/app-repository";
-import { lockedCellsToFeatureCollection } from "@/src/domain/hex-grid";
+import { unlockedCellsToFeatureCollection } from "@/src/domain/hex-grid";
 
-const EMPTY_TESSERAE: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
+const EMPTY_HEXAGONS: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
   type: "FeatureCollection",
   features: [],
 };
@@ -14,15 +13,15 @@ type MapBounds = [west: number, south: number, east: number, north: number];
 
 type VisibleCellsState = {
   error?: string;
-  tesserae: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
+  hexagons: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
   isLoading: boolean;
   setBounds: (bounds: MapBounds) => void;
 };
 
 export function useVisibleCells(refreshToken?: number): VisibleCellsState {
   const [bounds, setBounds] = useState<MapBounds>([13.1, 52.35, 13.7, 52.7]);
-  const [tesserae, setTesserae] =
-    useState<GeoJSON.FeatureCollection<GeoJSON.Polygon>>(EMPTY_TESSERAE);
+  const [hexagons, setHexagons] =
+    useState<GeoJSON.FeatureCollection<GeoJSON.Polygon>>(EMPTY_HEXAGONS);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [activationRevision, setActivationRevision] = useState(0);
@@ -55,14 +54,10 @@ export function useVisibleCells(refreshToken?: number): VisibleCellsState {
           south,
           west,
         });
-        const collection = lockedCellsToFeatureCollection(
-          bounds,
-          new Set(cells.map((cell) => cell.cellId)),
-          TESSERA_H3_RESOLUTION,
-        );
+        const collection = unlockedCellsToFeatureCollection(cells);
 
         if (!cancelled && requestRevision.current === revision) {
-          setTesserae(
+          setHexagons(
             collection as GeoJSON.FeatureCollection<GeoJSON.Polygon>,
           );
           setError(undefined);
@@ -95,7 +90,7 @@ export function useVisibleCells(refreshToken?: number): VisibleCellsState {
 
   return {
     error,
-    tesserae,
+    hexagons,
     isLoading,
     setBounds: updateBounds,
   };

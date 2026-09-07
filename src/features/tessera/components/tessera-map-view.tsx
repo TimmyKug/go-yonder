@@ -39,7 +39,7 @@ export type TrackingPresentation = {
 
 type TesseraMapViewProps = {
   currentCoordinate?: MapCoordinate;
-  tesserae: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
+  hexagons: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
   isExportingBackup: boolean;
   isLoadingHexagons: boolean;
   onBoundsChange: (bounds: [number, number, number, number]) => void;
@@ -55,7 +55,7 @@ const EMPTY_POINT_COLLECTION: GeoJSON.FeatureCollection<GeoJSON.Point> = {
 
 export function TesseraMapView({
   currentCoordinate,
-  tesserae,
+  hexagons,
   isExportingBackup,
   isLoadingHexagons,
   onBoundsChange,
@@ -157,9 +157,9 @@ export function TesseraMapView({
             ref={cameraRef}
           />
 
-          <GeoJSONSource data={tesserae} id="locked-tesserae">
+          <GeoJSONSource data={hexagons} id="unlocked-hexagons">
             <Layer
-              id="locked-tesserae-fill"
+              id="unlocked-hexagons-fill"
               paint={{
                 "fill-color": ["get", "fillColor"],
                 "fill-opacity": ["get", "fillOpacity"],
@@ -167,7 +167,7 @@ export function TesseraMapView({
               type="fill"
             />
             <Layer
-              id="locked-tesserae-outline"
+              id="unlocked-hexagons-outline"
               paint={{
                 "line-color": "#F6E9CC",
                 "line-opacity": 0.5,
