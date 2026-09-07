@@ -318,10 +318,11 @@ To avoid fabricating travel, the first implementation will unlock the cell conta
 - On app activation, the visible query refreshes so cells written by a background task appear immediately.
 - A successfully persisted live sample clears a prior transient location-update or ingestion error; permission and tracking-start failures remain explicit until their own conditions change.
 
-The map uses a charcoal veil over unvisited areas and cuts the union of unlocked
-H3 cells out of that veil. This preserves map context everywhere while making
-visited ground visibly clearer. The explored map remains effectively untinted;
-only its subtle frontier distinguishes it from the stronger hidden-area veil.
+The light map uses a charcoal veil over unvisited areas. The dark map instead
+uses a cool gray, translucent fog that lifts and softens unvisited ground while
+leaving explored ground crisp and genuinely dark. In both themes, the union of
+unlocked H3 cells is cut out of the veil. The explored map remains effectively
+untinted; only its subtle frontier distinguishes it from the hidden-area veil.
 
 ## Permission and error states
 
