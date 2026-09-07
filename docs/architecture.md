@@ -3,13 +3,13 @@
 - Status: Accepted and implemented for the core phase
 - Date: 2026-08-12
 - Last verified: 2026-08-18
-- Scope: Core Tessera functionality
+- Scope: Core Yonder functionality
 
 ## Product scope
 
-The working product name is **Tessera**, with the tagline **Tile by Tile**.
-Branding may change before the full public release. Its Android package and iOS
-bundle identifier are `com.timothykugler.tessera`. Operating systems treat this
+The product name is **Yonder**, with the tagline **Unveil your world.** Its
+Android package and iOS bundle identifier are `com.timothykugler.yonder`.
+Operating systems treat this
 identity as a separate app from earlier development builds, and pre-release
 on-device data is not migrated automatically. The considered alternatives and naming rationale are recorded in
 [`docs/branding.md`](branding.md).
@@ -50,7 +50,17 @@ MapLibre Native will render the base map and unlocked-cell overlay.
 - The app will not mount one React component per hexagon.
 - The default base map uses the official OpenStreetMap standard raster tiles for the current private deployment of roughly ten or fewer users.
 - The app displays linked OpenStreetMap attribution, identifies native tile requests, relies on normal interactive caching, and does not preload or provide offline downloads from the community tile service.
-- `EXPO_PUBLIC_MAP_STYLE_URL` can replace the complete style without changing domain or map-overlay code.
+- The production basemap provider is Stadia Maps using the matched Alidade
+  Smooth and Alidade Smooth Dark vector styles.
+- The app follows the operating-system light/dark preference and changes the
+  complete map style plus its UI and reveal-overlay palette.
+- `EXPO_PUBLIC_STADIA_MAPS_API_KEY` supplies the mobile API key at build time.
+  It is necessarily bundled in the client and must be scoped, monitored, and
+  rotated rather than treated as a secret.
+- Theme-specific style URL environment variables can replace either complete
+  style without changing domain or map-overlay code.
+- The official OpenStreetMap standard raster tiles remain a keyless development
+  fallback, not the intended public production provider.
 
 This keeps map interaction native and leaves the project independent of a proprietary map SDK. The installed MapLibre React Native 11 API, config plugin, and generated iOS/Android projects have been verified against Expo SDK 57's new architecture. iOS native builds have been exercised on both a simulator and a physical development device; Android native and cross-platform distribution checks remain required before distribution.
 
@@ -298,27 +308,21 @@ To avoid fabricating travel, the first implementation will unlock the cell conta
 - SQLite returns unlocked cells whose stored centers intersect that box plus a small padding margin.
 - Antimeridian-crossing bounds are handled explicitly.
 - H3 boundaries are converted to GeoJSON longitude/latitude order.
-- H3 cells remain the canonical persisted and queried coverage geometry, while
-  the map derives deterministic decorative tesserae at render time. Interior
-  edges shared by two unlocked cells bend to the same seeded midpoint, producing
-  irregular, gapless pieces whose shape and mineral colour remain stable across
-  launches and devices.
-- A tessera may cross its individual H3 edge only where the adjacent H3 cell is
-  also unlocked and shares the matching seam. Edges on the perimeter of the
-  unlocked set remain exact H3 edges, so the decorative union never implies
-  that an unvisited neighbouring area was unlocked.
-- A single GeoJSON source feeds data-driven fill and subtle outline layers; the
-  decorative geometry is derived in pure domain code and is never persisted.
+- H3 cells remain the canonical persisted and queried coverage geometry. At
+  render time, their union is cut out of the unvisited-area veil.
+- Internal cell boundaries are visually suppressed. A subtle line around the
+  union emphasizes the expanding explored frontier without making the H3
+  implementation the product's visual identity.
+- The union and veil geometry are derived in pure domain code and never
+  persisted.
 - Map updates are batched after committed ingestion rather than issued for every render.
 - On app activation, the visible query refreshes so cells written by a background task appear immediately.
 - A successfully persisted live sample clears a prior transient location-update or ingestion error; permission and tracking-start failures remain explicit until their own conditions change.
 
 The map uses a charcoal veil over unvisited areas and cuts the union of unlocked
 H3 cells out of that veil. This preserves map context everywhere while making
-visited ground visibly clearer. A light, translucent decorative tessera layer
-may still tint unlocked cells, but it must remain less opaque than the hidden
-area. The exact tessera geometry, palette, and broader visual branding remain
-provisional and can change without altering the persisted H3 coverage model.
+visited ground visibly clearer. The explored map remains effectively untinted;
+only its subtle frontier distinguishes it from the stronger hidden-area veil.
 
 ## Permission and error states
 

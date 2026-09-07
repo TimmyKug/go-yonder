@@ -1,20 +1,19 @@
-# Working brand decision
+# Brand decision
 
-- Status: Provisional for beta
-- Date: 2026-09-06
-- Working name: **Tessera**
-- Tagline: **Tile by Tile**
+- Status: Accepted for beta
+- Date: 2026-09-07
+- Name: **Yonder**
+- Tagline: **Unveil your world.**
 
 ## Naming convention
 
-- Home-screen and in-app name: **Tessera**
-- Public/store name: **Tessera: Tile by Tile**
-- Repository name: **tessera-map**
-- Platform identifier: `com.timothykugler.tessera`
+- Home-screen and in-app name: **Yonder**
+- Public/store name: **Yonder: Unveil Your World**
+- Repository name: **yonder-map**
+- Platform identifier: `com.timothykugler.yonder`
 
 The short device label stays uncluttered, while the public name and repository
-make the app's purpose clearer and distinguish it from unrelated projects named
-Tessera.
+make the app's purpose clearer while retaining the short, memorable brand.
 
 ## Intent
 
@@ -25,18 +24,30 @@ a “tile” is not required to be square.
 
 ## Current choice
 
-**Tessera — Tile by Tile** is the working beta identity. A tessera is one piece
-of a mosaic, matching the way individual visited cells accumulate into a
-personal picture of the world. The tagline immediately explains the otherwise
-unfamiliar name and gives the brand a simple verbal rhythm.
+**Yonder — Unveil your world.** is the beta identity. “Yonder” feels curious,
+open, and exploratory without restricting the product to deliberate travel.
+The tagline describes the central interaction: moving through the world reveals
+the clear map beneath the unvisited-area veil.
 
-The choice is intentionally reversible before a full public release. The
-Tessera beta starts a new platform identity at `com.timothykugler.tessera` with
-a dedicated Android production signing key. It does not attempt an in-place
-upgrade or automatic data migration from the earlier Scratch Map development
-build.
+Yonder starts a new platform identity at `com.timothykugler.yonder`. Operating
+systems therefore install it separately from the Tessera and earlier Scratch
+Map development builds; no automatic cross-app data migration is attempted.
+The same dedicated production signing key may sign it, but identity is defined
+by the platform identifier rather than the key alone.
 
 ## Shortlisted alternatives
+
+- **Tessera — Tile by Tile.** The previous choice described the decorative
+  mosaic implementation well, but became obsolete when the visual design moved
+  toward a clear explored region with only its frontier emphasized.
+- **Unveil.** Directly describes the reveal mechanic, but feels more like an
+  action or tagline than a warm product name.
+- **Outward / Further.** Modern and optimistic, but less memorable and specific
+  to the experience.
+- **Known / Known Ground.** Strong conceptual fit for turning unknown territory
+  into familiar ground, but colder as an app identity.
+- **Elsewhere.** Poetic and memorable, though it emphasizes distant places over
+  ordinary daily movement.
 
 - **Patina — Your world, place by place.** Beautiful and personal: movement
   gradually gives the map colour and character. It was not selected because
