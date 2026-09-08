@@ -51,9 +51,9 @@ MapLibre Native will render the base map and unlocked-cell overlay.
 - The official OpenStreetMap standard raster style remains a fallback rather
   than the default basemap.
 - The map keeps the required linked `© OpenMapTiles` and `© OpenStreetMap
-  contributors` attribution in a quiet strip at the bottom edge, below the
-  tracking status card. Optional provider credit does not occupy permanent map
-  space.
+  contributors` attribution in a quiet strip at the bottom-left edge, just
+  above the system safe area. Optional provider credit does not occupy
+  permanent map space.
 - The default basemap provider is OpenFreeMap using its subdued Positron light
   style and Dark style. Its public instance requires no registration or API
   key and explicitly supports MapLibre Native mobile apps.
@@ -330,7 +330,10 @@ untinted; only its subtle frontier distinguishes it from the hidden-area veil.
 
 ## Permission and error states
 
-The map remains usable when tracking is unavailable. A compact overlay presents actionable states:
+The map remains usable when tracking is unavailable. Normal active tracking
+does not show a persistent status card: the live location dot and compact
+on-device indicator provide sufficient confirmation. A bottom overlay appears
+only for actionable or unavailable tracking states:
 
 - Location permission not requested.
 - Foreground permission granted, background permission not granted.
