@@ -154,13 +154,13 @@ export function YonderScreen() {
         location.trackingMode === "stopped" ? "Start tracking" : undefined,
       detail:
         location.trackingMode === "foreground"
-          ? "Keep the app open to unlock the hexes you visit."
+          ? "Background tracking is not active. Keep the app open to unlock the hexes you visit."
           : "Location is allowed, but tracking is currently stopped.",
       isBusy: location.busy,
-      kind: location.trackingMode === "foreground" ? "active" : "needs-action",
+      kind: "needs-action",
       title:
         location.trackingMode === "foreground"
-          ? "Tracking while open"
+          ? "Background tracking is off"
           : "Tracking is paused",
     };
   }, [location, visibleCells.error]);
@@ -237,6 +237,10 @@ export function YonderScreen() {
     }
   }, [isExportingBackup]);
 
+  const handleOpenSettings = useCallback(() => {
+    void Linking.openSettings();
+  }, []);
+
   return (
     <YonderMapView
       currentCoordinate={location.latestCoordinate}
@@ -245,6 +249,7 @@ export function YonderScreen() {
       isExportingBackup={isExportingBackup}
       onBoundsChange={visibleCells.setBounds}
       onExportBackup={handleExportBackup}
+      onOpenSettings={handleOpenSettings}
       onTrackingAction={handleTrackingAction}
       tracking={tracking}
     />

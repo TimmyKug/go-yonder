@@ -47,6 +47,7 @@ type YonderMapViewProps = {
   isLoadingHexagons: boolean;
   onBoundsChange: (bounds: [number, number, number, number]) => void;
   onExportBackup: () => void;
+  onOpenSettings: () => void;
   onTrackingAction?: () => void;
   tracking: TrackingPresentation;
 };
@@ -94,6 +95,7 @@ export function YonderMapView({
   isLoadingHexagons,
   onBoundsChange,
   onExportBackup,
+  onOpenSettings,
   onTrackingAction,
   tracking,
 }: YonderMapViewProps) {
@@ -186,8 +188,7 @@ export function YonderMapView({
       {canMountMap ? (
         <Map
           attribution={false}
-          compass
-          compassPosition={{ top: insets.top + 14, right: 14 }}
+          compass={false}
           logo={false}
           mapStyle={mapStyle}
           onDidFailLoadingMap={() => setMapFailed(true)}
@@ -199,6 +200,7 @@ export function YonderMapView({
           style={{ flex: 1 }}
           tintColor={colors.text}
           touchPitch={false}
+          touchRotate={false}
         >
           <Camera
             initialViewState={INITIAL_MAP_VIEW}
@@ -312,6 +314,9 @@ export function YonderMapView({
       <View
         pointerEvents="box-none"
         style={{
+          alignItems: "center",
+          flexDirection: "row",
+          justifyContent: "space-between",
           left: 14,
           position: "absolute",
           right: 14,
@@ -352,38 +357,63 @@ export function YonderMapView({
           ) : null}
         </View>
 
-        <Pressable
-          accessibilityLabel="Export Yonder backup"
-          accessibilityRole="button"
-          disabled={isExportingBackup}
-          onPress={onExportBackup}
-          testID="export-backup"
-          style={({ pressed }) => ({
-            alignItems: "center",
-            alignSelf: "flex-end",
-            backgroundColor: pressed
-              ? colors.pressedSurface
-              : colors.surface,
-            borderColor: colors.border,
-            borderCurve: "continuous",
-            borderRadius: 18,
-            borderWidth: 1,
-            justifyContent: "center",
-            minHeight: 38,
-            minWidth: 78,
-            paddingHorizontal: 12,
-            position: "absolute",
-            right: 0,
-          })}
-        >
-          {isExportingBackup ? (
-            <ActivityIndicator color={colors.text} size="small" />
-          ) : (
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Pressable
+            accessibilityLabel="Export Yonder backup"
+            accessibilityRole="button"
+            disabled={isExportingBackup}
+            onPress={onExportBackup}
+            testID="export-backup"
+            style={({ pressed }) => ({
+              alignItems: "center",
+              backgroundColor: pressed
+                ? colors.pressedSurface
+                : colors.surface,
+              borderColor: colors.border,
+              borderCurve: "continuous",
+              borderRadius: 18,
+              borderWidth: 1,
+              justifyContent: "center",
+              minHeight: 38,
+              minWidth: 72,
+              paddingHorizontal: 12,
+            })}
+          >
+            {isExportingBackup ? (
+              <ActivityIndicator color={colors.text} size="small" />
+            ) : (
+              <Text
+                style={{ color: colors.text, fontSize: 13, fontWeight: "700" }}
+              >
+                Backup
+              </Text>
+            )}
+          </Pressable>
+
+          <Pressable
+            accessibilityLabel="Open Yonder settings"
+            accessibilityRole="button"
+            onPress={onOpenSettings}
+            testID="open-settings"
+            style={({ pressed }) => ({
+              alignItems: "center",
+              backgroundColor: pressed
+                ? colors.pressedSurface
+                : colors.surface,
+              borderColor: colors.border,
+              borderCurve: "continuous",
+              borderRadius: 18,
+              borderWidth: 1,
+              justifyContent: "center",
+              minHeight: 38,
+              paddingHorizontal: 12,
+            })}
+          >
             <Text style={{ color: colors.text, fontSize: 13, fontWeight: "700" }}>
-              Backup
+              Settings
             </Text>
-          )}
-        </Pressable>
+          </Pressable>
+        </View>
       </View>
 
       {currentCoordinate ? (
@@ -400,7 +430,8 @@ export function YonderMapView({
             borderColor: colors.border,
             borderRadius: 24,
             borderWidth: 1,
-            bottom: 154 + insets.bottom,
+            bottom:
+              (tracking.kind === "active" ? 46 : 154) + insets.bottom,
             height: 48,
             justifyContent: "center",
             position: "absolute",
@@ -415,8 +446,8 @@ export function YonderMapView({
       <View
         pointerEvents="box-none"
         style={{
-          alignItems: "center",
-          bottom: insets.bottom + 3,
+          alignItems: "flex-start",
+          bottom: Math.max(insets.bottom - 7, 3),
           left: 12,
           position: "absolute",
           right: 12,
@@ -476,22 +507,23 @@ export function YonderMapView({
         </View>
       </View>
 
-      <View
-        testID="tracking-status-card"
-        style={{
-          backgroundColor: colors.strongSurface,
-          borderColor: colors.border,
-          borderCurve: "continuous",
-          borderRadius: 24,
-          borderWidth: 1,
-          bottom: insets.bottom + 31,
-          gap: 5,
-          left: 12,
-          padding: 16,
-          position: "absolute",
-          right: 12,
-        }}
-      >
+      {tracking.kind !== "active" ? (
+        <View
+          testID="tracking-status-card"
+          style={{
+            backgroundColor: colors.strongSurface,
+            borderColor: colors.border,
+            borderCurve: "continuous",
+            borderRadius: 24,
+            borderWidth: 1,
+            bottom: insets.bottom + 31,
+            gap: 5,
+            left: 12,
+            padding: 16,
+            position: "absolute",
+            right: 12,
+          }}
+        >
         <View
           style={{
             alignItems: "center",
@@ -547,7 +579,8 @@ export function YonderMapView({
             </Pressable>
           ) : null}
         </View>
-      </View>
+        </View>
+      ) : null}
     </View>
   );
 }
