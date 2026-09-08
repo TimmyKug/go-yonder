@@ -54,6 +54,10 @@ MapLibre Native will render the base map and unlocked-cell overlay.
   contributors` attribution in a quiet strip at the bottom-left edge, just
   above the system safe area. Optional provider credit does not occupy
   permanent map space.
+- Persistent controls use a stable map hierarchy: on-device saving status at
+  top-left; Backup and system Settings grouped at top-right; recenter at
+  bottom-right; attribution at bottom-left. Actionable tracking warnings may
+  temporarily occupy the lower map above those controls.
 - The default basemap provider is OpenFreeMap using its subdued Positron light
   style and Dark style. Its public instance requires no registration or API
   key and explicitly supports MapLibre Native mobile apps.
