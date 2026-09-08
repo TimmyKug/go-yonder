@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getMapStyle,
   OPENFREEMAP_URL,
+  OPENMAPTILES_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
   OPENSTREETMAP_RASTER_STYLE,
 } from "@/src/config/map-config";
@@ -41,5 +42,6 @@ describe("default map configuration", () => {
       "https://tiles.openfreemap.org/styles/dark",
     );
     expect(OPENFREEMAP_URL).toBe("https://openfreemap.org/");
+    expect(OPENMAPTILES_URL).toBe("https://openmaptiles.org/");
   });
 });

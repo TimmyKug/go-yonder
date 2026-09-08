@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   getMapStyle,
   INITIAL_MAP_VIEW,
-  OPENFREEMAP_URL,
+  OPENMAPTILES_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
 import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
@@ -400,7 +400,7 @@ export function YonderMapView({
             borderColor: colors.border,
             borderRadius: 24,
             borderWidth: 1,
-            bottom: 134 + insets.bottom,
+            bottom: 154 + insets.bottom,
             height: 48,
             justifyContent: "center",
             position: "absolute",
@@ -412,34 +412,69 @@ export function YonderMapView({
         </Pressable>
       ) : null}
 
-      <Pressable
-        accessibilityLabel="Open map attribution and licence information"
-        accessibilityRole="link"
-        onPress={() => {
-          void Linking.openURL(
-            usesOpenFreeMap
-              ? OPENFREEMAP_URL
-              : OPENSTREETMAP_COPYRIGHT_URL,
-          );
-        }}
-        style={({ pressed }) => ({
-          backgroundColor: pressed
-            ? colors.pressedSurface
-            : colors.surface,
-          borderRadius: 8,
-          bottom: 190 + insets.bottom,
+      <View
+        pointerEvents="box-none"
+        style={{
+          alignItems: "center",
+          bottom: insets.bottom + 3,
           left: 12,
-          paddingHorizontal: 8,
-          paddingVertical: 5,
           position: "absolute",
-        })}
+          right: 12,
+        }}
       >
-        <Text style={{ color: colors.text, fontSize: 11, fontWeight: "600" }}>
-          {usesOpenFreeMap
-            ? "OpenFreeMap · © OpenMapTiles · © OpenStreetMap"
-            : "© OpenStreetMap contributors"}
-        </Text>
-      </Pressable>
+        <View
+          style={{
+            alignItems: "center",
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            borderCurve: "continuous",
+            borderRadius: 7,
+            borderWidth: 1,
+            flexDirection: "row",
+            gap: 4,
+            paddingHorizontal: 7,
+            paddingVertical: 3,
+          }}
+        >
+          {usesOpenFreeMap ? (
+            <>
+              <Pressable
+                accessibilityLabel="Open OpenMapTiles attribution"
+                accessibilityRole="link"
+                hitSlop={8}
+                onPress={() => void Linking.openURL(OPENMAPTILES_URL)}
+              >
+                <Text
+                  style={{
+                    color: colors.secondaryText,
+                    fontSize: 9,
+                    fontWeight: "600",
+                  }}
+                >
+                  © OpenMapTiles
+                </Text>
+              </Pressable>
+              <Text style={{ color: colors.secondaryText, fontSize: 9 }}>·</Text>
+            </>
+          ) : null}
+          <Pressable
+            accessibilityLabel="Open OpenStreetMap copyright information"
+            accessibilityRole="link"
+            hitSlop={8}
+            onPress={() => void Linking.openURL(OPENSTREETMAP_COPYRIGHT_URL)}
+          >
+            <Text
+              style={{
+                color: colors.secondaryText,
+                fontSize: 9,
+                fontWeight: "600",
+              }}
+            >
+              © OpenStreetMap contributors
+            </Text>
+          </Pressable>
+        </View>
+      </View>
 
       <View
         testID="tracking-status-card"
@@ -449,7 +484,7 @@ export function YonderMapView({
           borderCurve: "continuous",
           borderRadius: 24,
           borderWidth: 1,
-          bottom: insets.bottom + 12,
+          bottom: insets.bottom + 31,
           gap: 5,
           left: 12,
           padding: 16,

@@ -2,6 +2,7 @@ import type { StyleSpecification } from "@maplibre/maplibre-react-native";
 
 export const OPENSTREETMAP_COPYRIGHT_URL =
   "https://www.openstreetmap.org/copyright";
+export const OPENMAPTILES_URL = "https://openmaptiles.org/";
 export const OPENFREEMAP_URL = "https://openfreemap.org/";
 
 export type MapTheme = "dark" | "light";
