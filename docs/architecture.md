@@ -48,8 +48,12 @@ MapLibre Native will render the base map and unlocked-cell overlay.
 - Unlocked cells are supplied as a batched GeoJSON source.
 - Native fill and line layers render that source.
 - The app will not mount one React component per hexagon.
-- The default base map uses the official OpenStreetMap standard raster tiles for the current private deployment of roughly ten or fewer users.
-- The app displays linked OpenStreetMap attribution, identifies native tile requests, relies on normal interactive caching, and does not preload or provide offline downloads from the community tile service.
+- The official OpenStreetMap standard raster style remains a fallback rather
+  than the default basemap.
+- The map keeps the required linked `© OpenMapTiles` and `© OpenStreetMap
+  contributors` attribution in a quiet strip at the bottom edge, below the
+  tracking status card. Optional provider credit does not occupy permanent map
+  space.
 - The default basemap provider is OpenFreeMap using its subdued Positron light
   style and Dark style. Its public instance requires no registration or API
   key and explicitly supports MapLibre Native mobile apps.
