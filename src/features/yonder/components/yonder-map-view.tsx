@@ -406,7 +406,26 @@ export function YonderMapView({
             width: 48,
           })}
         >
-          <Text style={{ color: colors.text, fontSize: 24, lineHeight: 26 }}>◎</Text>
+          <View
+            style={{
+              alignItems: "center",
+              borderColor: colors.text,
+              borderRadius: 13,
+              borderWidth: 2.5,
+              height: 26,
+              justifyContent: "center",
+              width: 26,
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: colors.text,
+                borderRadius: 4,
+                height: 8,
+                width: 8,
+              }}
+            />
+          </View>
         </Pressable>
       ) : null}
 
