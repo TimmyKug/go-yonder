@@ -43,10 +43,8 @@ export type TrackingPresentation = {
 type YonderMapViewProps = {
   currentCoordinate?: MapCoordinate;
   hexagons: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
-  isExportingBackup: boolean;
   isLoadingHexagons: boolean;
   onBoundsChange: (bounds: [number, number, number, number]) => void;
-  onExportBackup: () => void;
   onOpenSettings: () => void;
   onTrackingAction?: () => void;
   tracking: TrackingPresentation;
@@ -91,10 +89,8 @@ const MAP_THEME = {
 export function YonderMapView({
   currentCoordinate,
   hexagons,
-  isExportingBackup,
   isLoadingHexagons,
   onBoundsChange,
-  onExportBackup,
   onOpenSettings,
   onTrackingAction,
   tracking,
@@ -358,38 +354,6 @@ export function YonderMapView({
         </View>
 
         <View style={{ flexDirection: "row", gap: 8 }}>
-          <Pressable
-            accessibilityLabel="Export Yonder backup"
-            accessibilityRole="button"
-            disabled={isExportingBackup}
-            onPress={onExportBackup}
-            testID="export-backup"
-            style={({ pressed }) => ({
-              alignItems: "center",
-              backgroundColor: pressed
-                ? colors.pressedSurface
-                : colors.surface,
-              borderColor: colors.border,
-              borderCurve: "continuous",
-              borderRadius: 18,
-              borderWidth: 1,
-              justifyContent: "center",
-              minHeight: 38,
-              minWidth: 72,
-              paddingHorizontal: 12,
-            })}
-          >
-            {isExportingBackup ? (
-              <ActivityIndicator color={colors.text} size="small" />
-            ) : (
-              <Text
-                style={{ color: colors.text, fontSize: 13, fontWeight: "700" }}
-              >
-                Backup
-              </Text>
-            )}
-          </Pressable>
-
           <Pressable
             accessibilityLabel="Open Yonder settings"
             accessibilityRole="button"

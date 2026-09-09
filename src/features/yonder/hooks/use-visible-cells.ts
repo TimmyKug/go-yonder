@@ -1,3 +1,4 @@
+import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
@@ -26,6 +27,10 @@ export function useVisibleCells(refreshToken?: number): VisibleCellsState {
   const [error, setError] = useState<string>();
   const [activationRevision, setActivationRevision] = useState(0);
   const requestRevision = useRef(0);
+
+  useFocusEffect(useCallback(() => {
+    setActivationRevision((revision) => revision + 1);
+  }, []));
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {

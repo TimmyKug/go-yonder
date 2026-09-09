@@ -1,11 +1,11 @@
+import { router } from "expo-router";
 import {
   useCallback,
   useEffect,
   useMemo,
-  useState,
   useSyncExternalStore,
 } from "react";
-import { Alert, AppState, Linking } from "react-native";
+import { AppState, Linking } from "react-native";
 
 import { useVisibleCells } from "../hooks/use-visible-cells";
 
@@ -15,7 +15,6 @@ import {
 } from "./yonder-map-view";
 
 import {
-  exportYonderBackup,
   refreshAutomaticYonderBackup,
 } from "@/src/data/yonder-backup";
 import {
@@ -28,7 +27,6 @@ import {
 } from "@/src/location";
 
 export function YonderScreen() {
-  const [isExportingBackup, setIsExportingBackup] = useState(false);
   const location = useSyncExternalStore(
     subscribeToLocationState,
     getLocationSnapshot,
@@ -214,31 +212,8 @@ export function YonderScreen() {
     location.servicesEnabled,
   ]);
 
-  const handleExportBackup = useCallback(async () => {
-    if (isExportingBackup) {
-      return;
-    }
-
-    setIsExportingBackup(true);
-    try {
-      const result = await exportYonderBackup();
-      Alert.alert(
-        "Backup saved",
-        `${result.fileName} is a complete, consistent copy of your Yonder data.`,
-      );
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Export failed.";
-
-      if (!/cancel/i.test(message)) {
-        Alert.alert("Backup not saved", message);
-      }
-    } finally {
-      setIsExportingBackup(false);
-    }
-  }, [isExportingBackup]);
-
   const handleOpenSettings = useCallback(() => {
-    void Linking.openSettings();
+    router.push("./settings");
   }, []);
 
   return (
@@ -246,9 +221,7 @@ export function YonderScreen() {
       currentCoordinate={location.latestCoordinate}
       hexagons={visibleCells.hexagons}
       isLoadingHexagons={visibleCells.isLoading}
-      isExportingBackup={isExportingBackup}
       onBoundsChange={visibleCells.setBounds}
-      onExportBackup={handleExportBackup}
       onOpenSettings={handleOpenSettings}
       onTrackingAction={handleTrackingAction}
       tracking={tracking}
