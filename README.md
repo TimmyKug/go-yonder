@@ -58,7 +58,7 @@ The web route is an informational fallback only. Yonder itself targets iOS and A
 ## Android updates with Obtainium
 
 Android release APKs are published from tags named `vMAJOR.MINOR.PATCH`. Add
-`https://github.com/TimmyKug/yonder-map` to Obtainium as a GitHub source.
+`https://github.com/TimmyKug/go-yonder` to Obtainium as a GitHub source.
 
 The repository is private, so first add a fine-grained GitHub personal access
 token in Obtainium's GitHub source settings. Restrict the token to this

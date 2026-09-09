@@ -9,7 +9,7 @@
 
 - Home-screen and in-app name: **Yonder**
 - Public/store name: **Yonder: Unveil Your World**
-- Repository name: **yonder-map**
+- Repository name: **go-yonder**
 - Platform identifier: `com.timothykugler.yonder`
 
 The short device label stays uncluttered, while the public name and repository
