@@ -22,7 +22,7 @@ The application will provide:
 - Durable, device-local persistence across app restarts.
 - A source-neutral ingestion boundary so future location-history exports can be imported without rewriting the map or persistence layers.
 
-This phase deliberately excludes animations, explored percentages, recaps, nights, leaderboards, accounts, backend synchronization, and an import user interface.
+This phase deliberately excludes animations, explored percentages, recaps, nights, leaderboards, accounts, backend synchronization, and third-party import formats.
 
 ## Technology decisions
 
@@ -55,7 +55,7 @@ MapLibre Native will render the base map and unlocked-cell overlay.
   above the system safe area. Optional provider credit does not occupy
   permanent map space.
 - Persistent controls use a stable map hierarchy: on-device saving status at
-  top-left; Backup and system Settings grouped at top-right; recenter at
+  top-left; in-app Settings at top-right; recenter at
   bottom-right; attribution at bottom-left. Actionable tracking warnings may
   temporarily occupy the lower map above those controls.
 - The default basemap provider is OpenFreeMap using its subdued Positron light
@@ -454,3 +454,15 @@ Physical-device tests are required for meaningful background-location verificati
 - [OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/)
 - [H3 indexing functions](https://h3geo.org/docs/api/indexing/)
 - [H3 resolution statistics](https://h3geo.org/docs/core-library/restable/)
+
+## Backup import (0.2.2)
+
+In-app Settings contains backup export, backup import, and a link to system
+location permissions. Import accepts Yonder SQLite snapshots at schema version 3
+and merges only unlocked cells, leaving local samples and import batches intact.
+The snapshot is opened separately, checked for integrity, and all cells are
+validated against H3 resolution 11 before a single atomic merge. Cell centers
+are derived from H3 identifiers; overlapping cells retain the earliest first
+visit and latest last visit. Reimporting is idempotent. Unsupported or invalid
+backups leave local data unchanged. Returning to the map refreshes its coverage.
+No backup data leaves the device through the import flow.
