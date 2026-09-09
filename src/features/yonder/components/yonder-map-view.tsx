@@ -106,6 +106,7 @@ export function YonderMapView({
   const [mapReady, setMapReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
   const [mapSize, setMapSize] = useState({ height: 0, width: 0 });
+  const [isAttributionVisible, setIsAttributionVisible] = useState(false);
 
   const currentPoint = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => {
     if (!currentCoordinate) {
@@ -412,65 +413,114 @@ export function YonderMapView({
       <View
         pointerEvents="box-none"
         style={{
-          alignItems: "flex-start",
+          alignItems: "flex-end",
           bottom: Math.max(insets.bottom - 7, 3),
+          flexDirection: "row",
+          gap: 6,
           left: 12,
           position: "absolute",
           right: 12,
         }}
       >
-        <View
-          style={{
+        <Pressable
+          accessibilityLabel={
+            isAttributionVisible
+              ? "Hide map attribution"
+              : "Show map attribution"
+          }
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isAttributionVisible }}
+          hitSlop={4}
+          onPress={() => setIsAttributionVisible((visible) => !visible)}
+          testID="map-attribution-toggle"
+          style={({ pressed }) => ({
             alignItems: "center",
-            backgroundColor: colors.surface,
+            backgroundColor: pressed ? colors.pressedSurface : colors.surface,
             borderColor: colors.border,
             borderCurve: "continuous",
-            borderRadius: 7,
+            borderRadius: 16,
             borderWidth: 1,
-            flexDirection: "row",
-            gap: 4,
-            paddingHorizontal: 7,
-            paddingVertical: 3,
-          }}
+            height: 32,
+            justifyContent: "center",
+            width: 32,
+          })}
         >
-          {usesOpenFreeMap ? (
-            <>
-              <Pressable
-                accessibilityLabel="Open OpenMapTiles attribution"
-                accessibilityRole="link"
-                hitSlop={8}
-                onPress={() => void Linking.openURL(OPENMAPTILES_URL)}
-              >
-                <Text
-                  style={{
-                    color: colors.secondaryText,
-                    fontSize: 9,
-                    fontWeight: "600",
-                  }}
-                >
-                  © OpenMapTiles
-                </Text>
-              </Pressable>
-              <Text style={{ color: colors.secondaryText, fontSize: 9 }}>·</Text>
-            </>
-          ) : null}
-          <Pressable
-            accessibilityLabel="Open OpenStreetMap copyright information"
-            accessibilityRole="link"
-            hitSlop={8}
-            onPress={() => void Linking.openURL(OPENSTREETMAP_COPYRIGHT_URL)}
+          <Text
+            style={{
+              color: colors.secondaryText,
+              fontSize: 17,
+              fontWeight: "700",
+              lineHeight: 19,
+            }}
           >
-            <Text
-              style={{
-                color: colors.secondaryText,
-                fontSize: 9,
-                fontWeight: "600",
-              }}
+            ⓘ
+          </Text>
+        </Pressable>
+
+        {isAttributionVisible ? (
+          <View
+            accessibilityLabel="Map attribution"
+            style={{
+              alignItems: "center",
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderCurve: "continuous",
+              borderRadius: 9,
+              borderWidth: 1,
+              flexDirection: "row",
+              gap: 5,
+              minHeight: 32,
+              paddingHorizontal: 9,
+              paddingVertical: 5,
+            }}
+            testID="map-attribution"
+          >
+            {usesOpenFreeMap ? (
+              <>
+                <Pressable
+                  accessibilityLabel="Open OpenMapTiles attribution"
+                  accessibilityRole="link"
+                  hitSlop={8}
+                  onPress={() => void Linking.openURL(OPENMAPTILES_URL)}
+                >
+                  <Text
+                    selectable
+                    style={{
+                      color: colors.secondaryText,
+                      fontSize: 10,
+                      fontWeight: "600",
+                    }}
+                  >
+                    © OpenMapTiles
+                  </Text>
+                </Pressable>
+                <Text
+                  selectable
+                  style={{ color: colors.secondaryText, fontSize: 10 }}
+                >
+                  ·
+                </Text>
+              </>
+            ) : null}
+            <Pressable
+              accessibilityLabel="Open OpenStreetMap copyright information"
+              accessibilityRole="link"
+              hitSlop={8}
+              onPress={() => void Linking.openURL(OPENSTREETMAP_COPYRIGHT_URL)}
             >
-              © OpenStreetMap contributors
-            </Text>
-          </Pressable>
-        </View>
+              <Text
+                selectable
+                style={{
+                  color: colors.secondaryText,
+                  fontSize: 10,
+                  fontWeight: "600",
+                }}
+              >
+                © OpenStreetMap contributors
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       {tracking.kind !== "active" ? (
