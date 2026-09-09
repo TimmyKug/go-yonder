@@ -50,10 +50,10 @@ MapLibre Native will render the base map and unlocked-cell overlay.
 - The app will not mount one React component per hexagon.
 - The official OpenStreetMap standard raster style remains a fallback rather
   than the default basemap.
-- The map keeps the required linked `© OpenMapTiles` and `© OpenStreetMap
-  contributors` attribution in a quiet strip at the bottom-left edge, just
-  above the system safe area. Optional provider credit does not occupy
-  permanent map space.
+- The map keeps a persistent attribution info control at the bottom-left edge,
+  just above the system safe area. One tap expands the required linked
+  `© OpenMapTiles` and `© OpenStreetMap contributors` credits inline over the
+  map. Optional provider credit does not occupy permanent map space.
 - Persistent controls use a stable map hierarchy: on-device saving status at
   top-left; in-app Settings at top-right; recenter at
   bottom-right; attribution at bottom-left. Actionable tracking warnings may
