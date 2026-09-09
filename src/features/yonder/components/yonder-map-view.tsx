@@ -431,7 +431,9 @@ export function YonderMapView({
             borderRadius: 24,
             borderWidth: 1,
             bottom:
-              (tracking.kind === "active" ? 4 : 154) + insets.bottom,
+              tracking.kind === "active"
+                ? Math.max(insets.bottom - 7, 3)
+                : insets.bottom + 154,
             height: 48,
             justifyContent: "center",
             position: "absolute",
