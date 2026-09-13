@@ -327,6 +327,14 @@ To avoid fabricating travel, the first implementation will unlock the cell conta
   persisted.
 - Enclosed unvisited regions remain covered by the veil, including regions
   containing disconnected visited islands; surrounding a cell never unlocks it.
+- Zoomed-out coverage is a display-only H3 parent aggregation. At zoom 15 and
+  above show canonical resolution 11; every two zoom levels below 15 selects
+  the next coarser resolution, down to resolution 4. A coarse cell indicates
+  at least one visited child, not complete exploration of that larger area.
+  Zooming back in restores exact coverage, including unvisited holes. Persisted
+  cells, statistics, and ingestion stay at resolution 11. A 0.15-zoom hysteresis
+  prevents scale flicker near thresholds. Aggregation uses already loaded cell
+  IDs and runs only when coverage or the display resolution changes.
 - Map updates are batched after committed ingestion rather than issued for every render.
 - On app activation, the visible query refreshes so cells written by a background task appear immediately.
 - A successfully persisted live sample clears a prior transient location-update or ingestion error; permission and tracking-start failures remain explicit until their own conditions change.
