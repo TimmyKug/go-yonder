@@ -25,6 +25,7 @@ import {
   OPENMAPTILES_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
+import { cellIdsAtDisplayResolution, displayResolutionForZoom } from "@/src/domain/hex-display";
 import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
 
 export type MapCoordinate = {
@@ -107,6 +108,9 @@ export function YonderMapView({
   const [mapFailed, setMapFailed] = useState(false);
   const [mapSize, setMapSize] = useState({ height: 0, width: 0 });
   const [isAttributionVisible, setIsAttributionVisible] = useState(false);
+  const [displayResolution, setDisplayResolution] = useState(() =>
+    displayResolutionForZoom(INITIAL_MAP_VIEW.zoom),
+  );
 
   const currentPoint = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => {
     if (!currentCoordinate) {
@@ -130,21 +134,24 @@ export function YonderMapView({
       ],
     };
   }, [currentCoordinate]);
-  const mapVeil = useMemo(
-    () =>
-      unlockedCellIdsToVeilMask(
-        hexagons.features.flatMap((feature) => {
-          const cellId = feature.properties?.cellId;
-
-          return typeof cellId === "string" ? [cellId] : [];
-        }),
-      ),
+  const loadedCellIds = useMemo(
+    () => hexagons.features.flatMap((feature) => {
+      const cellId = feature.properties?.cellId;
+      return typeof cellId === "string" ? [cellId] : [];
+    }),
     [hexagons],
+  );
+  const mapVeil = useMemo(
+    () => unlockedCellIdsToVeilMask(
+      cellIdsAtDisplayResolution(loadedCellIds, displayResolution),
+    ),
+    [loadedCellIds, displayResolution],
   );
 
   useEffect(() => {
     if (mapReady && currentCoordinate && !hasCenteredOnUser.current) {
       hasCenteredOnUser.current = true;
+      setDisplayResolution(displayResolutionForZoom(15));
       cameraRef.current?.jumpTo({
         center: [currentCoordinate.longitude, currentCoordinate.latitude],
         zoom: 15,
@@ -160,7 +167,15 @@ export function YonderMapView({
   const handleRegionDidChange = (
     event: NativeSyntheticEvent<ViewStateChangeEvent>,
   ) => {
+    handleRegionIsChanging(event);
     onBoundsChange(event.nativeEvent.bounds);
+  };
+
+  const handleRegionIsChanging = (
+    event: NativeSyntheticEvent<ViewStateChangeEvent>,
+  ) => {
+    const zoom = event.nativeEvent.zoom;
+    setDisplayResolution((current) => displayResolutionForZoom(zoom, current));
   };
 
   const handleRecenter = () => {
@@ -168,6 +183,7 @@ export function YonderMapView({
       return;
     }
 
+    setDisplayResolution(displayResolutionForZoom(15));
     cameraRef.current?.jumpTo({
       center: [currentCoordinate.longitude, currentCoordinate.latitude],
       zoom: 15,
@@ -194,6 +210,7 @@ export function YonderMapView({
             setMapReady(true);
           }}
           onRegionDidChange={handleRegionDidChange}
+          onRegionIsChanging={handleRegionIsChanging}
           style={{ flex: 1 }}
           tintColor={colors.text}
           touchPitch={false}
