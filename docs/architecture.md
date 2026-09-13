@@ -312,7 +312,10 @@ To avoid fabricating travel, the first implementation will unlock the cell conta
 ## Map query and rendering
 
 - The camera/viewport is converted to a geographic bounding box.
-- SQLite returns unlocked cells whose stored centers intersect that box plus a small padding margin.
+- SQLite preloads unlocked cells within one extra viewport width/height on each
+  side. The query is recentered when a half-viewport margin no longer fits in
+  the loaded bounds, retaining the previous geometry while loading. This buffer
+  stays bounded to the current area and refreshes after ingestion or activation.
 - Antimeridian-crossing bounds are handled explicitly.
 - H3 boundaries are converted to GeoJSON longitude/latitude order.
 - H3 cells remain the canonical persisted and queried coverage geometry. At
@@ -322,6 +325,8 @@ To avoid fabricating travel, the first implementation will unlock the cell conta
   implementation the product's visual identity.
 - The union and veil geometry are derived in pure domain code and never
   persisted.
+- Enclosed unvisited regions remain covered by the veil, including regions
+  containing disconnected visited islands; surrounding a cell never unlocks it.
 - Map updates are batched after committed ingestion rather than issued for every render.
 - On app activation, the visible query refreshes so cells written by a background task appear immediately.
 - A successfully persisted live sample clears a prior transient location-update or ingestion error; permission and tracking-start failures remain explicit until their own conditions change.
