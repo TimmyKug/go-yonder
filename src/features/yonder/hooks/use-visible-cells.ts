@@ -4,13 +4,12 @@ import { AppState } from "react-native";
 
 import { getYonderRepository } from "@/src/data/app-repository";
 import { unlockedCellsToFeatureCollection } from "@/src/domain/hex-grid";
+import { type MapBounds, nextCoverageBounds, padMapBounds } from "@/src/domain/map-bounds";
 
 const EMPTY_HEXAGONS: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
   type: "FeatureCollection",
   features: [],
 };
-
-type MapBounds = [west: number, south: number, east: number, north: number];
 
 type VisibleCellsState = {
   error?: string;
@@ -20,7 +19,9 @@ type VisibleCellsState = {
 };
 
 export function useVisibleCells(refreshToken?: number): VisibleCellsState {
-  const [bounds, setBounds] = useState<MapBounds>([13.1, 52.35, 13.7, 52.7]);
+  const [bounds, setBounds] = useState<MapBounds>(() =>
+    padMapBounds([13.1, 52.35, 13.7, 52.7]),
+  );
   const [hexagons, setHexagons] =
     useState<GeoJSON.FeatureCollection<GeoJSON.Polygon>>(EMPTY_HEXAGONS);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,11 +87,7 @@ export function useVisibleCells(refreshToken?: number): VisibleCellsState {
   }, [activationRevision, bounds, refreshToken]);
 
   const updateBounds = useCallback((nextBounds: MapBounds) => {
-    setBounds((currentBounds) =>
-      currentBounds.every((value, index) => value === nextBounds[index])
-        ? currentBounds
-        : nextBounds,
-    );
+    setBounds((currentBounds) => nextCoverageBounds(currentBounds, nextBounds));
   }, []);
 
   return {
