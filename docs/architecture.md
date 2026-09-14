@@ -359,7 +359,10 @@ Natural Earth v5.1.2 1:10m country polygons are prepared into a single compact
 offline dataset simplified to 0.05 degrees, which is roughly one screen pixel
 at the country overview's closest zoom. The same geometry is reused for map
 drawing, point assignment, and boundary clipping so opening the overview does
-not parse a second high-detail world dataset.
+not parse a second high-detail world dataset. Countries under 5,000 square
+kilometres retain their source geometry so microstates and small islands remain
+discoverable; smaller countries take precedence where simplification closes an
+enclave in a larger neighbour.
 Countries are grouped by Natural Earth's sovereign identifier, so dependencies
 count toward their sovereign country; Antarctica is excluded. Natural Earth's
 boundary definitions apply. Country area denominators are calculated from the

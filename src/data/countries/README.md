@@ -13,6 +13,8 @@ boundary definitions, not a fixed UN-member-country list.
 
 `countries.json` is simplified to 0.05 degrees and reused for wide-zoom
 rendering, offline point assignment, and coverage clipping. At zoom 5 this is
-roughly one screen pixel of geometric detail. `areaKm2` is calculated from the
-unsimplified polygons before simplification. These are cartographic estimates,
-especially near coasts and borders.
+roughly one screen pixel of geometric detail. Countries smaller than 5,000 km²
+retain their source geometry so microstates and small islands remain
+discoverable. `areaKm2` is calculated from the unsimplified polygons before
+simplification. These are cartographic estimates, especially near coasts and
+borders.
