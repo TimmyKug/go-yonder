@@ -6,6 +6,7 @@ import {
   Map,
   type ViewStateChangeEvent,
 } from "@maplibre/maplibre-react-native";
+import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -19,12 +20,15 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useCountrySummary } from "../hooks/use-country-summary";
+
 import {
   getMapStyle,
   INITIAL_MAP_VIEW,
   OPENMAPTILES_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
+import { COUNTRY_OVERVIEW_ZOOM, type CountryCollection } from "@/src/domain/country-coverage";
 import { cellIdsAtDisplayResolution, displayResolutionForZoom } from "@/src/domain/hex-display";
 import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
 
@@ -43,6 +47,7 @@ export type TrackingPresentation = {
 
 type YonderMapViewProps = {
   currentCoordinate?: MapCoordinate;
+  countryRefreshToken?: number;
   hexagons: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
   isLoadingHexagons: boolean;
   onBoundsChange: (bounds: [number, number, number, number]) => void;
@@ -89,6 +94,7 @@ const MAP_THEME = {
 
 export function YonderMapView({
   currentCoordinate,
+  countryRefreshToken,
   hexagons,
   isLoadingHexagons,
   onBoundsChange,
@@ -108,6 +114,16 @@ export function YonderMapView({
   const [mapFailed, setMapFailed] = useState(false);
   const [mapSize, setMapSize] = useState({ height: 0, width: 0 });
   const [isAttributionVisible, setIsAttributionVisible] = useState(false);
+  const [countryOverview, setCountryOverview] = useState(false);
+  const countrySummary = useCountrySummary(countryOverview, countryRefreshToken);
+  const countryOverlay = useMemo<CountryCollection>(() => {
+    if (!countryOverview || !countrySummary.countries?.length) {
+      return { type: "FeatureCollection", features: [] };
+    }
+    const visited = new Set(countrySummary.countries.map(({ id }) => id));
+    const boundaries = require("@/src/data/countries/display.json") as CountryCollection;
+    return { type: "FeatureCollection", features: boundaries.features.filter(({ properties }) => visited.has(properties.id)) };
+  }, [countryOverview, countrySummary.countries]);
   const [displayResolution, setDisplayResolution] = useState(() =>
     displayResolutionForZoom(INITIAL_MAP_VIEW.zoom),
   );
@@ -176,6 +192,9 @@ export function YonderMapView({
   ) => {
     const zoom = event.nativeEvent.zoom;
     setDisplayResolution((current) => displayResolutionForZoom(zoom, current));
+    if (Number.isFinite(zoom)) {
+      setCountryOverview((current) => zoom <= COUNTRY_OVERVIEW_ZOOM + (current ? 0.3 : 0.15));
+    }
   };
 
   const handleRecenter = () => {
@@ -222,6 +241,26 @@ export function YonderMapView({
             minZoom={2}
             ref={cameraRef}
           />
+
+          <GeoJSONSource data={countryOverlay} id="visited-countries">
+            <Layer
+              id="visited-country-fill"
+              type="fill"
+              paint={{
+                "fill-color": themeName === "dark" ? "#03090D" : "#657583",
+                "fill-opacity": ["interpolate", ["linear"], ["zoom"], 4.5, 0.22, 5.15, 0],
+              }}
+            />
+            <Layer
+              id="visited-country-border"
+              type="line"
+              paint={{
+                "line-color": themeName === "dark" ? "#C4CFD2" : "#516776",
+                "line-width": 1.3,
+                "line-opacity": ["interpolate", ["linear"], ["zoom"], 4.5, 0.85, 5.15, 0],
+              }}
+            />
+          </GeoJSONSource>
 
           <GeoJSONSource data={mapVeil} id="map-veil">
             <Layer
@@ -397,6 +436,30 @@ export function YonderMapView({
           </Pressable>
         </View>
       </View>
+
+      {countryOverview ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={countrySummary.error ? "Retry loading countries" : "Show visited countries and uncovered percentages"}
+          onPress={() => countrySummary.error ? countrySummary.refresh() : router.push("/countries")}
+          testID="country-count"
+          style={({ pressed }) => ({
+            position: "absolute", left: 14, top: insets.top + 64,
+            flexDirection: "row", alignItems: "center", gap: 10,
+            minHeight: 44, paddingHorizontal: 14, paddingVertical: 10,
+            borderRadius: 18, borderCurve: "continuous", borderWidth: 1,
+            borderColor: colors.border, backgroundColor: pressed ? colors.pressedSurface : colors.surface,
+          })}
+        >
+          {countrySummary.loading ? <ActivityIndicator color={colors.secondaryText} size="small" /> : null}
+          <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] }}>
+            {countrySummary.error ? "Countries unavailable · Retry" : countrySummary.countries
+              ? `${countrySummary.countries.length} ${countrySummary.countries.length === 1 ? "country" : "countries"} visited`
+              : "Loading countries…"}
+          </Text>
+          {!countrySummary.error ? <Text style={{ color: colors.secondaryText, fontSize: 22 }}>›</Text> : null}
+        </Pressable>
+      ) : null}
 
       {currentCoordinate ? (
         <Pressable

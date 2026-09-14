@@ -4,6 +4,10 @@
   "main": "index.ts",
   "dependencies": {
     "@maplibre/maplibre-react-native": "^11.3.6",
+    "@turf/area": "^7.4.0",
+    "@turf/boolean-point-in-polygon": "^7.4.0",
+    "@turf/intersect": "^7.4.0",
+    "@turf/simplify": "^7.4.0",
     "expo": "~57.0.14",
     "expo-constants": "~57.0.10",
     "expo-dev-client": "~57.0.13",
