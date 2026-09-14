@@ -355,10 +355,15 @@ visit dates, and approximate uncovered percentages. The count includes all
 saved coverage, independent of the viewport, and refreshes after location
 ingestion, import, and app activation.
 
-Natural Earth v5.1.2 1:10m country polygons are bundled for offline assignment.
+Natural Earth v5.1.2 1:10m country polygons are prepared into a single compact
+offline dataset simplified to 0.05 degrees, which is roughly one screen pixel
+at the country overview's closest zoom. The same geometry is reused for map
+drawing, point assignment, and boundary clipping so opening the overview does
+not parse a second high-detail world dataset.
 Countries are grouped by Natural Earth's sovereign identifier, so dependencies
 count toward their sovereign country; Antarctica is excluded. Natural Earth's
-boundary definitions apply. Simplified copies are used only for drawing.
+boundary definitions apply. Country area denominators are calculated from the
+unsimplified source during data preparation and retained in the compact data.
 Visits are assigned from canonical resolution-11 cell centers. Country coverage
 uses unique resolution-4 parent hexes, the largest display size, regardless of
 the current zoom. Each visited country's parent hexes are clipped to its

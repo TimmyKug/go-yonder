@@ -11,7 +11,8 @@ Features are grouped by `SOV_A3` / `SOVEREIGNT`, excluding Antarctica.
 Dependencies count toward their sovereign country. This follows Natural Earth's
 boundary definitions, not a fixed UN-member-country list.
 
-`boundaries.json` retains source geometry rounded to five decimal places for
-offline point assignment. `display.json` is simplified to 0.025 degrees for
-wide-zoom rendering only. `areaKm2` uses the unsimplified polygons' spherical
-area. These are cartographic estimates, especially near coasts and borders.
+`countries.json` is simplified to 0.05 degrees and reused for wide-zoom
+rendering, offline point assignment, and coverage clipping. At zoom 5 this is
+roughly one screen pixel of geometric detail. `areaKm2` is calculated from the
+unsimplified polygons before simplification. These are cartographic estimates,
+especially near coasts and borders.
