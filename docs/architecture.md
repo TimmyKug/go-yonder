@@ -388,6 +388,12 @@ does not expose the native setting, so the pinned package is patched during
 postinstall. iOS keeps MapLibre's platform gesture rate because its native SDK
 does not expose an equivalent setting.
 
+Settings offers System, Light, and Dark appearance choices. System remains the
+default and follows the device; explicit choices override it across map chrome,
+navigation headers, settings, and country details. The preference is stored in
+Expo SQLite's separate key-value database through a small repository, keeping
+it out of location backups and avoiding a location-database schema change.
+
 ## Permission and error states
 
 The map remains usable when tracking is unavailable. Normal active tracking
