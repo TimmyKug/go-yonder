@@ -12,17 +12,17 @@ describe("zoom-dependent hex display", () => {
     }
     for (const zoom of [2, 4.5, 15, 20]) expect(isValidMapZoom(zoom)).toBe(true);
   });
-  it.each([[20, 11], [15, 11], [14, 10], [13, 10], [12, 9], [11, 9], [9, 8], [7, 7], [5, 6], [3, 5], [2, 4]])(
+  it.each([[20, 11], [15, 11], [14, 11], [13, 10], [12, 9], [11, 9], [9, 8], [7, 7], [5, 6], [3, 5], [2, 4]])(
     "maps zoom %i to resolution %i", (zoom, resolution) => {
       expect(displayResolutionForZoom(zoom)).toBe(resolution);
     },
   );
 
   it("does not flicker around a scale boundary", () => {
-    expect(displayResolutionForZoom(14.9, 11)).toBe(11);
-    expect(displayResolutionForZoom(14.8, 11)).toBe(10);
-    expect(displayResolutionForZoom(15.1, 10)).toBe(10);
-    expect(displayResolutionForZoom(15.2, 10)).toBe(11);
+    expect(displayResolutionForZoom(13.9, 11)).toBe(11);
+    expect(displayResolutionForZoom(13.8, 11)).toBe(10);
+    expect(displayResolutionForZoom(14.1, 10)).toBe(10);
+    expect(displayResolutionForZoom(14.2, 10)).toBe(11);
   });
 
   it("handles large zoom jumps and invalid camera events", () => {
