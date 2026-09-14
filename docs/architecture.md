@@ -349,7 +349,7 @@ untinted; only its subtle frontier distinguishes it from the hidden-area veil.
 
 ## Country overview
 
-At zoom 5 and below, the same map fades in neutral silver country boundaries
+At zoom 7 and below, the same map fades in neutral silver country boundaries
 and a subtle visited-country tint. The explored hex veil remains visible above
 the country fill. No mode switch, tab, or visited/unvisited legend is added.
 A compact country count opens a native sheet listing visited countries, first
@@ -381,6 +381,12 @@ read in pages and cached classifications are reused between refreshes.
 
 Manual visit editing is deferred; this iteration derives visits from saved
 coverage only. Country list and map use the same completed summary snapshot.
+
+On Android, Yonder sets MapLibre Native's zoom rate to 1.6 so the one-finger
+double-tap-and-drag gesture traverses the map faster. The React Native wrapper
+does not expose the native setting, so the pinned package is patched during
+postinstall. iOS keeps MapLibre's platform gesture rate because its native SDK
+does not expose an equivalent setting.
 
 ## Permission and error states
 
