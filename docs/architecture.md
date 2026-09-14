@@ -345,8 +345,6 @@ leaving explored ground crisp and genuinely dark. In both themes, the union of
 unlocked H3 cells is cut out of the veil. The explored map remains effectively
 untinted; only its subtle frontier distinguishes it from the hidden-area veil.
 
-## Permission and error states
-
 ## Country overview
 
 At zoom 5 and below, the same map fades in neutral silver country boundaries
@@ -361,10 +359,13 @@ Natural Earth v5.1.2 1:10m country polygons are bundled for offline assignment.
 Countries are grouped by Natural Earth's sovereign identifier, so dependencies
 count toward their sovereign country; Antarctica is excluded. Natural Earth's
 boundary definitions apply. Simplified copies are used only for drawing.
-Each canonical resolution-11 cell is assigned by its center, and its H3 area is
-summed once. The denominator is the spherical area of the bundled country's
-polygons. Percentages are estimates near coasts and borders, never use enlarged
-display hexes, and are capped at 100%. This is a derived local summary with no
+Visits are assigned from canonical resolution-11 cell centers. Country coverage
+uses unique resolution-4 parent hexes, the largest display size, regardless of
+the current zoom. Each visited country's parent hexes are clipped to its
+boundaries before summing area. The denominator is the spherical area of the
+bundled country's polygons. Percentages are cartographic estimates and are
+capped at 100%. This intentionally summarizes broad explored regions rather
+than precise ground coverage, as requested. This is a derived local summary with no
 schema change, network reverse geocoding, or uploaded history. Saved cells are
 read in pages and cached classifications are reused between refreshes.
 
