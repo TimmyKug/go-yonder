@@ -1,11 +1,17 @@
 import { cellToChildren, cellToParent, getResolution, latLngToCell } from "h3-js";
 import { describe, expect, it } from "vitest";
 
-import { cellIdsAtDisplayResolution, displayResolutionForZoom } from "../src/domain/hex-display";
+import { cellIdsAtDisplayResolution, displayResolutionForZoom, isValidMapZoom } from "../src/domain/hex-display";
 
 const cell = latLngToCell(10, 20, 11);
 
 describe("zoom-dependent hex display", () => {
+  it("ignores startup zooms and invalid camera events", () => {
+    for (const zoom of [0, -1, Number.NaN, Infinity, -Infinity, 21]) {
+      expect(isValidMapZoom(zoom)).toBe(false);
+    }
+    for (const zoom of [2, 4.5, 15, 20]) expect(isValidMapZoom(zoom)).toBe(true);
+  });
   it.each([[20, 11], [15, 11], [14, 10], [13, 10], [12, 9], [11, 9], [9, 8], [7, 7], [5, 6], [3, 5], [2, 4]])(
     "maps zoom %i to resolution %i", (zoom, resolution) => {
       expect(displayResolutionForZoom(zoom)).toBe(resolution);

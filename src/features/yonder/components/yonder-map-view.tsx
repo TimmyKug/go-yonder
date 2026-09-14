@@ -29,7 +29,7 @@ import {
   OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
 import { COUNTRY_OVERVIEW_ZOOM, type CountryCollection } from "@/src/domain/country-coverage";
-import { cellIdsAtDisplayResolution, displayResolutionForZoom } from "@/src/domain/hex-display";
+import { cellIdsAtDisplayResolution, displayResolutionForZoom, isValidMapZoom, MAX_MAP_ZOOM, MIN_MAP_ZOOM } from "@/src/domain/hex-display";
 import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
 
 export type MapCoordinate = {
@@ -114,7 +114,9 @@ export function YonderMapView({
   const [mapFailed, setMapFailed] = useState(false);
   const [mapSize, setMapSize] = useState({ height: 0, width: 0 });
   const [isAttributionVisible, setIsAttributionVisible] = useState(false);
-  const [countryOverview, setCountryOverview] = useState(false);
+  const [countryOverview, setCountryOverview] = useState(
+    () => INITIAL_MAP_VIEW.zoom <= COUNTRY_OVERVIEW_ZOOM,
+  );
   const countrySummary = useCountrySummary(countryOverview, countryRefreshToken);
   const countryOverlay = useMemo<CountryCollection>(() => {
     if (!countryOverview || !countrySummary.countries?.length) {
@@ -191,10 +193,11 @@ export function YonderMapView({
     event: NativeSyntheticEvent<ViewStateChangeEvent>,
   ) => {
     const zoom = event.nativeEvent.zoom;
+    // The map reports zoom 0 while it initialises, below the camera's own
+    // minimum. Acting on it would scan every country before the first frame.
+    if (!isValidMapZoom(zoom)) return;
     setDisplayResolution((current) => displayResolutionForZoom(zoom, current));
-    if (Number.isFinite(zoom)) {
-      setCountryOverview((current) => zoom <= COUNTRY_OVERVIEW_ZOOM + (current ? 0.3 : 0.15));
-    }
+    setCountryOverview((current) => zoom <= COUNTRY_OVERVIEW_ZOOM + (current ? 0.3 : 0.15));
   };
 
   const handleRecenter = () => {
@@ -237,8 +240,8 @@ export function YonderMapView({
         >
           <Camera
             initialViewState={INITIAL_MAP_VIEW}
-            maxZoom={20}
-            minZoom={2}
+            maxZoom={MAX_MAP_ZOOM}
+            minZoom={MIN_MAP_ZOOM}
             ref={cameraRef}
           />
 

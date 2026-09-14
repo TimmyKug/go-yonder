@@ -6,6 +6,12 @@ const MIN_DISPLAY_RESOLUTION = 4;
 const DETAIL_ZOOM = 15;
 const ZOOM_STEP = 2;
 const HYSTERESIS = 0.15;
+export const MIN_MAP_ZOOM = 2;
+export const MAX_MAP_ZOOM = 20;
+
+export function isValidMapZoom(zoom: number): boolean {
+  return Number.isFinite(zoom) && zoom >= MIN_MAP_ZOOM && zoom <= MAX_MAP_ZOOM;
+}
 
 export function displayResolutionForZoom(zoom: number, current?: number): number {
   if (!Number.isFinite(zoom)) return current ?? YONDER_H3_RESOLUTION;
