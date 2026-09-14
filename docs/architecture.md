@@ -328,8 +328,9 @@ To avoid fabricating travel, the first implementation will unlock the cell conta
 - Enclosed unvisited regions remain covered by the veil, including regions
   containing disconnected visited islands; surrounding a cell never unlocks it.
 - Zoomed-out coverage is a display-only H3 parent aggregation. At zoom 14 and
-  above show canonical resolution 11; every two zoom levels below 14 selects
-  the next coarser resolution, down to resolution 4. A coarse cell indicates
+  above show canonical resolution 11, resolution 10 spans zoom 13 to 14, and
+  every two zoom levels thereafter selects the next coarser resolution, down
+  to resolution 4. A coarse cell indicates
   at least one visited child, not complete exploration of that larger area.
   Zooming back in restores exact coverage, including unvisited holes. Persisted
   cells, statistics, and ingestion stay at resolution 11. This halves the
