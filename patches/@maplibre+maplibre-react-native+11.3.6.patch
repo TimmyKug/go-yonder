@@ -1,0 +1,178 @@
+diff --git a/node_modules/@maplibre/maplibre-react-native/android/src/main/java/org/maplibre/reactnative/components/mapview/MLRNMapView.kt b/node_modules/@maplibre/maplibre-react-native/android/src/main/java/org/maplibre/reactnative/components/mapview/MLRNMapView.kt
+index 4ea5c73..0fd7ab5 100644
+--- a/node_modules/@maplibre/maplibre-react-native/android/src/main/java/org/maplibre/reactnative/components/mapview/MLRNMapView.kt
++++ b/node_modules/@maplibre/maplibre-react-native/android/src/main/java/org/maplibre/reactnative/components/mapview/MLRNMapView.kt
+@@ -142,6 +142,7 @@ open class MLRNMapView(
+     private var touchZoomEnabled: Boolean? = null
+     private var doubleTapZoomEnabled: Boolean? = null
+     private var doubleTapHoldZoomEnabled: Boolean? = null
++    private var zoomRate: Float? = null
+     private var rotateEnabled: Boolean? = null
+     private var pitchEnabled: Boolean? = null
+ 
+@@ -842,6 +843,11 @@ open class MLRNMapView(
+         updateUISettings()
+     }
+ 
++    fun setReactZoomRate(value: Double) {
++        zoomRate = value.toFloat()
++        updateUISettings()
++    }
++
+     fun setReactRotateEnabled(rotateEnabled: Boolean) {
+         this.rotateEnabled = rotateEnabled
+         updateUISettings()
+@@ -1219,6 +1225,10 @@ open class MLRNMapView(
+             }
+         }
+ 
++        if (zoomRate != null && uiSettings.zoomRate != zoomRate) {
++            uiSettings.zoomRate = zoomRate!!
++        }
++
+         if (rotateEnabled != null && uiSettings.isRotateGesturesEnabled != rotateEnabled) {
+             uiSettings.isRotateGesturesEnabled = rotateEnabled!!
+ 
+diff --git a/node_modules/@maplibre/maplibre-react-native/android/src/main/java/org/maplibre/reactnative/components/mapview/MLRNMapViewManager.kt b/node_modules/@maplibre/maplibre-react-native/android/src/main/java/org/maplibre/reactnative/components/mapview/MLRNMapViewManager.kt
+index 2179f0b..54a802e 100644
+--- a/node_modules/@maplibre/maplibre-react-native/android/src/main/java/org/maplibre/reactnative/components/mapview/MLRNMapViewManager.kt
++++ b/node_modules/@maplibre/maplibre-react-native/android/src/main/java/org/maplibre/reactnative/components/mapview/MLRNMapViewManager.kt
+@@ -151,6 +151,14 @@ open class MLRNMapViewManager(
+         mapView.setReactDoubleTapHoldZoomEnabled(value)
+     }
+ 
++    @ReactProp(name = "zoomRate")
++    override fun setZoomRate(
++        mapView: MLRNMapView,
++        value: Double,
++    ) {
++        mapView.setReactZoomRate(value)
++    }
++
+     @ReactProp(name = "touchRotate")
+     override fun setTouchRotate(
+         mapView: MLRNMapView,
+diff --git a/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/AndroidTextureMapViewNativeComponent.d.ts b/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/AndroidTextureMapViewNativeComponent.d.ts
+index 47f536b..b7272c3 100644
+--- a/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/AndroidTextureMapViewNativeComponent.d.ts
++++ b/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/AndroidTextureMapViewNativeComponent.d.ts
+@@ -46,6 +46,7 @@ export interface NativeProps extends ViewProps {
+     touchZoom?: CodegenTypes.WithDefault<boolean, true>;
+     doubleTapZoom?: CodegenTypes.WithDefault<boolean, true>;
+     doubleTapHoldZoom?: CodegenTypes.WithDefault<boolean, true>;
++    zoomRate?: CodegenTypes.WithDefault<CodegenTypes.Double, 1>;
+     touchRotate?: CodegenTypes.WithDefault<boolean, true>;
+     touchPitch?: CodegenTypes.WithDefault<boolean, true>;
+     tintColor?: ColorValue | undefined;
+diff --git a/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/Map.d.ts b/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/Map.d.ts
+index 20bfebd..a80db6d 100644
+--- a/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/Map.d.ts
++++ b/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/Map.d.ts
+@@ -286,6 +286,12 @@ export interface MapProps extends BaseProps, ViewProps {
+      * @defaultValue true
+      */
+     doubleTapHoldZoom?: boolean;
++    /**
++     * **Android**: Multiplier for pinch and double-tap-and-hold zoom movement.
++     *
++     * @defaultValue 1
++     */
++    zoomRate?: number;
+     /**
+      * Toggle rotate interaction of the map
+      *
+diff --git a/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/MapViewNativeComponent.d.ts b/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/MapViewNativeComponent.d.ts
+index e337bbf..c86fe87 100644
+--- a/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/MapViewNativeComponent.d.ts
++++ b/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/MapViewNativeComponent.d.ts
+@@ -46,6 +46,7 @@ export interface NativeProps extends ViewProps {
+     touchZoom?: CodegenTypes.WithDefault<boolean, true>;
+     doubleTapZoom?: CodegenTypes.WithDefault<boolean, true>;
+     doubleTapHoldZoom?: CodegenTypes.WithDefault<boolean, true>;
++    zoomRate?: CodegenTypes.WithDefault<CodegenTypes.Double, 1>;
+     touchRotate?: CodegenTypes.WithDefault<boolean, true>;
+     touchPitch?: CodegenTypes.WithDefault<boolean, true>;
+     tintColor?: ColorValue | undefined;
+diff --git a/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/AndroidTextureMapViewNativeComponent.d.ts b/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/AndroidTextureMapViewNativeComponent.d.ts
+index 47f536b..b7272c3 100644
+--- a/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/AndroidTextureMapViewNativeComponent.d.ts
++++ b/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/AndroidTextureMapViewNativeComponent.d.ts
+@@ -46,6 +46,7 @@ export interface NativeProps extends ViewProps {
+     touchZoom?: CodegenTypes.WithDefault<boolean, true>;
+     doubleTapZoom?: CodegenTypes.WithDefault<boolean, true>;
+     doubleTapHoldZoom?: CodegenTypes.WithDefault<boolean, true>;
++    zoomRate?: CodegenTypes.WithDefault<CodegenTypes.Double, 1>;
+     touchRotate?: CodegenTypes.WithDefault<boolean, true>;
+     touchPitch?: CodegenTypes.WithDefault<boolean, true>;
+     tintColor?: ColorValue | undefined;
+diff --git a/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/Map.d.ts b/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/Map.d.ts
+index 20bfebd..a80db6d 100644
+--- a/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/Map.d.ts
++++ b/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/Map.d.ts
+@@ -286,6 +286,12 @@ export interface MapProps extends BaseProps, ViewProps {
+      * @defaultValue true
+      */
+     doubleTapHoldZoom?: boolean;
++    /**
++     * **Android**: Multiplier for pinch and double-tap-and-hold zoom movement.
++     *
++     * @defaultValue 1
++     */
++    zoomRate?: number;
+     /**
+      * Toggle rotate interaction of the map
+      *
+diff --git a/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/MapViewNativeComponent.d.ts b/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/MapViewNativeComponent.d.ts
+index e337bbf..c86fe87 100644
+--- a/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/MapViewNativeComponent.d.ts
++++ b/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/MapViewNativeComponent.d.ts
+@@ -46,6 +46,7 @@ export interface NativeProps extends ViewProps {
+     touchZoom?: CodegenTypes.WithDefault<boolean, true>;
+     doubleTapZoom?: CodegenTypes.WithDefault<boolean, true>;
+     doubleTapHoldZoom?: CodegenTypes.WithDefault<boolean, true>;
++    zoomRate?: CodegenTypes.WithDefault<CodegenTypes.Double, 1>;
+     touchRotate?: CodegenTypes.WithDefault<boolean, true>;
+     touchPitch?: CodegenTypes.WithDefault<boolean, true>;
+     tintColor?: ColorValue | undefined;
+diff --git a/node_modules/@maplibre/maplibre-react-native/src/components/map/AndroidTextureMapViewNativeComponent.ts b/node_modules/@maplibre/maplibre-react-native/src/components/map/AndroidTextureMapViewNativeComponent.ts
+index af4549f..3ecf233 100644
+--- a/node_modules/@maplibre/maplibre-react-native/src/components/map/AndroidTextureMapViewNativeComponent.ts
++++ b/node_modules/@maplibre/maplibre-react-native/src/components/map/AndroidTextureMapViewNativeComponent.ts
+@@ -63,6 +63,7 @@ export interface NativeProps extends ViewProps {
+   touchZoom?: CodegenTypes.WithDefault<boolean, true>;
+   doubleTapZoom?: CodegenTypes.WithDefault<boolean, true>;
+   doubleTapHoldZoom?: CodegenTypes.WithDefault<boolean, true>;
++  zoomRate?: CodegenTypes.WithDefault<CodegenTypes.Double, 1>;
+   touchRotate?: CodegenTypes.WithDefault<boolean, true>;
+   touchPitch?: CodegenTypes.WithDefault<boolean, true>;
+ 
+diff --git a/node_modules/@maplibre/maplibre-react-native/src/components/map/Map.tsx b/node_modules/@maplibre/maplibre-react-native/src/components/map/Map.tsx
+index d8ccd4e..fd0b244 100644
+--- a/node_modules/@maplibre/maplibre-react-native/src/components/map/Map.tsx
++++ b/node_modules/@maplibre/maplibre-react-native/src/components/map/Map.tsx
+@@ -352,6 +352,13 @@ export interface MapProps extends BaseProps, ViewProps {
+    */
+   doubleTapHoldZoom?: boolean;
+ 
++  /**
++   * **Android**: Multiplier for pinch and double-tap-and-hold zoom movement.
++   *
++   * @defaultValue 1
++   */
++  zoomRate?: number;
++
+   /**
+    * Toggle rotate interaction of the map
+    *
+diff --git a/node_modules/@maplibre/maplibre-react-native/src/components/map/MapViewNativeComponent.ts b/node_modules/@maplibre/maplibre-react-native/src/components/map/MapViewNativeComponent.ts
+index 8d387ef..a0e744b 100644
+--- a/node_modules/@maplibre/maplibre-react-native/src/components/map/MapViewNativeComponent.ts
++++ b/node_modules/@maplibre/maplibre-react-native/src/components/map/MapViewNativeComponent.ts
+@@ -60,6 +60,7 @@ export interface NativeProps extends ViewProps {
+   touchZoom?: CodegenTypes.WithDefault<boolean, true>;
+   doubleTapZoom?: CodegenTypes.WithDefault<boolean, true>;
+   doubleTapHoldZoom?: CodegenTypes.WithDefault<boolean, true>;
++  zoomRate?: CodegenTypes.WithDefault<CodegenTypes.Double, 1>;
+   touchRotate?: CodegenTypes.WithDefault<boolean, true>;
+   touchPitch?: CodegenTypes.WithDefault<boolean, true>;
+ 

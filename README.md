@@ -47,9 +47,9 @@ npm run android
 
 `npm install` applies the checked-in `h3-js` compatibility patch required by Expo 57's native runtime. Do not remove the postinstall step or loosen the exact H3 version without rerunning the Hermes compatibility test.
 
-Yonder uses OpenFreeMap's Positron and Dark vector styles and follows the device
-appearance automatically. The public service requires no registration or API
-key. `EXPO_PUBLIC_MAP_STYLE_LIGHT_URL` and
+Yonder uses OpenFreeMap's Positron and Dark vector styles. Settings lets you use
+the system appearance or keep the app in light or dark mode. The public service
+requires no registration or API key. `EXPO_PUBLIC_MAP_STYLE_LIGHT_URL` and
 `EXPO_PUBLIC_MAP_STYLE_DARK_URL` can override either complete MapLibre style.
 Yonder does not preload or offer offline downloads from the hosted service.
 

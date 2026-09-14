@@ -5,7 +5,7 @@ import type { Feature, FeatureCollection, MultiPolygon, Polygon, Position } from
 import { cellToBoundary, cellToLatLng, cellToParent, getResolution } from "h3-js";
 
 export const COUNTRY_COVERAGE_RESOLUTION = 4;
-export const COUNTRY_OVERVIEW_ZOOM = 5;
+export const COUNTRY_OVERVIEW_ZOOM = 7;
 
 export type CountryProperties = { id: string; name: string; areaKm2: number };
 export type CountryFeature = Feature<MultiPolygon, CountryProperties>;

@@ -13,9 +13,9 @@ import {
   Linking,
   type LayoutChangeEvent,
   type NativeSyntheticEvent,
+  Platform,
   Pressable,
   Text,
-  useColorScheme,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,6 +32,7 @@ import { getCountries } from "@/src/data/countries";
 import { COUNTRY_OVERVIEW_ZOOM, type CountryCollection } from "@/src/domain/country-coverage";
 import { cellIdsAtDisplayResolution, displayResolutionForZoom, isValidMapZoom, MAX_MAP_ZOOM, MIN_MAP_ZOOM } from "@/src/domain/hex-display";
 import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
+import { useAppearance } from "@/src/features/appearance/appearance-provider";
 
 export type MapCoordinate = {
   latitude: number;
@@ -61,6 +62,8 @@ const EMPTY_POINT_COLLECTION: GeoJSON.FeatureCollection<GeoJSON.Point> = {
   type: "FeatureCollection",
   features: [],
 };
+
+const ANDROID_ZOOM_RATE = 1.6;
 
 const MAP_THEME = {
   light: {
@@ -106,7 +109,7 @@ export function YonderMapView({
   const cameraRef = useRef<CameraRef>(null);
   const hasCenteredOnUser = useRef(false);
   const insets = useSafeAreaInsets();
-  const themeName = useColorScheme() === "dark" ? "dark" : "light";
+  const { resolvedAppearance: themeName } = useAppearance();
   const colors = MAP_THEME[themeName];
   const mapStyle = useMemo(() => getMapStyle(themeName), [themeName]);
   const usesOpenFreeMap =
@@ -227,6 +230,7 @@ export function YonderMapView({
           compass={false}
           logo={false}
           mapStyle={mapStyle}
+          zoomRate={Platform.OS === "android" ? ANDROID_ZOOM_RATE : undefined}
           onDidFailLoadingMap={() => setMapFailed(true)}
           onDidFinishLoadingMap={() => {
             setMapFailed(false);
@@ -252,7 +256,7 @@ export function YonderMapView({
               type="fill"
               paint={{
                 "fill-color": themeName === "dark" ? "#03090D" : "#657583",
-                "fill-opacity": ["interpolate", ["linear"], ["zoom"], 4.5, 0.22, 5.15, 0],
+                "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6.25, 0.22, 7.15, 0],
               }}
             />
             <Layer
@@ -261,7 +265,7 @@ export function YonderMapView({
               paint={{
                 "line-color": themeName === "dark" ? "#C4CFD2" : "#516776",
                 "line-width": 1.3,
-                "line-opacity": ["interpolate", ["linear"], ["zoom"], 4.5, 0.85, 5.15, 0],
+                "line-opacity": ["interpolate", ["linear"], ["zoom"], 6.25, 0.85, 7.15, 0],
               }}
             />
           </GeoJSONSource>
