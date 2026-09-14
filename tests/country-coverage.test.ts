@@ -99,9 +99,8 @@ describe("country coverage", () => {
 });
 
 describe("bundled country data", () => {
-  const boundaries = require("../src/data/countries/boundaries.json") as CountryCollection;
-  const display = require("../src/data/countries/display.json") as CountryCollection;
-  const index = new CountryIndex(boundaries);
+  const countries = require("../src/data/countries/countries.json") as CountryCollection;
+  const index = new CountryIndex(countries);
 
   it.each([
     [52.52, 13.405, "Germany"], [48.8566, 2.3522, "France"],
@@ -111,9 +110,8 @@ describe("bundled country data", () => {
     expect(index.countryForCell(latLngToCell(latitude as number, longitude as number, 11))?.name).toBe(name);
   });
 
-  it("has matching display IDs, positive areas, and no Antarctic count", () => {
-    expect(display.features.map(({ id }) => id)).toEqual(boundaries.features.map(({ id }) => id));
-    expect(boundaries.features.every(({ properties }) => properties.areaKm2 > 0)).toBe(true);
+  it("has positive areas and no Antarctic count", () => {
+    expect(countries.features.every(({ properties }) => properties.areaKm2 > 0)).toBe(true);
     expect(index.countryForCell(latLngToCell(-85, 0, 11))).toBeNull();
   });
 });

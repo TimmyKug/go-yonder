@@ -1,11 +1,12 @@
-import { CountryCoverageAccumulator, CountryIndex, type CountryCollection } from "../domain/country-coverage";
+import { CountryCoverageAccumulator, CountryIndex } from "../domain/country-coverage";
 
+import { getCountries } from "./countries";
 import type { SqlDatabase } from "./sql-database";
 
 let index: CountryIndex | undefined;
 function getIndex() {
   // Load only when the user first zooms out to the country overview.
-  index ??= new CountryIndex(require("./countries/boundaries.json") as CountryCollection);
+  index ??= new CountryIndex(getCountries());
   return index;
 }
 

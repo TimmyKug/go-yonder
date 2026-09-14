@@ -20,9 +20,16 @@ for (const feature of source.features) {
 const features = [...groups.values()].sort((a, b) => a.properties.name.localeCompare(b.properties.name));
 for (const feature of features) feature.properties.areaKm2 = area(feature) / 1e6;
 const full = { type: "FeatureCollection", features };
-const display = simplify(full, { tolerance: 0.025, highQuality: true });
+const countries = simplify(full, { tolerance: 0.05, highQuality: true });
+const detailedSmallCountries = new Map(
+  full.features
+    .filter(({ properties }) => properties.areaKm2 < 5000)
+    .map(({ properties, geometry }) => [properties.id, geometry]),
+);
+for (const feature of countries.features) {
+  feature.geometry = detailedSmallCountries.get(feature.properties.id) ?? feature.geometry;
+}
 await mkdir("src/data/countries", { recursive: true });
 const rounded = (_key, value) => typeof value === "number" ? Math.round(value * 1e5) / 1e5 : value;
-await writeFile("src/data/countries/boundaries.json", JSON.stringify(full, rounded));
-await writeFile("src/data/countries/display.json", JSON.stringify(display, rounded));
+await writeFile("src/data/countries/countries.json", JSON.stringify(countries, rounded));
 console.log(`Prepared ${features.length} sovereign country groups.`);

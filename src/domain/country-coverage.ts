@@ -47,7 +47,7 @@ export class CountryIndex {
         box: bounds(coordinates[0]!),
         feature: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates } } as Feature<Polygon>,
       })),
-    );
+    ).sort((a, b) => a.country.areaKm2 - b.country.areaKm2);
   }
 
   countryForCell(cellId: string): CountryProperties | null {

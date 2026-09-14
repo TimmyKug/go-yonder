@@ -28,6 +28,7 @@ import {
   OPENMAPTILES_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
+import { getCountries } from "@/src/data/countries";
 import { COUNTRY_OVERVIEW_ZOOM, type CountryCollection } from "@/src/domain/country-coverage";
 import { cellIdsAtDisplayResolution, displayResolutionForZoom, isValidMapZoom, MAX_MAP_ZOOM, MIN_MAP_ZOOM } from "@/src/domain/hex-display";
 import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
@@ -123,7 +124,7 @@ export function YonderMapView({
       return { type: "FeatureCollection", features: [] };
     }
     const visited = new Set(countrySummary.countries.map(({ id }) => id));
-    const boundaries = require("@/src/data/countries/display.json") as CountryCollection;
+    const boundaries = getCountries();
     return { type: "FeatureCollection", features: boundaries.features.filter(({ properties }) => visited.has(properties.id)) };
   }, [countryOverview, countrySummary.countries]);
   const [displayResolution, setDisplayResolution] = useState(() =>
