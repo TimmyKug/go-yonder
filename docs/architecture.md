@@ -347,6 +347,32 @@ untinted; only its subtle frontier distinguishes it from the hidden-area veil.
 
 ## Permission and error states
 
+## Country overview
+
+At zoom 5 and below, the same map fades in neutral silver country boundaries
+and a subtle visited-country tint. The explored hex veil remains visible above
+the country fill. No mode switch, tab, or visited/unvisited legend is added.
+A compact country count opens a native sheet listing visited countries, first
+visit dates, and approximate uncovered percentages. The count includes all
+saved coverage, independent of the viewport, and refreshes after location
+ingestion, import, and app activation.
+
+Natural Earth v5.1.2 1:10m country polygons are bundled for offline assignment.
+Countries are grouped by Natural Earth's sovereign identifier, so dependencies
+count toward their sovereign country; Antarctica is excluded. Natural Earth's
+boundary definitions apply. Simplified copies are used only for drawing.
+Each canonical resolution-11 cell is assigned by its center, and its H3 area is
+summed once. The denominator is the spherical area of the bundled country's
+polygons. Percentages are estimates near coasts and borders, never use enlarged
+display hexes, and are capped at 100%. This is a derived local summary with no
+schema change, network reverse geocoding, or uploaded history. Saved cells are
+read in pages and cached classifications are reused between refreshes.
+
+Manual visit editing is deferred; this iteration derives visits from saved
+coverage only. Country list and map use the same completed summary snapshot.
+
+## Permission and error states
+
 The map remains usable when tracking is unavailable. Normal active tracking
 does not show a persistent status card: the live location dot and compact
 on-device indicator provide sufficient confirmation. A bottom overlay appears
