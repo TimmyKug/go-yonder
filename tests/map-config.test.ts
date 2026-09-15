@@ -8,7 +8,7 @@ import {
   OPENMAPTILES_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
   OPENSTREETMAP_RASTER_STYLE,
-  withBrightPlaceLabels,
+  withReadablePlaceLabels,
 } from "@/src/config/map-config";
 
 describe("default map configuration", () => {
@@ -58,8 +58,10 @@ describe("dark place labels", () => {
         id: "place_country_major",
         type: "symbol",
         source: "x",
+        layout: { "text-field": ["get", "name:nonlatin"], "text-size": 10 },
         paint: { "text-color": "rgb(101,101,101)", "text-halo-width": 1 },
       },
+      { id: "place_state", type: "symbol", source: "x", layout: {}, paint: {} },
       {
         id: "highway_name_other",
         type: "symbol",
@@ -71,7 +73,7 @@ describe("dark place labels", () => {
   } as unknown as StyleSpecification;
 
   it("repaints only place label layers and keeps their other paint", () => {
-    const [country, highway, water] = withBrightPlaceLabels(style).layers;
+    const [country, , highway, water] = withReadablePlaceLabels(style).layers;
 
     expect(country).toMatchObject({
       paint: { "text-color": DARK_PLACE_LABEL_COLOR, "text-halo-width": 1 },
@@ -80,8 +82,31 @@ describe("dark place labels", () => {
     expect(water).toMatchObject({ type: "fill" });
   });
 
+  it("renders place labels as a single Latin line", () => {
+    const [country] = withReadablePlaceLabels(style).layers;
+
+    expect(country).toMatchObject({
+      layout: {
+        "text-field": [
+          "coalesce",
+          ["get", "name_en"],
+          ["get", "name:latin"],
+          ["get", "name"],
+        ],
+        "text-size": 10,
+      },
+    });
+  });
+
+  it("holds back crowding label layers until they have room", () => {
+    const [country, state] = withReadablePlaceLabels(style).layers;
+
+    expect(state).toMatchObject({ minzoom: 5 });
+    expect(country).not.toHaveProperty("minzoom");
+  });
+
   it("does not mutate the source style", () => {
-    withBrightPlaceLabels(style);
+    withReadablePlaceLabels(style);
 
     expect(style.layers[0]).toMatchObject({
       paint: { "text-color": "rgb(101,101,101)" },

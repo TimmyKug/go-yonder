@@ -1,4 +1,7 @@
-import type { StyleSpecification } from "@maplibre/maplibre-react-native";
+import type {
+  StyleSpecification,
+  SymbolLayerSpecification,
+} from "@maplibre/maplibre-react-native";
 
 export const OPENSTREETMAP_COPYRIGHT_URL =
   "https://www.openstreetmap.org/copyright";
@@ -51,19 +54,45 @@ export const DARK_PLACE_LABEL_COLOR = "#FFFFFF";
 
 const PLACE_LABEL_LAYER_PREFIX = "place_";
 
-export function withBrightPlaceLabels(
+type TextField = NonNullable<SymbolLayerSpecification["layout"]>["text-field"];
+
+/** Single English/Latin line, instead of the style's stacked latin/non-latin pair. */
+const LATIN_LABEL_TEXT_FIELD = [
+  "coalesce",
+  ["get", "name_en"],
+  ["get", "name:latin"],
+  ["get", "name"],
+] as TextField;
+
+/** Zoom at which a crowding label layer starts drawing. */
+const PLACE_LABEL_MIN_ZOOM: Record<string, number> = {
+  place_country_minor: 2.5,
+  place_country_other: 2.5,
+  place_state: 5,
+};
+
+export function withReadablePlaceLabels(
   style: StyleSpecification,
 ): StyleSpecification {
   return {
     ...style,
-    layers: style.layers.map((layer) =>
-      layer.type === "symbol" && layer.id.startsWith(PLACE_LABEL_LAYER_PREFIX)
-        ? {
-            ...layer,
-            paint: { ...layer.paint, "text-color": DARK_PLACE_LABEL_COLOR },
-          }
-        : layer,
-    ),
+    layers: style.layers.map((layer) => {
+      if (
+        layer.type !== "symbol" ||
+        !layer.id.startsWith(PLACE_LABEL_LAYER_PREFIX)
+      ) {
+        return layer;
+      }
+
+      const minzoom = PLACE_LABEL_MIN_ZOOM[layer.id];
+
+      return {
+        ...layer,
+        ...(minzoom === undefined ? {} : { minzoom }),
+        layout: { ...layer.layout, "text-field": LATIN_LABEL_TEXT_FIELD },
+        paint: { ...layer.paint, "text-color": DARK_PLACE_LABEL_COLOR },
+      };
+    }),
   };
 }
 
@@ -83,7 +112,7 @@ export async function loadMapStyle(
       return style;
     }
 
-    return withBrightPlaceLabels((await response.json()) as StyleSpecification);
+    return withReadablePlaceLabels((await response.json()) as StyleSpecification);
   } catch {
     return style;
   }
