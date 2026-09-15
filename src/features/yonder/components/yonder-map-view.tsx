@@ -4,6 +4,7 @@ import {
   GeoJSONSource,
   Layer,
   Map,
+  type StyleSpecification,
   type ViewStateChangeEvent,
 } from "@maplibre/maplibre-react-native";
 import { router } from "expo-router";
@@ -25,6 +26,7 @@ import { useCountrySummary } from "../hooks/use-country-summary";
 import {
   getMapStyle,
   INITIAL_MAP_VIEW,
+  loadMapStyle,
   OPENMAPTILES_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
@@ -111,9 +113,12 @@ export function YonderMapView({
   const insets = useSafeAreaInsets();
   const { resolvedAppearance: themeName } = useAppearance();
   const colors = MAP_THEME[themeName];
-  const mapStyle = useMemo(() => getMapStyle(themeName), [themeName]);
+  const styleSource = useMemo(() => getMapStyle(themeName), [themeName]);
+  const [mapStyle, setMapStyle] = useState<StyleSpecification | string | null>(
+    null,
+  );
   const usesOpenFreeMap =
-    typeof mapStyle === "string" && mapStyle.includes("openfreemap.org");
+    typeof styleSource === "string" && styleSource.includes("openfreemap.org");
   const [mapReady, setMapReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
   const [mapSize, setMapSize] = useState({ height: 0, width: 0 });
@@ -171,6 +176,20 @@ export function YonderMapView({
   );
 
   useEffect(() => {
+    let cancelled = false;
+
+    loadMapStyle(themeName).then((style) => {
+      if (!cancelled) {
+        setMapStyle(style);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [themeName]);
+
+  useEffect(() => {
     if (mapReady && currentCoordinate && !hasCenteredOnUser.current) {
       hasCenteredOnUser.current = true;
       setDisplayResolution(displayResolutionForZoom(15));
@@ -216,7 +235,7 @@ export function YonderMapView({
     });
   };
 
-  const canMountMap = mapSize.height > 0 && mapSize.width > 0;
+  const canMountMap = mapSize.height > 0 && mapSize.width > 0 && mapStyle !== null;
 
   return (
     <View

@@ -47,6 +47,48 @@ export function getMapStyle(theme: MapTheme): StyleSpecification | string {
   return OPENFREEMAP_STYLE_URLS[theme];
 }
 
+export const DARK_PLACE_LABEL_COLOR = "#FFFFFF";
+
+const PLACE_LABEL_LAYER_PREFIX = "place_";
+
+export function withBrightPlaceLabels(
+  style: StyleSpecification,
+): StyleSpecification {
+  return {
+    ...style,
+    layers: style.layers.map((layer) =>
+      layer.type === "symbol" && layer.id.startsWith(PLACE_LABEL_LAYER_PREFIX)
+        ? {
+            ...layer,
+            paint: { ...layer.paint, "text-color": DARK_PLACE_LABEL_COLOR },
+          }
+        : layer,
+    ),
+  };
+}
+
+export async function loadMapStyle(
+  theme: MapTheme,
+): Promise<StyleSpecification | string> {
+  const style = getMapStyle(theme);
+
+  if (theme !== "dark" || typeof style !== "string") {
+    return style;
+  }
+
+  try {
+    const response = await fetch(style);
+
+    if (!response.ok) {
+      return style;
+    }
+
+    return withBrightPlaceLabels((await response.json()) as StyleSpecification);
+  } catch {
+    return style;
+  }
+}
+
 export const INITIAL_MAP_VIEW = {
   center: [13.405, 52.52] as [longitude: number, latitude: number],
   zoom: 13,
