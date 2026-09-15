@@ -91,7 +91,7 @@ const MAP_THEME = {
     surface: "rgba(3, 12, 17, 0.9)",
     strongSurface: "rgba(3, 12, 17, 0.95)",
     text: "#F2FCF9",
-    veil: "#AEB7BB",
+    veil: "#7C888D",
     veilOpacity: 0.3,
   },
 } as const;
@@ -255,7 +255,7 @@ export function YonderMapView({
               id="visited-country-fill"
               type="fill"
               paint={{
-                "fill-color": themeName === "dark" ? "#DCE5E4" : "#657583",
+                "fill-color": themeName === "dark" ? "#AAB6B5" : "#657583",
                 "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6.25, themeName === "dark" ? 0.35 : 0.22, 7.15, 0],
               }}
             />
