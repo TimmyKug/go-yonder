@@ -71,8 +71,12 @@ MapLibre Native will render the base map and unlocked-cell overlay.
   to MapLibre, falling back to the unmodified style URL when the fetch fails.
 - The same patch thins those labels, because a reveal map is read as coverage
   rather than as an atlas. Place labels drop their stacked non-Latin second
-  line, sub-country regions stay hidden until a country fills the viewport, and
-  minor countries stay hidden at world zoom.
+  line, and sub-country regions and cities stay hidden until a country fills the
+  viewport. World and continent zoom therefore carry country names only, in
+  place of the few top-rank world cities that MapLibre's collision placement
+  happened to leave room for. Countries below the style's top rank label from
+  zoom 1.5, so the world view names most of its countries; only dependencies and
+  disputed territories wait for zoom 2.5.
 - OpenFreeMap provides no uptime SLA. Because its production stack and styles
   are open source, self-hosting the same data/style architecture is the fallback
   if public-instance reliability becomes insufficient.
