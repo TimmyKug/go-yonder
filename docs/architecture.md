@@ -69,6 +69,10 @@ MapLibre Native will render the base map and unlocked-cell overlay.
   under Yonder's undiscovered-area veil. In dark mode the app fetches the style
   document and repaints its `place_*` symbol layers pure white before handing it
   to MapLibre, falling back to the unmodified style URL when the fetch fails.
+- The same patch thins those labels, because a reveal map is read as coverage
+  rather than as an atlas. Place labels drop their stacked non-Latin second
+  line, sub-country regions stay hidden until a country fills the viewport, and
+  minor countries stay hidden at world zoom.
 - OpenFreeMap provides no uptime SLA. Because its production stack and styles
   are open source, self-hosting the same data/style architecture is the fallback
   if public-instance reliability becomes insufficient.
