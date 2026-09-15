@@ -3,13 +3,14 @@ import { cellToParent, getResolution } from "h3-js";
 import { YONDER_H3_RESOLUTION } from "../config/yonder-config";
 
 const MIN_DISPLAY_RESOLUTION = 5;
-const MAX_DISPLAY_RESOLUTION = 10;
+const MAX_DISPLAY_RESOLUTION = YONDER_H3_RESOLUTION;
 const HYSTERESIS = 0.15;
 export const MIN_MAP_ZOOM = 2;
 export const MAX_MAP_ZOOM = 20;
 
 const SCALE_LEVELS = [
-  { resolution: MAX_DISPLAY_RESOLUTION, minZoom: 12 },
+  { resolution: MAX_DISPLAY_RESOLUTION, minZoom: 14 },
+  { resolution: 10, minZoom: 12 },
   { resolution: 9, minZoom: 10 },
   { resolution: 8, minZoom: 8 },
   { resolution: 7, minZoom: 6 },
@@ -40,14 +41,14 @@ export function cellIdsAtDisplayResolution(
   resolution: number,
 ): string[] {
   if (!Number.isInteger(resolution) || resolution < MIN_DISPLAY_RESOLUTION || resolution > MAX_DISPLAY_RESOLUTION) {
-    throw new RangeError("display resolution must be an integer between 5 and 10");
+    throw new RangeError("display resolution must be an integer between 5 and 11");
   }
   const parents = new Set<string>();
   for (const cellId of cellIds) {
     if (getResolution(cellId) !== YONDER_H3_RESOLUTION) {
       throw new Error("display coverage requires canonical resolution-11 cells");
     }
-    parents.add(cellToParent(cellId, resolution));
+    parents.add(resolution === YONDER_H3_RESOLUTION ? cellId : cellToParent(cellId, resolution));
   }
   return [...parents];
 }
