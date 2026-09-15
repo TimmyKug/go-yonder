@@ -408,6 +408,31 @@ navigation headers, settings, and country details. The preference is stored in
 Expo SQLite's separate key-value database through a small repository, keeping
 it out of location backups and avoiding a location-database schema change.
 
+## Globe overview
+
+A rotatable globe heads the countries sheet, showing visited countries filled in
+the accent colour against the rest of the world.
+
+- The globe is a separate view, not a zoom level on the map. MapLibre Native
+  ignores the style specification's `projection` property, so globe projection
+  is unavailable in the renderer this app embeds; it exists only in MapLibre
+  GL JS. Reaching it through a web view would mean a second rendering stack for
+  the veil, country overlay, and location dot, which the native-map decision
+  rules out.
+- `scripts/prepare-globe.mjs` derives coarse outlines from the already bundled
+  country geometry rather than from a second source download. Outlines are
+  simplified to 0.35 degrees and islands under 12,000 square kilometres are
+  dropped, except where that would leave a country unrepresented, giving about
+  5,000 points that can be reprojected on every frame of a drag.
+- Projection is pure domain code: an orthographic projection of the hemisphere
+  facing the viewer. Points on the far side are dropped, and an outline broken
+  by the horizon is closed along the chord between the ends of each visible run,
+  which reads as a clean limb at country scale.
+- Dragging rotates the globe. Latitude is clamped at the poles so it never
+  flips; longitude wraps.
+- The globe reuses the country summary already loaded for the sheet, so it adds
+  no query, no persisted state, and no network access.
+
 ## Permission and error states
 
 The map remains usable when tracking is unavailable. Normal active tracking
