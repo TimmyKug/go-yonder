@@ -339,14 +339,19 @@ To avoid fabricating travel, the first implementation will unlock the cell conta
   persisted.
 - Enclosed unvisited regions remain covered by the veil, including regions
   containing disconnected visited islands; surrounding a cell never unlocks it.
-- Zoomed-out coverage is a display-only H3 parent aggregation. At zoom 14 and
-  above show canonical resolution 11, resolution 10 spans zoom 13 to 14, and
-  every two zoom levels thereafter selects the next coarser resolution, down
-  to resolution 4. A coarse cell indicates
-  at least one visited child, not complete exploration of that larger area.
-  Zooming back in restores exact coverage, including unvisited holes. Persisted
-  cells, statistics, and ingestion stay at resolution 11. This halves the
-  smallest apparent hex size compared with switching at zoom 15. A 0.15-zoom
+- Zoomed-out coverage is a display-only H3 parent aggregation. The map never
+  draws canonical resolution-11 cells: resolution 10 is the finest display size
+  and spans zoom 12 upward, and every two zoom levels below that selects the
+  next coarser resolution, down to resolution 5, which spans zoom 2 to 4.
+  Resolution 11 reads as speckle on screen, and each step earlier than the
+  previous ladder keeps hexes smaller at the zoom levels where coverage is
+  actually read. A displayed cell indicates
+  at least one visited child, not complete exploration of that larger area, so
+  displayed coverage is an approximation at every zoom; the smallest visible
+  unit is one resolution-10 hex, about 0.015 square kilometres, covering seven
+  stored cells. Zooming back in restores coverage at that finest display size,
+  including unvisited holes. Persisted
+  cells, statistics, and ingestion stay at resolution 11. A 0.15-zoom
   hysteresis prevents scale flicker near thresholds. Aggregation uses already loaded cell
   IDs and runs only when coverage or the display resolution changes.
 - Map updates are batched after committed ingestion rather than issued for every render.
@@ -382,8 +387,8 @@ count toward their sovereign country; Antarctica is excluded. Natural Earth's
 boundary definitions apply. Country area denominators are calculated from the
 unsimplified source during data preparation and retained in the compact data.
 Visits are assigned from canonical resolution-11 cell centers. Country coverage
-uses unique resolution-4 parent hexes, the largest display size, regardless of
-the current zoom. Each visited country's parent hexes are clipped to its
+uses unique resolution-4 parent hexes, one step coarser than the coarsest
+display size, regardless of the current zoom. Each visited country's parent hexes are clipped to its
 boundaries before summing area. The denominator is the spherical area of the
 bundled country's polygons. Percentages are cartographic estimates and are
 capped at 100%. This intentionally summarizes broad explored regions rather
