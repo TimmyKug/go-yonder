@@ -1,5 +1,7 @@
 // Input: the prepared src/data/countries/countries.json.
-// Run: node scripts/prepare-globe.mjs
+// Optional second input: a Natural Earth admin-0 countries GeoJSON, used only to
+// add Antarctica, which the coverage data deliberately excludes from visits.
+// Run: node scripts/prepare-globe.mjs [/path/to/ne_110m_admin_0_countries.geojson]
 import { readFile, writeFile } from "node:fs/promises";
 import { area } from "@turf/area";
 import { simplify } from "@turf/simplify";
@@ -35,6 +37,20 @@ for (const { properties, geometry } of countries.features) {
     name: properties.name,
     rings: (kept.length > 0 ? kept : rings.slice(0, 1)).map(({ ring }) => simplifyRing(ring).flat()),
   });
+}
+
+const antarcticaSource = process.argv[2];
+if (antarcticaSource) {
+  const source = JSON.parse(await readFile(antarcticaSource, "utf8"));
+  const antarctica = source.features.find(({ properties }) => properties.ADMIN === "Antarctica");
+  if (!antarctica) throw new Error("No Antarctica feature in the provided source");
+  const rings = antarctica.geometry.coordinates
+    .map((polygon) => polygon[0])
+    .map((ring) => ({ ring, km2: area({ type: "Polygon", coordinates: [ring] }) / 1e6 }))
+    .filter(({ km2 }) => km2 >= MIN_ISLAND_KM2)
+    .map(({ ring }) => simplifyRing(ring).flat());
+  features.push({ id: "ATA", name: "Antarctica", rings });
+  features.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 const rounded = (_key, value) => (typeof value === "number" ? Math.round(value * 10) / 10 : value);

@@ -5,7 +5,7 @@ import { YONDER_H3_RESOLUTION } from "../config/yonder-config";
 const MIN_DISPLAY_RESOLUTION = 5;
 const MAX_DISPLAY_RESOLUTION = YONDER_H3_RESOLUTION;
 const HYSTERESIS = 0.15;
-export const MIN_MAP_ZOOM = 2;
+export const MIN_MAP_ZOOM = 1;
 export const MAX_MAP_ZOOM = 20;
 
 const SCALE_LEVELS = [
