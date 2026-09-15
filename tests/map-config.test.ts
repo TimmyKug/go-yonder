@@ -63,6 +63,13 @@ describe("dark place labels", () => {
       },
       { id: "place_state", type: "symbol", source: "x", layout: {}, paint: {} },
       {
+        id: "place_city_large",
+        type: "symbol",
+        source: "x",
+        layout: {},
+        paint: {},
+      },
+      {
         id: "highway_name_other",
         type: "symbol",
         source: "x",
@@ -73,7 +80,7 @@ describe("dark place labels", () => {
   } as unknown as StyleSpecification;
 
   it("repaints only place label layers and keeps their other paint", () => {
-    const [country, , highway, water] = withReadablePlaceLabels(style).layers;
+    const [country, , , highway, water] = withReadablePlaceLabels(style).layers;
 
     expect(country).toMatchObject({
       paint: { "text-color": DARK_PLACE_LABEL_COLOR, "text-halo-width": 1 },
@@ -99,9 +106,10 @@ describe("dark place labels", () => {
   });
 
   it("holds back crowding label layers until they have room", () => {
-    const [country, state] = withReadablePlaceLabels(style).layers;
+    const [country, state, city] = withReadablePlaceLabels(style).layers;
 
     expect(state).toMatchObject({ minzoom: 5 });
+    expect(city).toMatchObject({ minzoom: 5 });
     expect(country).not.toHaveProperty("minzoom");
   });
 

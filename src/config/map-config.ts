@@ -66,7 +66,9 @@ const LATIN_LABEL_TEXT_FIELD = [
 
 /** Zoom at which a crowding label layer starts drawing. */
 const PLACE_LABEL_MIN_ZOOM: Record<string, number> = {
-  place_country_minor: 2.5,
+  place_city: 5,
+  place_city_large: 5,
+  place_country_minor: 1.5,
   place_country_other: 2.5,
   place_state: 5,
 };
