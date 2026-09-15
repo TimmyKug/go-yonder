@@ -65,6 +65,10 @@ MapLibre Native will render the base map and unlocked-cell overlay.
   complete map style plus its UI and reveal-overlay palette.
 - Theme-specific style URL environment variables can replace either complete
   style without changing domain or map-overlay code.
+- OpenFreeMap's dark style paints place labels in mid grey, which disappears
+  under Yonder's undiscovered-area veil. In dark mode the app fetches the style
+  document and repaints its `place_*` symbol layers pure white before handing it
+  to MapLibre, falling back to the unmodified style URL when the fetch fails.
 - OpenFreeMap provides no uptime SLA. Because its production stack and styles
   are open source, self-hosting the same data/style architecture is the fallback
   if public-instance reliability becomes insufficient.
