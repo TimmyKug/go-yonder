@@ -255,8 +255,8 @@ export function YonderMapView({
               id="visited-country-fill"
               type="fill"
               paint={{
-                "fill-color": themeName === "dark" ? "#03090D" : "#657583",
-                "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6.25, 0.22, 7.15, 0],
+                "fill-color": themeName === "dark" ? "#137B70" : "#657583",
+                "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6.25, themeName === "dark" ? 0.4 : 0.22, 7.15, 0],
               }}
             />
             <Layer
