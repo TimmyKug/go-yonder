@@ -339,18 +339,15 @@ To avoid fabricating travel, the first implementation will unlock the cell conta
   persisted.
 - Enclosed unvisited regions remain covered by the veil, including regions
   containing disconnected visited islands; surrounding a cell never unlocks it.
-- Zoomed-out coverage is a display-only H3 parent aggregation. The map never
-  draws canonical resolution-11 cells: resolution 10 is the finest display size
-  and spans zoom 12 upward, and every two zoom levels below that selects the
-  next coarser resolution, down to resolution 5, which spans zoom 2 to 4.
-  Resolution 11 reads as speckle on screen, and each step earlier than the
-  previous ladder keeps hexes smaller at the zoom levels where coverage is
-  actually read. A displayed cell indicates
-  at least one visited child, not complete exploration of that larger area, so
-  displayed coverage is an approximation at every zoom; the smallest visible
-  unit is one resolution-10 hex, about 0.015 square kilometres, covering seven
-  stored cells. Zooming back in restores coverage at that finest display size,
-  including unvisited holes. Persisted
+- Zoomed-out coverage is a display-only H3 parent aggregation. At zoom 14 and
+  above show canonical resolution 11, and every two zoom levels below that
+  selects the next coarser resolution, down to resolution 5, which spans zoom 2
+  to 4. Every band is two zoom levels wide, and each is reached one zoom level
+  earlier than a ladder anchored at resolution 4 would reach it, which keeps
+  hexes smaller at the zoom levels where coverage is actually read. A coarse
+  cell indicates
+  at least one visited child, not complete exploration of that larger area.
+  Zooming back in restores exact coverage, including unvisited holes. Persisted
   cells, statistics, and ingestion stay at resolution 11. A 0.15-zoom
   hysteresis prevents scale flicker near thresholds. Aggregation uses already loaded cell
   IDs and runs only when coverage or the display resolution changes.
