@@ -410,54 +410,38 @@ it out of location backups and avoiding a location-database schema change.
 
 ## Globe overview
 
-Zooming the map all the way out turns it into a globe, with visited countries
-filled in the accent colour against the rest of the world. The globe is the
-visited-countries view: the sheet behind the country count stays a plain list,
-so the same thing is never drawn twice.
+A rotatable globe heads the countries sheet, showing visited countries filled in
+the accent colour against the rest of the world.
 
-- The globe is Yonder's own drawing, not a map projection. MapLibre Native
-  ignores the style specification's `projection` property, so globe projection
-  is unavailable in the renderer this app embeds; it exists only in MapLibre
-  GL JS. Reaching it through a web view would mean a second rendering stack for
-  the veil, country overlay, and location dot, which the native-map decision
-  rules out.
+- The globe is a separate view, reached by tapping the country count, not a zoom
+  level on the map. MapLibre Native ignores the style specification's
+  `projection` property, so globe projection is unavailable in the renderer this
+  app embeds; it exists only in MapLibre GL JS. Reaching it through a web view
+  would mean a second rendering stack for the veil, country overlay, and
+  location dot, which the native-map decision rules out.
+- Handing the zoomed-out map over to the globe was tried and removed. MapLibre
+  Native refuses to shrink the world below its viewport, so the map bottoms out
+  around zoom 2.3 and the handoff had to hang off a stalled pinch, which is a
+  guess about intent rather than a gesture. Opening the globe from the country
+  count says the same thing without the guesswork.
 - `scripts/prepare-globe.mjs` derives coarse outlines from the already bundled
   country geometry rather than from a second source download. Outlines are
   simplified to 0.35 degrees and islands under 12,000 square kilometres are
   dropped, except where that would leave a country unrepresented, giving about
-  5,000 points that can be reprojected on every frame of a drag.
+  5,000 points that can be reprojected on every frame of a drag. Antarctica is
+  added from a Natural Earth source, because the coverage data excludes it from
+  visits and it would otherwise be missing from the world.
 - Projection is pure domain code: an orthographic projection of the hemisphere
   facing the viewer. Points on the far side are dropped, and an outline broken
   by the horizon is closed along the chord between the ends of each visible run,
   which reads as a clean limb at country scale.
+- The sphere is drawn into a canvas it is given rather than one its own size, so
+  a sphere wider than its canvas is clipped instead of asking the GPU for a
+  surface it cannot allocate.
 - Dragging rotates the globe. Latitude is clamped at the poles so it never
   flips; longitude wraps.
-- The globe reuses the country summary the map already loads for its country
-  overview, so it adds no query, no persisted state, and no network access.
-- The map also carries the globe, but it cannot simply fade in as the map zooms
-  out: MapLibre Native refuses to shrink the world below its own viewport, so a
-  phone-sized screen bottoms out around zoom 2.3 with roughly a sixth of the
-  world in view. The flat map can never show a whole hemisphere, and the sphere
-  it implies at that zoom is wider than the screen.
-- The globe therefore takes over at that floor. When a pinch-out stalls, the
-  zoom holding still while the user is still working a wide map, the globe
-  appears at exactly the size and rotation the flat map implies, so the first
-  frame matches the map underneath, and then eases down to a sphere that fits
-  the screen. Its radius comes from the camera's own reported bounds rather
-  than an assumed tile size.
-- The sphere is drawn into a viewport-sized canvas that clips it, never into a
-  canvas its own size. A sphere matched to a zoomed-out map is several screens
-  wide, and asking the GPU for a canvas that large crashes the app; the radius
-  is also capped at four viewport widths, well past anything the screen can
-  reveal.
-- Once it has taken over, the globe owns the gestures: dragging spins it, and
-  spreading two fingers means zoom back in, which hands the map back. There is
-  no button, because the gesture that summoned the globe reversed is the
-  gesture that dismisses it. The map returns centred on whatever the globe was
-  facing, so spinning the globe and pinching in is a way to travel.
-- The globe draws countries only. The hex veil stops at the transition, because
-  at those zooms it is a world-covering polygon whose holes are smaller than a
-  pixel, and the country overview is already what the map shows there.
+- The globe reuses the country summary already loaded for the sheet, so it adds
+  no query, no persisted state, and no network access.
 
 ## Permission and error states
 

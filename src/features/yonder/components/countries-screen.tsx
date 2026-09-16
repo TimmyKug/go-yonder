@@ -1,13 +1,32 @@
 import { Stack, router } from "expo-router";
-import { useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
+import { useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCountrySummary } from "../hooks/use-country-summary";
 
 import { formatUncoveredPercent } from "@/src/domain/country-coverage";
 import { useAppearance } from "@/src/features/appearance/appearance-provider";
+import { GlobeView, type GlobeColors } from "@/src/features/globe/globe-view";
 
+const GLOBE_COLORS: Record<"dark" | "light", GlobeColors> = {
+  dark: {
+    limb: "#2C3E45",
+    ocean: "#0A1A22",
+    land: "#1E2E36",
+    landEdge: "#2C3E45",
+    visited: "#29D8B5",
+    visitedEdge: "#8CF2DE",
+  },
+  light: {
+    limb: "#C3D0CC",
+    ocean: "#E4EBE9",
+    land: "#CBD6D2",
+    landEdge: "#B0BFBA",
+    visited: "#0E7C66",
+    visitedEdge: "#0A5B4B",
+  },
+};
 
 export function CountriesScreen() {
   const { resolvedAppearance } = useAppearance();
@@ -20,6 +39,12 @@ export function CountriesScreen() {
   const { countries, loading, error, refresh } = useCountrySummary(true);
   const [search, setSearch] = useState("");
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const globeSize = Math.min(width - 40, 320);
+  const visitedIds = useMemo(
+    () => new Set((countries ?? []).map(({ id }) => id)),
+    [countries],
+  );
   const visible = countries?.filter(({ name }) => name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())) ?? [];
   return (
     <>
@@ -38,6 +63,12 @@ export function CountriesScreen() {
         style={{ flex: 1, backgroundColor: colors.background }}
         ListHeaderComponent={
           <View style={{ gap: 16, paddingBottom: 16 }}>
+            {countries ? (
+              <View style={{ alignItems: "center", paddingBottom: 4 }}>
+                <GlobeView colors={GLOBE_COLORS[dark ? "dark" : "light"]} size={globeSize} visitedIds={visitedIds} />
+                <Text style={{ color: colors.muted, fontSize: 12, paddingTop: 10 }}>Drag to spin the globe</Text>
+              </View>
+            ) : null}
             <View style={{ flexDirection: "row", alignItems: "baseline", gap: 12 }}>
               <Text selectable style={{ color: colors.foreground, fontSize: 48, fontWeight: "600", fontVariant: ["tabular-nums"] }}>{countries?.length ?? "—"}</Text>
               <Text selectable style={{ color: colors.secondary, fontSize: 17 }}>{countries?.length === 1 ? "country visited" : "countries visited"}</Text>
