@@ -4,8 +4,6 @@ import {
   GeoJSONSource,
   Layer,
   Map,
-  type LngLat,
-  type LngLatBounds,
   type StyleSpecification,
   type ViewStateChangeEvent,
 } from "@maplibre/maplibre-react-native";
@@ -14,7 +12,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
-  PanResponder,
   type LayoutChangeEvent,
   type NativeSyntheticEvent,
   Platform,
@@ -35,21 +32,9 @@ import {
 } from "@/src/config/map-config";
 import { getCountries } from "@/src/data/countries";
 import { COUNTRY_OVERVIEW_ZOOM, type CountryCollection } from "@/src/domain/country-coverage";
-import {
-  globeFitRadius,
-  globeHandoffRadius,
-  globeRadiusForViewport,
-  isAtZoomFloor,
-  isPinchingIn,
-  rotateToward,
-  type CameraSample,
-  type GlobeRotation,
-} from "@/src/domain/globe-projection";
 import { cellIdsAtDisplayResolution, displayResolutionForZoom, isValidMapZoom, MAX_MAP_ZOOM, MIN_MAP_ZOOM } from "@/src/domain/hex-display";
 import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
 import { useAppearance } from "@/src/features/appearance/appearance-provider";
-import { GlobeSphere, type GlobeColors } from "@/src/features/globe/globe-sphere";
-import { useHandoffProgress } from "@/src/features/globe/use-handoff-progress";
 
 export type MapCoordinate = {
   latitude: number;
@@ -113,27 +98,6 @@ const MAP_THEME = {
   },
 } as const;
 
-const GLOBE_DEGREES_PER_PIXEL = 0.35;
-
-const GLOBE_COLORS: Record<"dark" | "light", GlobeColors> = {
-  dark: {
-    limb: "#2C3E45",
-    ocean: "#0A1A22",
-    land: "#1E2E36",
-    landEdge: "#2C3E45",
-    visited: "#29D8B5",
-    visitedEdge: "#8CF2DE",
-  },
-  light: {
-    limb: "#C3D0CC",
-    ocean: "#E4EBE9",
-    land: "#CBD6D2",
-    landEdge: "#B0BFBA",
-    visited: "#0E7C66",
-    visitedEdge: "#0A5B4B",
-  },
-};
-
 export function YonderMapView({
   currentCoordinate,
   countryRefreshToken,
@@ -174,65 +138,6 @@ export function YonderMapView({
   const [displayResolution, setDisplayResolution] = useState(() =>
     displayResolutionForZoom(INITIAL_MAP_VIEW.zoom),
   );
-  const [camera, setCamera] = useState<{
-    bounds: LngLatBounds | undefined;
-    center: LngLat;
-    zoom: number;
-  }>(() => ({ bounds: undefined, center: INITIAL_MAP_VIEW.center, zoom: INITIAL_MAP_VIEW.zoom }));
-  const [globeMode, setGlobeMode] = useState(false);
-  const [globeRotation, setGlobeRotation] = useState<GlobeRotation | null>(null);
-  const handoff = useHandoffProgress(globeMode ? 1 : 0);
-  // Camera history and gesture offsets, touched only from handlers, never in render.
-  const cameraTrack = useRef<{ lastZoomOutMs?: number; previous?: CameraSample }>({});
-  const handedBackFrom = useRef<GlobeRotation | null>(null);
-  // Cumulative gesture offsets, kept outside render so each move applies its own step.
-  const [globeGesture] = useState(() => ({ dx: 0, dy: 0, pinchStart: 0 }));
-  const matchedRadius = camera.bounds
-    ? globeRadiusForViewport(mapSize.width, camera.bounds, camera.center[1])
-    : 0;
-  const globeRadius = globeHandoffRadius(
-    matchedRadius,
-    globeFitRadius(mapSize.width, mapSize.height),
-    handoff,
-  );
-  const [globePanResponder] = useState(() =>
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        globeGesture.dx = 0;
-        globeGesture.dy = 0;
-        globeGesture.pinchStart = 0;
-      },
-      onPanResponderMove: (event, { dx, dy }) => {
-        const [first, second] = event.nativeEvent.touches;
-        if (first && second) {
-          // Two fingers spreading means "zoom back in", which returns the map.
-          const distance = Math.hypot(
-            first.pageX - second.pageX,
-            first.pageY - second.pageY,
-          );
-          if (globeGesture.pinchStart === 0) globeGesture.pinchStart = distance;
-          else if (isPinchingIn(globeGesture.pinchStart, distance)) setGlobeMode(false);
-          return;
-        }
-        globeGesture.pinchStart = 0;
-        const stepX = dx - globeGesture.dx;
-        const stepY = dy - globeGesture.dy;
-        globeGesture.dx = dx;
-        globeGesture.dy = dy;
-        setGlobeRotation((current) =>
-          current ? rotateToward(current, -stepX * GLOBE_DEGREES_PER_PIXEL, stepY * GLOBE_DEGREES_PER_PIXEL) : current,
-        );
-      },
-    }),
-  );
-
-  const visitedCountryIds = useMemo(
-    () => new Set((countrySummary.countries ?? []).map(({ id }) => id)),
-    [countrySummary.countries],
-  );
-
   const currentPoint = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => {
     if (!currentCoordinate) {
       return EMPTY_POINT_COLLECTION;
@@ -283,21 +188,6 @@ export function YonderMapView({
     };
   }, [themeName]);
 
-  // Leaving the globe hands the map back, pointed at whatever the globe faced.
-  useEffect(() => {
-    if (globeMode) {
-      handedBackFrom.current = null;
-      return;
-    }
-    if (!globeRotation || handedBackFrom.current === globeRotation) return;
-    handedBackFrom.current = globeRotation;
-    cameraTrack.current = { ...cameraTrack.current, lastZoomOutMs: undefined };
-    cameraRef.current?.jumpTo({
-      center: [globeRotation.longitude, globeRotation.latitude],
-      zoom: camera.zoom,
-    });
-  }, [camera.zoom, globeMode, globeRotation]);
-
   useEffect(() => {
     if (mapReady && currentCoordinate && !hasCenteredOnUser.current) {
       hasCenteredOnUser.current = true;
@@ -330,22 +220,6 @@ export function YonderMapView({
     if (!isValidMapZoom(zoom)) return;
     setDisplayResolution((current) => displayResolutionForZoom(zoom, current));
     setCountryOverview((current) => zoom <= COUNTRY_OVERVIEW_ZOOM + (current ? 0.3 : 0.15));
-    setCamera({ bounds: event.nativeEvent.bounds, center: event.nativeEvent.center, zoom });
-
-    const sample: CameraSample = {
-      atMs: Date.now(),
-      center: event.nativeEvent.center,
-      userInteraction: event.nativeEvent.userInteraction,
-      zoom,
-    };
-    const track = cameraTrack.current;
-    const lastZoomOutMs =
-      track.previous && zoom < track.previous.zoom - 0.01 ? sample.atMs : track.lastZoomOutMs;
-    if (!globeMode && isAtZoomFloor(track.previous, sample, lastZoomOutMs)) {
-      setGlobeRotation({ latitude: sample.center[1], longitude: sample.center[0] });
-      setGlobeMode(true);
-    }
-    cameraTrack.current = { lastZoomOutMs, previous: sample };
   };
 
   const handleRecenter = () => {
@@ -456,42 +330,6 @@ export function YonderMapView({
             />
           </GeoJSONSource>
         </Map>
-      ) : null}
-
-      {handoff > 0 && globeRadius > 0 && mapReady && globeRotation ? (
-        <View
-          pointerEvents={globeMode ? "auto" : "none"}
-          style={{
-            backgroundColor: colors.background,
-            bottom: 0,
-            left: 0,
-            opacity: handoff,
-            overflow: "hidden",
-            position: "absolute",
-            right: 0,
-            top: 0,
-          }}
-          testID="map-globe"
-        >
-          {globeMode ? (
-            <View
-              style={{ bottom: 0, left: 0, position: "absolute", right: 0, top: 0 }}
-              {...globePanResponder.panHandlers}
-            />
-          ) : null}
-
-          <View pointerEvents="none" style={{ left: 0, position: "absolute", top: 0 }}>
-            <GlobeSphere
-              colors={GLOBE_COLORS[themeName]}
-              height={mapSize.height}
-              radius={globeRadius}
-              rotation={globeRotation}
-              visitedIds={visitedCountryIds}
-              width={mapSize.width}
-            />
-          </View>
-
-        </View>
       ) : null}
 
       {!mapReady && !mapFailed ? (
