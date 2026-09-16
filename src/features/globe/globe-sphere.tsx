@@ -13,28 +13,44 @@ export type GlobeColors = {
   visitedEdge: string;
 };
 
-/** The sphere itself: no state, no gestures, drawn for whatever rotation it is given. */
+/**
+ * The sphere itself: no state, no gestures, drawn for whatever rotation it is
+ * given. The canvas is the viewport rather than the sphere, because a sphere
+ * matched to a zoomed-out map is far wider than the screen and a canvas that
+ * size exceeds what the GPU will allocate.
+ */
 export function GlobeSphere({
   colors,
+  height,
   radius,
   rotation,
   visitedIds,
+  width,
 }: {
   colors: GlobeColors;
+  height: number;
   radius: number;
   rotation: GlobeRotation;
   visitedIds: ReadonlySet<string>;
+  width: number;
 }) {
   const features = getGlobeFeatures();
+  const centre = useMemo(() => ({ x: width / 2, y: height / 2 }), [height, width]);
   const outlines = useMemo(
-    () => globeOutlines(features, rotation, radius),
-    [features, rotation, radius],
+    () => globeOutlines(features, rotation, radius, centre),
+    [centre, features, radius, rotation],
   );
-  const size = radius * 2;
 
   return (
-    <Svg height={size} width={size}>
-      <Circle cx={radius} cy={radius} fill={colors.ocean} r={radius - 1} stroke={colors.limb} strokeWidth={1} />
+    <Svg height={height} width={width}>
+      <Circle
+        cx={centre.x}
+        cy={centre.y}
+        fill={colors.ocean}
+        r={radius - 1}
+        stroke={colors.limb}
+        strokeWidth={1}
+      />
       {outlines.map(({ id, path }) => {
         const visited = visitedIds.has(id);
         return (

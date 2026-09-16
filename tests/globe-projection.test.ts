@@ -15,6 +15,7 @@ import {
 } from "../src/domain/globe-projection";
 
 const RADIUS = 100;
+const CENTRE = { x: RADIUS, y: RADIUS };
 const FACING: GlobeFeature = {
   id: "FAC",
   name: "Facing",
@@ -28,22 +29,22 @@ const BEHIND: GlobeFeature = {
 
 describe("orthographic globe projection", () => {
   it("places the rotation centre at the middle of the disc", () => {
-    expect(projectToGlobe(13, 52, { latitude: 52, longitude: 13 }, RADIUS)).toEqual({
+    expect(projectToGlobe(13, 52, { latitude: 52, longitude: 13 }, RADIUS, CENTRE)).toEqual({
       x: RADIUS,
       y: RADIUS,
     });
   });
 
   it("hides the hemisphere facing away from the viewer", () => {
-    expect(projectToGlobe(180, 0, { latitude: 0, longitude: 0 }, RADIUS)).toBeUndefined();
-    expect(projectToGlobe(91, 0, { latitude: 0, longitude: 0 }, RADIUS)).toBeUndefined();
-    expect(projectToGlobe(89, 0, { latitude: 0, longitude: 0 }, RADIUS)).toBeDefined();
+    expect(projectToGlobe(180, 0, { latitude: 0, longitude: 0 }, RADIUS, CENTRE)).toBeUndefined();
+    expect(projectToGlobe(91, 0, { latitude: 0, longitude: 0 }, RADIUS, CENTRE)).toBeUndefined();
+    expect(projectToGlobe(89, 0, { latitude: 0, longitude: 0 }, RADIUS, CENTRE)).toBeDefined();
   });
 
   it("keeps every projected point inside the disc", () => {
     for (const longitude of [-89, -45, 0, 45, 89]) {
       for (const latitude of [-80, -30, 0, 30, 80]) {
-        const point = projectToGlobe(longitude, latitude, { latitude: 0, longitude: 0 }, RADIUS)!;
+        const point = projectToGlobe(longitude, latitude, { latitude: 0, longitude: 0 }, RADIUS, CENTRE)!;
         const distance = Math.hypot(point.x - RADIUS, point.y - RADIUS);
         expect(distance).toBeLessThanOrEqual(RADIUS + 1e-9);
       }
@@ -51,8 +52,8 @@ describe("orthographic globe projection", () => {
   });
 
   it("puts north above the centre and east to its right", () => {
-    const north = projectToGlobe(0, 30, { latitude: 0, longitude: 0 }, RADIUS)!;
-    const east = projectToGlobe(30, 0, { latitude: 0, longitude: 0 }, RADIUS)!;
+    const north = projectToGlobe(0, 30, { latitude: 0, longitude: 0 }, RADIUS, CENTRE)!;
+    const east = projectToGlobe(30, 0, { latitude: 0, longitude: 0 }, RADIUS, CENTRE)!;
     expect(north.y).toBeLessThan(RADIUS);
     expect(north.x).toBeCloseTo(RADIUS, 6);
     expect(east.x).toBeGreaterThan(RADIUS);
@@ -67,7 +68,7 @@ describe("orthographic globe projection", () => {
   });
 
   it("emits a closed path only for countries with visible outline", () => {
-    const outlines = globeOutlines([FACING, BEHIND], { latitude: 0, longitude: 0 }, RADIUS);
+    const outlines = globeOutlines([FACING, BEHIND], { latitude: 0, longitude: 0 }, RADIUS, CENTRE);
     expect(outlines.map(({ id }) => id)).toEqual(["FAC"]);
     expect(outlines[0]!.path).toMatch(/^M[\d.]+ [\d.]+(L[\d.]+ [\d.]+)+Z$/);
   });
@@ -78,7 +79,7 @@ describe("orthographic globe projection", () => {
       name: "Straddling",
       rings: [[0, 0, 20, 0, 20, 20, 0, 20, 0, 0, 179, 0, 179, 1]],
     };
-    const [outline] = globeOutlines([straddling], { latitude: 0, longitude: 0 }, RADIUS);
+    const [outline] = globeOutlines([straddling], { latitude: 0, longitude: 0 }, RADIUS, CENTRE);
     expect(outline!.path.match(/M/g)).toHaveLength(1);
   });
 
@@ -157,5 +158,16 @@ describe("orthographic globe projection", () => {
     expect(isPinchingIn(100, 60)).toBe(false);
     expect(isPinchingIn(0, 200)).toBe(false);
     expect(isPinchingIn(100, 0)).toBe(false);
+  });
+
+  it("draws the sphere around any centre, not just its own box", () => {
+    const offset = projectToGlobe(0, 0, { latitude: 0, longitude: 0 }, RADIUS, { x: 500, y: 700 });
+    expect(offset).toEqual({ x: 500, y: 700 });
+  });
+
+  it("caps a sphere that would dwarf the viewport", () => {
+    // A wide view at high latitude would otherwise ask for thousands of units.
+    const capped = globeRadiusForViewport(400, [-2, 50, 2, 54], 70);
+    expect(capped).toBe(400 * 4);
   });
 });

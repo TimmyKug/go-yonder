@@ -4,14 +4,18 @@ export type GlobeRotation = { latitude: number; longitude: number };
 export type GlobeRing = readonly number[];
 export type GlobeFeature = { id: string; name: string; rings: readonly GlobeRing[] };
 export type GlobeOutline = { id: string; name: string; path: string };
+/** Where the centre of the sphere sits on the canvas it is drawn into. */
+export type GlobeCentre = { x: number; y: number };
 
 const DEGREES = Math.PI / 180;
 const MIN_RUN_POINTS = 3;
 /** Keeps the radius finite when the camera sits on a pole. */
 const MIN_POLE_COSINE = 0.05;
+/** Ceiling on the sphere's radius, in viewport widths. */
+const MAX_RADIUS_VIEWPORTS = 4;
 
 /** The globe only ever takes over from a wide view, never from a street view. */
-export const GLOBE_HANDOFF_MAX_ZOOM = 6;
+export const GLOBE_HANDOFF_MAX_ZOOM = 4;
 const STALL_ZOOM_EPSILON = 0.01;
 const STALL_CENTRE_EPSILON = 0.35;
 const RECENT_ZOOM_OUT_MS = 1500;
@@ -62,7 +66,10 @@ export function globeRadiusForViewport(
   const span = east - west > 0 ? east - west : east - west + 360;
   if (!(width > 0) || !(span > 0)) return 0;
   const mercatorRadius = width / (span * DEGREES);
-  return mercatorRadius / Math.max(Math.cos(latitude * DEGREES), MIN_POLE_COSINE);
+  const matched = mercatorRadius / Math.max(Math.cos(latitude * DEGREES), MIN_POLE_COSINE);
+  // A sphere far larger than the screen shows nothing extra and only inflates
+  // the geometry, so it is capped well beyond what the viewport can reveal.
+  return Math.min(matched, width * MAX_RADIUS_VIEWPORTS);
 }
 
 /** How far two fingers must spread before the globe hands back to the map. */
@@ -115,7 +122,7 @@ export function rotateToward(
 }
 
 /**
- * Project one coordinate onto a globe of `radius` centred at (radius, radius).
+ * Project one coordinate onto a globe of `radius` centred at `centre`.
  * Returns undefined for the hemisphere facing away from the viewer.
  */
 export function projectToGlobe(
@@ -123,6 +130,7 @@ export function projectToGlobe(
   latitude: number,
   rotation: GlobeRotation,
   radius: number,
+  centre: GlobeCentre,
 ): { x: number; y: number } | undefined {
   const phi = latitude * DEGREES;
   const phi0 = rotation.latitude * DEGREES;
@@ -131,20 +139,22 @@ export function projectToGlobe(
   const cosLambda = Math.cos(lambda);
   if (Math.sin(phi0) * Math.sin(phi) + Math.cos(phi0) * cosPhi * cosLambda < 0) return undefined;
   return {
-    x: radius + radius * cosPhi * Math.sin(lambda),
-    y: radius - radius * (Math.cos(phi0) * Math.sin(phi) - Math.sin(phi0) * cosPhi * cosLambda),
+    x: centre.x + radius * cosPhi * Math.sin(lambda),
+    y: centre.y - radius * (Math.cos(phi0) * Math.sin(phi) - Math.sin(phi0) * cosPhi * cosLambda),
   };
 }
 
 /**
  * One SVG path per country, covering every visible run of its outline. Runs broken by
  * the horizon are closed along the chord between their end points, which reads as a
- * clean limb at country scale.
+ * clean limb at country scale. Paths may fall outside the canvas: the sphere is often
+ * wider than the screen, and the canvas clips it.
  */
 export function globeOutlines(
   features: readonly GlobeFeature[],
   rotation: GlobeRotation,
   radius: number,
+  centre: GlobeCentre,
 ): GlobeOutline[] {
   const outlines: GlobeOutline[] = [];
   for (const { id, name, rings } of features) {
@@ -152,7 +162,7 @@ export function globeOutlines(
     for (const ring of rings) {
       let run: string[] = [];
       for (let index = 0; index < ring.length; index += 2) {
-        const point = projectToGlobe(ring[index]!, ring[index + 1]!, rotation, radius);
+        const point = projectToGlobe(ring[index]!, ring[index + 1]!, rotation, radius, centre);
         if (point) {
           run.push(`${point.x.toFixed(1)} ${point.y.toFixed(1)}`);
           continue;

@@ -480,19 +480,14 @@ export function YonderMapView({
             />
           ) : null}
 
-          <View
-            pointerEvents="none"
-            style={{
-              left: mapSize.width / 2 - globeRadius,
-              position: "absolute",
-              top: mapSize.height / 2 - globeRadius,
-            }}
-          >
+          <View pointerEvents="none" style={{ left: 0, position: "absolute", top: 0 }}>
             <GlobeSphere
               colors={GLOBE_COLORS[themeName]}
+              height={mapSize.height}
               radius={globeRadius}
               rotation={globeRotation}
               visitedIds={visitedCountryIds}
+              width={mapSize.width}
             />
           </View>
 
