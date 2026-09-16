@@ -445,6 +445,11 @@ so the same thing is never drawn twice.
   frame matches the map underneath, and then eases down to a sphere that fits
   the screen. Its radius comes from the camera's own reported bounds rather
   than an assumed tile size.
+- The sphere is drawn into a viewport-sized canvas that clips it, never into a
+  canvas its own size. A sphere matched to a zoomed-out map is several screens
+  wide, and asking the GPU for a canvas that large crashes the app; the radius
+  is also capped at four viewport widths, well past anything the screen can
+  reveal.
 - Once it has taken over, the globe owns the gestures: dragging spins it, and
   spreading two fingers means zoom back in, which hands the map back. There is
   no button, because the gesture that summoned the globe reversed is the
