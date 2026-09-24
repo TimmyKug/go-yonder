@@ -1,15 +1,27 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ pick: vi.fn(), deserialize: vi.fn(), merge: vi.fn(), close: vi.fn() }));
+const mocks = vi.hoisted(() => ({ pick: vi.fn(), deserialize: vi.fn(), merge: vi.fn(), close: vi.fn(), getDatabase: vi.fn() }));
 vi.mock("expo-file-system", () => ({ File: { pickFileAsync: mocks.pick } }));
 vi.mock("expo-sqlite", () => ({ deserializeDatabaseAsync: mocks.deserialize }));
-vi.mock("@/src/data/database", () => ({ getDatabase: async () => ({}) }));
+vi.mock("@/src/data/database", () => ({ getDatabase: mocks.getDatabase }));
 vi.mock("@/src/data/backup-import-repository", () => ({ mergeBackupUnlocks: mocks.merge }));
 import { importYonderBackup } from "@/src/data/import-yonder-backup";
+
+function sqliteBytes() {
+  const bytes = new Uint8Array(100);
+  bytes.set(new TextEncoder().encode("SQLite format 3\0"));
+  bytes[18] = bytes[19] = 2;
+  return bytes;
+}
+function picked(bytes: () => Promise<Uint8Array>) {
+  mocks.pick.mockResolvedValue({ canceled: false, result: { bytes } });
+}
 
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.deserialize.mockResolvedValue({ closeAsync: mocks.close });
+  mocks.close.mockResolvedValue(undefined);
+  mocks.getDatabase.mockResolvedValue({});
 });
 it("cancellation never opens or changes a database", async () => {
   mocks.pick.mockResolvedValue({ canceled: true, result: null });
@@ -18,18 +30,37 @@ it("cancellation never opens or changes a database", async () => {
   expect(mocks.merge).not.toHaveBeenCalled();
 });
 it("rejects non-database files before deserialization", async () => {
-  mocks.pick.mockResolvedValue({ canceled: false, result: { bytes: async () => new Uint8Array(100) } });
-  await expect(importYonderBackup()).rejects.toThrow("not a SQLite backup");
+  picked(async () => new Uint8Array(100));
+  await expect(importYonderBackup()).rejects.toMatchObject({ stage: "check file type", reason: "This is not a SQLite backup." });
   expect(mocks.deserialize).not.toHaveBeenCalled();
 });
+it("reports a file that cannot be read without quoting its location", async () => {
+  picked(async () => { throw new Error("Unable to open input stream for URI: content://com.example.documents/document/primary%3AHome%2Fyonder-backup.db"); });
+  await expect(importYonderBackup()).rejects.toMatchObject({ stage: "read file", reason: "Unable to open input stream for URI: <uri>" });
+});
+it("reports a snapshot SQLite cannot open", async () => {
+  picked(async () => sqliteBytes());
+  mocks.deserialize.mockRejectedValue(new Error("out of memory"));
+  await expect(importYonderBackup()).rejects.toMatchObject({ stage: "open backup", reason: "out of memory" });
+  expect(mocks.merge).not.toHaveBeenCalled();
+});
+it("reports a live database that cannot be opened and still closes the snapshot", async () => {
+  picked(async () => sqliteBytes());
+  mocks.getDatabase.mockRejectedValue(new Error("database is locked"));
+  await expect(importYonderBackup()).rejects.toMatchObject({ stage: "open Yonder database" });
+  expect(mocks.close).toHaveBeenCalledOnce();
+});
 it("opens serialized WAL snapshots in rollback mode and closes them on merge failure", async () => {
-  const bytes = new Uint8Array(100);
-  bytes.set(new TextEncoder().encode("SQLite format 3\0"));
-  bytes[18] = bytes[19] = 2;
-  mocks.pick.mockResolvedValue({ canceled: false, result: { bytes: async () => bytes } });
+  picked(async () => sqliteBytes());
   mocks.merge.mockRejectedValue(new Error("invalid tiles"));
-  await expect(importYonderBackup()).rejects.toThrow("invalid tiles");
+  await expect(importYonderBackup()).rejects.toMatchObject({ stage: "check and add tiles", reason: "invalid tiles" });
   expect(mocks.deserialize.mock.calls[0]?.[0][18]).toBe(1);
   expect(mocks.deserialize.mock.calls[0]?.[0][19]).toBe(1);
   expect(mocks.close).toHaveBeenCalledOnce();
+});
+it("returns the merge result even if closing the snapshot fails", async () => {
+  picked(async () => sqliteBytes());
+  mocks.merge.mockResolvedValue({ addedCount: 2, totalCount: 3 });
+  mocks.close.mockRejectedValue(new Error("already closed"));
+  await expect(importYonderBackup()).resolves.toEqual({ addedCount: 2, totalCount: 3 });
 });
