@@ -15,6 +15,9 @@ import {
   updateLocationState,
 } from "./location-state";
 
+import { recordDiagnostic } from "@/src/diagnostics/diagnostics";
+import { describeError } from "@/src/domain/diagnostic-event";
+
 const LOCATION_DISTANCE_INTERVAL_M = 20;
 const FOREGROUND_LOCATION_TIME_INTERVAL_MS = 1_000;
 const BACKGROUND_LOCATION_TIME_INTERVAL_MS = 3_000;
@@ -42,7 +45,7 @@ const BACKGROUND_LOCATION_OPTIONS: Location.LocationTaskOptions = {
 };
 
 let foregroundSubscription: Location.LocationSubscription | null = null;
-let foregroundIngestion = Promise.resolve();
+let foregroundIngestion: Promise<unknown> = Promise.resolve();
 let operationQueue: Promise<void> = Promise.resolve();
 let pendingOperationCount = 0;
 
@@ -57,14 +60,14 @@ export {
 };
 
 export function refreshLocationState(): Promise<LocationTrackingState> {
-  return runExclusive(async () => {
+  return runExclusive("refresh", async () => {
     await refreshPlatformState();
     return getLocationSnapshot();
   });
 }
 
 export function initializeLocationTracking(): Promise<LocationTrackingState> {
-  return runExclusive(async () => {
+  return runExclusive("initialize", async () => {
     const platformState = await refreshPlatformState();
 
     if (!platformState.servicesEnabled) {
@@ -89,7 +92,7 @@ export function initializeLocationTracking(): Promise<LocationTrackingState> {
 }
 
 export async function requestForegroundLocationPermission(): Promise<LocationPermissionState> {
-  await runExclusive(async () => {
+  await runExclusive("request-foreground", async () => {
     const permission = await Location.requestForegroundPermissionsAsync();
     await refreshPlatformState(permission);
 
@@ -109,7 +112,7 @@ export async function requestForegroundLocationPermission(): Promise<LocationPer
 }
 
 export async function requestBackgroundLocationPermission(): Promise<LocationPermissionState> {
-  await runExclusive(async () => {
+  await runExclusive("request-background", async () => {
     const foregroundPermission =
       await Location.getForegroundPermissionsAsync();
 
@@ -144,7 +147,7 @@ export async function requestBackgroundLocationPermission(): Promise<LocationPer
 }
 
 export function startLocationTracking(): Promise<LocationTrackingState> {
-  return runExclusive(async () => {
+  return runExclusive("start", async () => {
     const platformState = await refreshPlatformState();
 
     if (!platformState.servicesEnabled) {
@@ -173,7 +176,7 @@ export function startLocationTracking(): Promise<LocationTrackingState> {
 }
 
 export function startBackgroundLocationTracking(): Promise<LocationTrackingState> {
-  return runExclusive(async () => {
+  return runExclusive("start-background", async () => {
     const platformState = await refreshPlatformState();
 
     if (!platformState.servicesEnabled) {
@@ -219,7 +222,11 @@ export function startBackgroundLocationTracking(): Promise<LocationTrackingState
 
     try {
       await startBackgroundUpdates();
-    } catch {
+    } catch (error) {
+      recordDiagnostic("background-start", {
+        ok: false,
+        error: describeError(error),
+      });
       updateLocationState({
         error: {
           code: "tracking-start-failed",
@@ -233,7 +240,7 @@ export function startBackgroundLocationTracking(): Promise<LocationTrackingState
 }
 
 export function stopLocationTracking(): Promise<LocationTrackingState> {
-  return runExclusive(async () => {
+  return runExclusive("stop", async () => {
     stopForegroundUpdates();
 
     try {
@@ -257,6 +264,7 @@ export function stopLocationTracking(): Promise<LocationTrackingState> {
 async function startBestAvailableUpdates(): Promise<void> {
   if (await isBackgroundTrackingStarted()) {
     stopForegroundUpdates();
+    recordDiagnostic("background-start", { alreadyRegistered: true });
     await reattachAndroidForegroundService();
     updateLocationState({ trackingMode: "background", error: null });
     await seedCurrentCoordinate();
@@ -272,7 +280,11 @@ async function startBestAvailableUpdates(): Promise<void> {
     try {
       await startBackgroundUpdates();
       return;
-    } catch {
+    } catch (error) {
+      recordDiagnostic("background-start", {
+        ok: false,
+        error: describeError(error),
+      });
       await startForegroundUpdates();
       updateLocationState({
         error: {
@@ -296,6 +308,7 @@ async function startBackgroundUpdates(): Promise<void> {
       BACKGROUND_LOCATION_TASK_NAME,
       BACKGROUND_LOCATION_OPTIONS,
     );
+    recordDiagnostic("background-start", { ok: true });
   }
 
   updateLocationState({ trackingMode: "background", error: null });
@@ -318,7 +331,12 @@ async function reattachAndroidForegroundService(): Promise<void> {
       BACKGROUND_LOCATION_TASK_NAME,
       BACKGROUND_LOCATION_OPTIONS,
     );
-  } catch {
+    recordDiagnostic("task-reregister", { ok: true });
+  } catch (error) {
+    recordDiagnostic("task-reregister", {
+      ok: false,
+      error: describeError(error),
+    });
     // The existing registration keeps running. The next time the app becomes
     // active, this is attempted again.
   }
@@ -355,7 +373,10 @@ async function startForegroundUpdates(): Promise<void> {
         ingestExpoLocations([location], "live-foreground");
       foregroundIngestion = foregroundIngestion.then(ingest, ingest);
     },
-    () => {
+    (reason) => {
+      recordDiagnostic("location-update-error", {
+        error: describeError(reason),
+      });
       updateLocationState({
         error: {
           code: "location-update-failed",
@@ -365,6 +386,7 @@ async function startForegroundUpdates(): Promise<void> {
     },
   );
 
+  recordDiagnostic("foreground-watch-start");
   updateLocationState({ trackingMode: "foreground", error: null });
 }
 
@@ -475,6 +497,7 @@ function toAccuracyAuthorization(
 }
 
 function runExclusive(
+  label: string,
   operation: () => Promise<LocationTrackingState>,
 ): Promise<LocationTrackingState> {
   pendingOperationCount += 1;
@@ -486,8 +509,11 @@ function runExclusive(
     () => undefined,
   );
 
+  let failure: string | null = null;
+
   return execution
-    .catch(() => {
+    .catch((error: unknown) => {
+      failure = describeError(error);
       updateLocationState({
         error: {
           code: "unexpected",
@@ -502,5 +528,28 @@ function runExclusive(
         updateLocationState({ busy: false });
       }
     })
-    .then(getLocationSnapshot);
+    .then(() => {
+      const state = getLocationSnapshot();
+      recordTrackingState(label, state, failure);
+      return state;
+    });
+}
+
+function recordTrackingState(
+  operation: string,
+  state: LocationTrackingState,
+  failure: string | null,
+): void {
+  recordDiagnostic("tracking-state", {
+    operation,
+    platform: Platform.OS,
+    mode: state.trackingMode,
+    foreground: state.permissions.foreground,
+    background: state.permissions.background,
+    accuracy: state.permissions.accuracy,
+    servicesEnabled: state.servicesEnabled,
+    backgroundAvailable: state.backgroundAvailable,
+    error: state.error?.code ?? null,
+    failure,
+  });
 }

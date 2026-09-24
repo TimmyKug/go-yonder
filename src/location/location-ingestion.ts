@@ -9,10 +9,18 @@ import type { NormalizedLocationSample } from "@/src/domain/location-sample";
 
 export type LiveLocationSource = "live-background" | "live-foreground";
 
+export type LiveIngestionSummary = Readonly<{
+  receivedCount: number;
+  validCount: number;
+  acceptedCount: number;
+  insertedCellCount: number;
+  failed: boolean;
+}>;
+
 export async function ingestExpoLocations(
   locations: readonly Location.LocationObject[],
   source: LiveLocationSource,
-): Promise<void> {
+): Promise<LiveIngestionSummary> {
   const samples: NormalizedLocationSample[] = [];
   let newestAcceptedCoordinate:
     | {
@@ -46,8 +54,16 @@ export async function ingestExpoLocations(
     }
   }
 
+  const summary = {
+    receivedCount: locations.length,
+    validCount: samples.length,
+    acceptedCount: 0,
+    insertedCellCount: 0,
+    failed: false,
+  };
+
   if (samples.length === 0) {
-    return;
+    return summary;
   }
 
   try {
@@ -65,6 +81,12 @@ export async function ingestExpoLocations(
           : {},
       );
     }
+
+    return {
+      ...summary,
+      acceptedCount: result.acceptedCount,
+      insertedCellCount: result.insertedCellCount,
+    };
   } catch {
     updateLocationState({
       error: {
@@ -72,6 +94,7 @@ export async function ingestExpoLocations(
         message: "A location update could not be saved on this device.",
       },
     });
+    return { ...summary, failed: true };
   }
 }
 

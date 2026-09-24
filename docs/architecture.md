@@ -268,6 +268,7 @@ src/
     location-state.ts            External state store for the UI
   diagnostics/
     diagnostics.ts               Queued, failure-tolerant event recorder
+    install-diagnostics.ts       Entry-module hook for process starts
     diagnostics-report.ts        Plain-text report for sharing
   import/
     import-adapter.ts            Future source-adapter contract
