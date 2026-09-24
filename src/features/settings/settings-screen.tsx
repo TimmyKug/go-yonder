@@ -4,8 +4,10 @@ import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { AppearancePreference } from "@/src/data/appearance-preference";
+import { BackupStageError, describeBackupCause, isBackupCancellation } from "@/src/data/backup-failure";
 import { importYonderBackup } from "@/src/data/import-yonder-backup";
 import { exportYonderBackup } from "@/src/data/yonder-backup";
+import { recordDiagnostic } from "@/src/diagnostics/diagnostics";
 import { useAppearance } from "@/src/features/appearance/appearance-provider";
 
 export function SettingsScreen() {
@@ -33,16 +35,19 @@ export function SettingsScreen() {
     setBusy(kind);
     try {
       if (kind === "export") {
-        await exportYonderBackup();
-        Alert.alert("Backup saved", "Your Yonder data was saved as yonder-backup.db.");
+        const result = await exportYonderBackup();
+        Alert.alert("Backup saved", `Your Yonder data was saved as ${result.fileName}.`);
       } else {
         const result = await importYonderBackup();
         if (result) Alert.alert("Backup imported", `${result.addedCount} new tiles added. Your existing unlocks are preserved.`);
       }
     } catch (error: unknown) {
-      if (kind === "export" && error instanceof Error && /cancel/i.test(error.message)) return;
+      if (isBackupCancellation(error)) return;
+      const stage = error instanceof BackupStageError ? error.stage : "unknown step";
+      const reason = error instanceof BackupStageError ? error.reason : describeBackupCause(error);
+      recordDiagnostic("backup-error", { operation: kind, stage, reason });
       Alert.alert(kind === "import" ? "Backup not imported" : "Backup not saved",
-        kind === "import" ? "Choose a valid Yonder backup with supported tiles. Your existing unlocks are unchanged." : "The backup could not be saved. Try choosing a writable folder.");
+        `${kind === "import" ? "Your existing unlocks are unchanged." : "Try choosing a writable folder."}\n\nStep: ${stage}\nReason: ${reason}`);
     } finally {
       pending.current = false;
       setBusy(null);

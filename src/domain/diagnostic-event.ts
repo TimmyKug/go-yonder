@@ -1,6 +1,7 @@
 export type DiagnosticEventKind =
   | "app-state"
   | "background-batch"
+  | "backup-error"
   | "background-start"
   | "background-task-error"
   | "foreground-watch-start"

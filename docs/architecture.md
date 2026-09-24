@@ -112,8 +112,14 @@ Backups use SQLite's online serialization API to produce one consistent
 `yonder-backup.db` snapshot. An app-private snapshot is refreshed at most
 every 15 minutes after successful ingestion and whenever the foreground app
 moves to the background. A user can also force a fresh export: the system
-directory picker saves or replaces the snapshot in any writable Files provider
-on iOS or Android, including a provider-managed synchronized folder. The live
+directory picker saves the snapshot in any writable Files provider on iOS or
+Android, including a provider-managed synchronized folder. iOS replaces an
+existing `yonder-backup.db` there. Android's Storage Access Framework returns
+`content://` URIs, where a child file must be created through the provider
+(`Directory.createFile`) rather than by path. If a backup of the same name
+already exists, the provider picks a unique name such as
+`yonder-backup (1).db`, and Settings shows that name. The app never overwrites a
+provider document in place, because some providers do not truncate on write. The live
 WAL database is never exposed or copied directly, and the app does not upload
 location data or retain access to the selected provider after export finishes.
 
@@ -635,3 +641,14 @@ are derived from H3 identifiers; overlapping cells retain the earliest first
 visit and latest last visit. Reimporting is idempotent. Unsupported or invalid
 backups leave local data unchanged. Returning to the map refreshes its coverage.
 No backup data leaves the device through the import flow.
+
+### Backup failure reporting (0.4.5)
+
+Export and import run as named stages: choose folder, read database, create
+file, write file; and read file, check file type, open backup, open Yonder
+database, check and add tiles. A failure reports its stage and a short reason in
+the Settings alert and records a `backup-error` event in the on-device
+diagnostics log. The reason is the native error code plus its message, with
+URIs, file paths, and decimal numbers removed so the report cannot carry a file
+location, a folder name, or a coordinate. Backup contents and cell identifiers
+are never included.
