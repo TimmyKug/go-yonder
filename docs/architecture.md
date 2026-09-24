@@ -142,6 +142,36 @@ Platform constraints will be communicated honestly:
 - Force-quitting the app can prevent continued collection, with behavior differing by platform and Android vendor.
 - Background behavior must be tested with development/release builds on physical devices.
 
+### Diagnostics log
+
+Background location failures are otherwise invisible: the only symptom is
+missing hexes. The app therefore keeps an always-on diagnostics log of tracking
+lifecycle events on the device:
+
+- Process starts and app foreground/background transitions.
+- Permission, service, and tracking state when tracking is initialized or
+  started, and the outcome of starting or re-registering the background task.
+- Each background location batch: how many readings arrived, how old the oldest
+  one was, their accuracy range, how many were accepted, and how many cells
+  were unlocked.
+- Task, update, and ingestion errors.
+
+Events never contain coordinates, place names, cell IDs, or raw location
+records. Event details are limited to scalar values, and keys naming
+coordinates are rejected before anything is written.
+
+The log lives in its own SQLite file, `yonder-diagnostics.db`, rather than the
+main database. Backups serialize the whole main database and import expects its
+exact schema version, so keeping the log separate leaves the backup format
+unchanged and keeps diagnostics out of backups. Writes are queued, never throw,
+and never block location ingestion; the background task waits for queued
+writes before it finishes. When the log opens, events older than seven days
+are deleted and at most the newest 5,000 are kept.
+
+Settings shows the log on a Diagnostics screen, where the user can clear it or
+share it as text through the system share sheet. Nothing leaves the device
+unless the user shares it.
+
 ### Android distribution: signed GitHub releases
 
 Android updates are distributed as APK assets on tagged GitHub releases so an
@@ -236,6 +266,9 @@ src/
     location-ingestion.ts        Expo-to-domain normalization
     location-service.ts          Permission and lifecycle orchestration
     location-state.ts            External state store for the UI
+  diagnostics/
+    diagnostics.ts               Queued, failure-tolerant event recorder
+    diagnostics-report.ts        Plain-text report for sharing
   import/
     import-adapter.ts            Future source-adapter contract
   config/
@@ -511,6 +544,7 @@ application must never assume an external provider uses H3.
 - Store location history locally by default.
 - Do not add telemetry or analytics in the core implementation.
 - Do not log location payloads in development or production.
+- The on-device diagnostics log records tracking lifecycle metadata only, never coordinates, and is shared only when the user chooses to.
 - Never commit real coordinates, databases, exports, signing credentials, or provider tokens.
 - Use parameterized SQL and validate imported fields before persistence.
 - Use synthetic routes in fixtures.
