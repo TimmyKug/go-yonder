@@ -11,6 +11,12 @@ on:
         description: Existing vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-beta.N tag to release
         required: true
         type: string
+  workflow_call:
+    inputs:
+      tag:
+        description: Existing vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-beta.N tag to release
+        required: true
+        type: string
 
 permissions:
   contents: write
