@@ -29,6 +29,8 @@ vi.mock("expo-task-manager", () => ({
 vi.mock("@/src/location/background-location-task", () => ({
   BACKGROUND_LOCATION_TASK_NAME: "test-task",
 }));
+const recordDiagnostic = vi.hoisted(() => vi.fn());
+vi.mock("@/src/diagnostics/diagnostics", () => ({ recordDiagnostic }));
 vi.mock("@/src/location/location-ingestion", () => ({
   ingestExpoLocations: vi.fn(async () => undefined),
 }));
@@ -53,6 +55,7 @@ describe("initializeLocationTracking", () => {
     location.getCurrentPositionAsync.mockRejectedValue(new Error("no fix"));
     location.startLocationUpdatesAsync.mockReset();
     location.startLocationUpdatesAsync.mockResolvedValue(undefined);
+    recordDiagnostic.mockReset();
   });
 
   it("re-registers a restored Android task so its foreground service restarts", async () => {
@@ -65,6 +68,17 @@ describe("initializeLocationTracking", () => {
     );
     expect(state.trackingMode).toBe("background");
     expect(state.error).toBeNull();
+    expect(recordDiagnostic).toHaveBeenCalledWith("task-reregister", {
+      ok: true,
+    });
+    expect(recordDiagnostic).toHaveBeenCalledWith(
+      "tracking-state",
+      expect.objectContaining({
+        operation: "initialize",
+        mode: "background",
+        background: "granted",
+      }),
+    );
   });
 
   it("keeps background tracking when re-registering fails", async () => {
@@ -77,6 +91,10 @@ describe("initializeLocationTracking", () => {
     expect(state.trackingMode).toBe("background");
     expect(state.error).toBeNull();
     expect(location.watchPositionAsync).not.toHaveBeenCalled();
+    expect(recordDiagnostic).toHaveBeenCalledWith("task-reregister", {
+      ok: false,
+      error: "not foregrounded",
+    });
   });
 
   it("leaves an already running iOS task untouched", async () => {

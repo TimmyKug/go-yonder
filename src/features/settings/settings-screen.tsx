@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -87,6 +88,10 @@ export function SettingsScreen() {
       <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings().catch(() => Alert.alert("Settings unavailable", "Open your device settings to manage Yonder permissions."))} style={{ paddingVertical: 16, minHeight: 48 }}>
         <Text style={{ color: foreground, fontSize: 17, fontWeight: "600" }}>Location permissions</Text>
         <Text style={{ color: secondary, marginTop: 6 }}>Open Yonder in system settings</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" onPress={() => router.push("/diagnostics")} style={{ paddingVertical: 16, minHeight: 48 }}>
+        <Text style={{ color: foreground, fontSize: 17, fontWeight: "600" }}>Diagnostics</Text>
+        <Text style={{ color: secondary, marginTop: 6 }}>See how location tracking behaved, without any locations</Text>
       </Pressable>
     </ScrollView>
   );

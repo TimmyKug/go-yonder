@@ -29,6 +29,7 @@ function AppNavigator() {
       >
         <Stack.Screen name="index" />
         <Stack.Screen name="settings" options={{ headerShown: true, title: "Settings" }} />
+        <Stack.Screen name="diagnostics" options={{ headerShown: true, title: "Diagnostics" }} />
         <Stack.Screen
           name="countries"
           options={{
