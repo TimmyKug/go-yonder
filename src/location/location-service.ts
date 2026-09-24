@@ -1,5 +1,6 @@
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
+import { Platform } from "react-native";
 
 import { BACKGROUND_LOCATION_TASK_NAME } from "./background-location-task";
 import { ingestExpoLocations } from "./location-ingestion";
@@ -256,6 +257,7 @@ export function stopLocationTracking(): Promise<LocationTrackingState> {
 async function startBestAvailableUpdates(): Promise<void> {
   if (await isBackgroundTrackingStarted()) {
     stopForegroundUpdates();
+    await reattachAndroidForegroundService();
     updateLocationState({ trackingMode: "background", error: null });
     await seedCurrentCoordinate();
     return;
@@ -298,6 +300,28 @@ async function startBackgroundUpdates(): Promise<void> {
 
   updateLocationState({ trackingMode: "background", error: null });
   await seedCurrentCoordinate();
+}
+
+// Android restores a registered location task whenever the app process
+// restarts (after the OS reclaims it, an app update, or a reboot). The restore
+// runs before an activity is in the foreground, so the location foreground
+// service is skipped and the task is left with heavily throttled background
+// updates. Re-registering the task while the app is visible starts the service
+// again without replacing the existing registration.
+async function reattachAndroidForegroundService(): Promise<void> {
+  if (Platform.OS !== "android") {
+    return;
+  }
+
+  try {
+    await Location.startLocationUpdatesAsync(
+      BACKGROUND_LOCATION_TASK_NAME,
+      BACKGROUND_LOCATION_OPTIONS,
+    );
+  } catch {
+    // The existing registration keeps running. The next time the app becomes
+    // active, this is attempted again.
+  }
 }
 
 async function seedCurrentCoordinate(): Promise<void> {

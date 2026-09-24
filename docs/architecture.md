@@ -126,6 +126,7 @@ location data or retain access to the selected provider after export finishes.
 - Use an Android foreground-service notification while background tracking is active.
 - Prefer distance-driven updates around the size of the selected cells, with conservative deferred batching in the background.
 - Route foreground and background samples through the same ingestion service.
+- On Android, when the app becomes active with background tracking already registered, register the task again. Android restores registered tasks when the process restarts, before any activity is visible, so the location foreground service is skipped. Registering again restarts the service without creating a second registration.
 - When an already-authorized app becomes active with background tracking registered, request one foreground fix to seed the current-position UI and camera; failure to obtain that convenience fix must not stop background collection.
 
 The current tuning baseline is high location accuracy with a 20-metre distance
