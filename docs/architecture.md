@@ -149,6 +149,13 @@ installer such as Obtainium can discover and install them. Release tags use the
 form `vMAJOR.MINOR.PATCH`; CI embeds that semantic version and a monotonically
 increasing Android `versionCode` into the APK before building it.
 
+Releases are cut by merging. A release-preparation change sets the new
+version in `app.json` (and `package.json`), and when it lands on `main`, CI
+creates the matching `v<version>` tag on the merged commit and builds that
+release. A push to `main` whose version already has a tag releases nothing.
+Every release is therefore built from reviewed code on `main`. Pushing a tag
+by hand still builds a release, as a fallback.
+
 Test builds use the same channel as prereleases. A tag of the form
 `vMAJOR.MINOR.PATCH-beta.N` publishes a GitHub release marked as a prerelease,
 which Obtainium installs only when its "Include prereleases" setting is on.
