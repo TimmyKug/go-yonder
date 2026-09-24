@@ -149,6 +149,21 @@ installer such as Obtainium can discover and install them. Release tags use the
 form `vMAJOR.MINOR.PATCH`; CI embeds that semantic version and a monotonically
 increasing Android `versionCode` into the APK before building it.
 
+Test builds use the same channel as prereleases. A tag of the form
+`vMAJOR.MINOR.PATCH-beta.N` publishes a GitHub release marked as a prerelease,
+which Obtainium installs only when its "Include prereleases" setting is on.
+Prereleases keep the production package name and signing key, so they update
+the installed app in place and test the real upgrade path with real data. A
+separate beta package was rejected because it would start with no data and
+run a second background tracker.
+
+The Android `versionCode` is
+`(MAJOR * 1,000,000 + MINOR * 1,000 + PATCH) * 100 + SUFFIX`, where `SUFFIX`
+is `N` (1–98) for `beta.N` and 99 for the stable release. Every beta therefore
+sorts above the previous stable release and below its own stable release.
+Android never accepts a lower `versionCode` over an installed app, so this
+scheme cannot be reverted once a release built with it has been installed.
+
 Every Yonder update must be signed by the same dedicated production key.
 Signing material is supplied to CI through encrypted repository secrets and is
 never committed. Because this repository is private, Obtainium must use a
