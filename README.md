@@ -74,6 +74,22 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
+### Test builds (prereleases)
+
+To try a change on your phone before a real release, push a beta tag from the
+commit you want to test, for example:
+
+```sh
+git tag v0.4.5-beta.1
+git push origin v0.4.5-beta.1
+```
+
+The workflow publishes it as a GitHub prerelease. In Obtainium, open Yonder's
+settings and turn on **Include prereleases** to receive it. Betas update the
+installed app in place and keep its data. Obtainium also offers the later
+stable release, such as `v0.4.5`, as an update over a beta. Turn the setting
+off again to follow stable releases only.
+
 Android only accepts an in-place update when its version code is higher and its
 signing certificate matches the installed app. The release workflow enforces
 the former and uses the repository secret for the latter.
