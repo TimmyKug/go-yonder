@@ -4,10 +4,17 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+"
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing vMAJOR.MINOR.PATCH tag to release
+        description: Existing vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-beta.N tag to release
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        description: Existing vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-beta.N tag to release
         required: true
         type: string
 
@@ -94,4 +101,9 @@ jobs:
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$RELEASE_TAG" "Yonder-${RELEASE_TAG#v}.apk" --verify-tag --generate-notes --title "Yonder ${RELEASE_TAG#v} — Unveil your world"
+        run: |
+          PRERELEASE_FLAG=""
+          case "$RELEASE_TAG" in
+            *-beta.*) PRERELEASE_FLAG="--prerelease" ;;
+          esac
+          gh release create "$RELEASE_TAG" "Yonder-${RELEASE_TAG#v}.apk" --verify-tag --generate-notes $PRERELEASE_FLAG --title "Yonder ${RELEASE_TAG#v} — Unveil your world"

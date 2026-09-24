@@ -57,7 +57,8 @@ The web route is an informational fallback only. Yonder itself targets iOS and A
 
 ## Android updates with Obtainium
 
-Android release APKs are published from tags named `vMAJOR.MINOR.PATCH`. Add
+Android release APKs are published on GitHub releases tagged `vMAJOR.MINOR.PATCH`
+(or `vMAJOR.MINOR.PATCH-beta.N` for prereleases). Add
 `https://github.com/TimmyKug/go-yonder` to Obtainium as a GitHub source.
 
 The repository is private, so first add a fine-grained GitHub personal access
@@ -67,12 +68,30 @@ repository with read-only access. Do not share or commit the token.
 Maintainers must configure the `RELEASE_KEYSTORE_BASE64`,
 `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`
 GitHub Actions secrets for Yonder's dedicated production signing key.
-Create and push a new semantic-version tag to publish an update, for example:
+
+To publish an update, merge a release-preparation change into `main` that sets
+the new version in `app.json` (`expo.version` and `expo.android.versionCode`)
+and in `package.json`. The **Release on merge** workflow then tags the merged
+commit `v<version>` and builds the release. Merges that leave the version
+unchanged release nothing. Pushing a tag by hand still works as a fallback:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.4.5
+git push origin v0.4.5
 ```
+
+### Test builds (prereleases)
+
+To try a change on your phone before a real release, merge a version such as
+`0.4.5-beta.1`. The workflow publishes it as a GitHub prerelease. In Obtainium,
+open Yonder's settings and turn on **Include prereleases** to receive it. Betas
+update the installed app in place and keep its data. Obtainium also offers the
+later stable release, such as `0.4.5`, as an update over a beta. Turn the
+setting off again to follow stable releases only.
+
+The Android `versionCode` is `(MAJOR * 1,000,000 + MINOR * 1,000 + PATCH) * 100`
+plus the beta number, or plus 99 for a stable release. For example,
+`0.4.5-beta.1` is `400501` and `0.4.5` is `400599`.
 
 Android only accepts an in-place update when its version code is higher and its
 signing certificate matches the installed app. The release workflow enforces

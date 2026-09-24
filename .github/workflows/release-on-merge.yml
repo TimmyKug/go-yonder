@@ -1,0 +1,62 @@
+name: Release on merge
+
+# Cuts a release when a merge to main changes the app version. The tag is
+# created on the merged commit, and the build is called directly because tags
+# pushed with GITHUB_TOKEN do not trigger other workflows.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - app.json
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-on-merge
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Create the release tag for a new version
+        id: tag
+        run: |
+          VERSION="$(node -p 'require("./app.json").expo.version')"
+          PACKAGE_VERSION="$(node -p 'require("./package.json").version')"
+
+          if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "::error::app.json version $VERSION does not match package.json version $PACKAGE_VERSION"
+            exit 1
+          fi
+
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$'; then
+            echo "::error::Version $VERSION must use the form MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-beta.N"
+            exit 1
+          fi
+
+          TAG="v$VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "$TAG already exists; nothing to release."
+            exit 0
+          fi
+
+          git tag "$TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: tag
+    if: needs.tag.outputs.tag != ''
+    uses: ./.github/workflows/android-release.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+    secrets: inherit
