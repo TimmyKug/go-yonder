@@ -454,11 +454,30 @@ boundaries before summing area. The denominator is the spherical area of the
 bundled country's polygons. Percentages are cartographic estimates and are
 capped at 100%. This intentionally summarizes broad explored regions rather
 than precise ground coverage, as requested. This is a derived local summary with no
-schema change, network reverse geocoding, or uploaded history. Saved cells are
-read in pages and cached classifications are reused between refreshes.
+schema change to the main database, network reverse geocoding, or uploaded history.
+
+The summary is built by one background scan, independent of zoom, and kept in
+a separate on-device cache database (`yonder-country-cache.db`), like the
+diagnostics log, so backups keep their schema version and never include it. The
+cache holds each visited country's first visit and each explored resolution-4
+parent hex with its clipped area. It can always be rebuilt from the unlocked
+cells. The scan resumes from the last processed cell rowid; new cells always get
+a larger rowid, so after the first pass only newly unlocked cells are scanned.
+It runs in slices of about 8 ms, pauses while the app is in the background,
+and saves each page of 128 cells atomically, so zooming, closing the app, or
+new location fixes never lose progress. Countries appear as soon as they are
+found; a percentage shows as calculating until every parent hex of that country
+has its clipped area. The cache starts over when the bundled boundaries change
+(a fingerprint of every country's identifier and area), when the unlocked cells
+were replaced, and after every backup import, because an import can make an
+existing cell's first visit earlier. A generation number discards a page
+scanned across a reset. Measured on a 144,765-cell history, assignment and
+coverage take about 2 s of JIT-compiled compute; the previous design recomputed
+everything from scratch on each refresh, cancelled on zooming in, and yielded
+every 16 cells, so it rarely finished on a device.
 
 Manual visit editing is deferred; this iteration derives visits from saved
-coverage only. Country list and map use the same completed summary snapshot.
+coverage only. Country list and map use the same summary snapshot.
 
 On Android, Yonder sets MapLibre Native's zoom rate to 1.6 so the one-finger
 double-tap-and-drag gesture traverses the map faster. The React Native wrapper
