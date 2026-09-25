@@ -1,69 +1,36 @@
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState } from "react-native";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
-import { readCountrySummary } from "@/src/data/country-summary";
-import { getDatabase } from "@/src/data/database";
-import type { CountryVisit } from "@/src/domain/country-coverage";
+import {
+  getCountryScanSnapshot,
+  requestCountryScan,
+  subscribeToCountryScan,
+} from "@/src/countries/country-scanner";
 
-let lastSummary: CountryVisit[] | undefined;
+const FIRST_SCAN_DELAY_MS = 1_500;
 
-export function useCountrySummary(enabled: boolean, refreshToken?: number) {
-  const [countries, setCountries] = useState(lastSummary);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>();
-  const reload = useRef<() => void>(() => undefined);
-  const refresh = useCallback(() => reload.current(), []);
-  useFocusEffect(useCallback(() => { refresh(); }, [refresh]));
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") refresh();
-    });
-    return () => subscription.remove();
-  }, [refresh]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    let running = false;
-    let queued = false;
-    let timer: ReturnType<typeof setTimeout>;
-    const load = async () => {
-      if (cancelled) return;
-      // Frequent GPS updates queue a refresh rather than cancelling an initial
-      // scan before it can complete for a large imported history.
-      if (running) { queued = true; return; }
-      running = true;
-      queued = false;
-      setLoading(true);
-      setError(undefined);
-      try {
-        const result = await readCountrySummary(await getDatabase(), undefined, () => cancelled);
-        if (!cancelled && result) {
-          lastSummary = result;
-          setCountries(result);
-        }
-      } catch {
-        if (!cancelled) setError("Your countries could not be loaded.");
-      } finally {
-        running = false;
-        if (!cancelled) {
-          setLoading(false);
-          if (queued) timer = setTimeout(() => void load(), 0);
-        }
-      }
-    };
-    reload.current = () => { void load(); };
-    timer = setTimeout(() => void load(), 0);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-      reload.current = () => undefined;
-    };
-  }, [enabled]);
-  useEffect(() => {
-    const timer = setTimeout(refresh, 0);
+/**
+ * Visited countries from the background scan. The scan saves its progress and
+ * runs regardless of zoom; countries appear as soon as they are found.
+ */
+export function useCountrySummary(refreshToken?: number) {
+  const snapshot = useSyncExternalStore(
+    subscribeToCountryScan,
+    getCountryScanSnapshot,
+    getCountryScanSnapshot,
+  );
+  // Let the map settle first: the scan parses the bundled borders on first use.
+  useFocusEffect(useCallback(() => {
+    const timer = setTimeout(requestCountryScan, FIRST_SCAN_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [refreshToken, refresh]);
-  return { countries, loading, error, refresh };
+  }, []));
+  useEffect(() => {
+    if (refreshToken !== undefined) requestCountryScan();
+  }, [refreshToken]);
+  return {
+    countries: snapshot.countries,
+    loading: snapshot.scanning,
+    error: snapshot.error,
+    refresh: requestCountryScan,
+  };
 }

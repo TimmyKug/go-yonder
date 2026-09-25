@@ -143,7 +143,7 @@ export function YonderMapView({
   const [countryOverview, setCountryOverview] = useState(
     () => INITIAL_MAP_VIEW.zoom <= COUNTRY_OVERVIEW_ZOOM,
   );
-  const countrySummary = useCountrySummary(countryOverview, countryRefreshToken);
+  const countrySummary = useCountrySummary(countryRefreshToken);
   // Parse the bundled borders only once they are first needed, then keep them
   // so crossing the overview zoom does not resend them to the native map.
   const [countryBordersNeeded, setCountryBordersNeeded] = useState(countryOverview);
