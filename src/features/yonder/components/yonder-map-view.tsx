@@ -33,7 +33,9 @@ import {
   OPENMAPTILES_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
+import { MAX_LIVE_HORIZONTAL_ACCURACY_M } from "@/src/config/yonder-config";
 import { getCountries } from "@/src/data/countries";
+import { accuracyAreaCollection, formatAccuracy } from "@/src/domain/accuracy-area";
 import { COUNTRY_OVERVIEW_ZOOM, type CountryCollection } from "@/src/domain/country-coverage";
 import { cellIdsAtDisplayResolution, displayResolutionForZoom, isValidMapZoom, MAX_MAP_ZOOM, MIN_MAP_ZOOM } from "@/src/domain/hex-display";
 import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
@@ -42,7 +44,11 @@ import { useAppearance } from "@/src/features/appearance/appearance-provider";
 export type MapCoordinate = {
   latitude: number;
   longitude: number;
+  accuracyM?: number;
 };
+
+const WEAK_SIGNAL_COLOR = "#F2A83B";
+
 
 export type TrackingPresentation = {
   actionLabel?: string;
@@ -181,6 +187,19 @@ export function YonderMapView({
       ],
     };
   }, [currentCoordinate]);
+  // A fix too inaccurate to unlock tiles is still shown, with its uncertainty.
+  const weakSignal =
+    currentCoordinate?.accuracyM !== undefined &&
+    currentCoordinate.accuracyM > MAX_LIVE_HORIZONTAL_ACCURACY_M;
+  const accuracyArea = useMemo(
+    () => accuracyAreaCollection(
+      currentCoordinate?.accuracyM === undefined
+        ? undefined
+        : { ...currentCoordinate, accuracyM: currentCoordinate.accuracyM },
+    ),
+    [currentCoordinate],
+  );
+  const locationColor = weakSignal ? WEAK_SIGNAL_COLOR : colors.location;
   const loadedCellIds = useMemo(
     () => hexagons.features.flatMap((feature) => {
       const cellId = feature.properties?.cellId;
@@ -369,6 +388,27 @@ export function YonderMapView({
             />
           </GeoJSONSource>
 
+          <GeoJSONSource data={accuracyArea} id="current-location-accuracy">
+            <Layer
+              id="current-location-accuracy-fill"
+              paint={{
+                "fill-color": locationColor,
+                "fill-opacity": weakSignal ? 0.16 : 0.1,
+              }}
+              type="fill"
+            />
+            <Layer
+              id="current-location-accuracy-outline"
+              paint={{
+                "line-color": locationColor,
+                "line-opacity": weakSignal ? 0.7 : 0.35,
+                "line-width": 1.5,
+                ...(weakSignal ? { "line-dasharray": [2, 2] } : {}),
+              }}
+              type="line"
+            />
+          </GeoJSONSource>
+
           <GeoJSONSource data={currentPoint} id="current-location">
             <Layer
               id="current-location-halo"
@@ -382,7 +422,7 @@ export function YonderMapView({
             <Layer
               id="current-location-dot"
               paint={{
-                "circle-color": colors.location,
+                "circle-color": locationColor,
                 "circle-radius": 7,
                 "circle-stroke-color": "#FFFFFF",
                 "circle-stroke-width": 3,
@@ -480,7 +520,7 @@ export function YonderMapView({
           <View
             style={{
               backgroundColor:
-                tracking.kind === "active" ? "#00D4A8" : "#F2A83B",
+                tracking.kind === "active" && !weakSignal ? "#00D4A8" : WEAK_SIGNAL_COLOR,
               borderRadius: 4,
               height: 8,
               width: 8,
@@ -490,8 +530,22 @@ export function YonderMapView({
             selectable
             style={{ color: colors.text, fontSize: 13, fontWeight: "600" }}
           >
-            {tracking.kind === "active" ? "Saving on-device" : "Yonder"}
+            {tracking.kind !== "active"
+              ? "Yonder"
+              : weakSignal
+                ? "Weak GPS signal"
+                : "Saving on-device"}
           </Text>
+          {tracking.kind === "active" && weakSignal && currentCoordinate?.accuracyM !== undefined ? (
+            <Text
+              accessibilityLabel={`Location accurate to within ${Math.round(currentCoordinate.accuracyM)} metres; not precise enough to unlock tiles`}
+              selectable
+              style={{ color: colors.secondaryText, fontSize: 13, fontVariant: ["tabular-nums"] }}
+              testID="weak-signal-indicator"
+            >
+              · {formatAccuracy(currentCoordinate.accuracyM)}
+            </Text>
+          ) : null}
           {usingOfflineMap ? (
             <Text
               selectable

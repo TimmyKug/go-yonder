@@ -523,6 +523,15 @@ only for actionable or unavailable tracking states:
 
 Permission requests are initiated by a clear user action and accompanied by concise privacy copy. Android's background settings transition is explained before opening system settings.
 
+A weak signal is shown rather than hidden. The map draws the newest valid fix
+of any accuracy, with a circle at the fix's reported accuracy radius. When that
+radius is above the 50 m unlock threshold, the dot and circle turn amber, the
+circle is dashed, and the compact indicator reads "Weak GPS signal · ±N m".
+Such a fix still never unlocks tiles, never replaces the last saved coordinate
+that refreshes tiles and countries, and is held only in memory; it is never
+stored or logged. Estimating the path between fixes (interpolation) was
+considered and rejected.
+
 ## External-data portability strategy
 
 Yonder does not assume that any external provider publishes raw GPS records,
@@ -615,7 +624,6 @@ Physical-device tests are required for meaningful background-location verificati
 ## Deferred decisions
 
 - A hosted or self-hosted tile source for wider distribution or offline-region support; direct OpenStreetMap community tiles remain a deliberately small-scale choice.
-- Guarded path interpolation, if device sampling creates visible holes.
 - User-facing import flows and formats, pending a real export.
 - Encryption-at-rest requirements for wider distribution.
 - User-facing data export/reset controls.
