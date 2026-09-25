@@ -638,7 +638,12 @@ and merges only unlocked cells, leaving local samples and import batches intact.
 The snapshot is opened separately, checked for integrity, and all cells are
 validated against H3 resolution 11 before a single atomic merge. Cell centers
 are derived from H3 identifiers; overlapping cells retain the earliest first
-visit and latest last visit. Reimporting is idempotent. Unsupported or invalid
+visit and latest last visit. Reimporting is idempotent. The merge runs in
+batches of 500 cells: one query finds which cells already exist, and one
+multi-row upsert writes only new cells and cells whose visit window widens.
+Only new cells derive their H3 center, so a reimport of an unchanged backup
+reads and writes nothing else. Each SQLite statement costs several native
+round trips on a device, so per-cell statements made a large import take minutes. Unsupported or invalid
 backups leave local data unchanged. Returning to the map refreshes its coverage.
 No backup data leaves the device through the import flow.
 
@@ -652,3 +657,8 @@ diagnostics log. The reason is the native error code plus its message, with
 URIs, file paths, and decimal numbers removed so the report cannot carry a file
 location, a folder name, or a coordinate. Backup contents and cell identifiers
 are never included.
+
+A map that cannot load its tiles reports the step that failed (open database,
+read tiles, draw tiles) and the same scrubbed reason under "Saved map
+unavailable", and records a `map-load-error` diagnostics event with the tile
+count. The event never carries cell identifiers or coordinates.
