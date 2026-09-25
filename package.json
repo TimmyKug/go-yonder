@@ -1,6 +1,6 @@
 {
   "name": "yonder",
-  "version": "0.4.5-beta.4",
+  "version": "0.4.5",
   "main": "index.ts",
   "dependencies": {
     "@maplibre/maplibre-react-native": "^11.3.6",
