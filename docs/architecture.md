@@ -465,11 +465,7 @@ cells. The scan resumes from the last processed cell rowid; new cells always get
 a larger rowid, so after the first pass only newly unlocked cells are scanned.
 It runs in slices of about 8 ms, pauses while the app is in the background,
 and saves each page of 128 cells atomically, so zooming, closing the app, or
-new location fixes never lose progress. Cache transactions run one at a time on
-the cache's own connection. Expo's exclusive transactions open and close a new
-connection each time; at one commit per page that churn coincided with "file
-is not a database" errors on the main database in 0.4.6-beta.3, so the scan
-does not use them. Countries appear as soon as they are
+new location fixes never lose progress. Countries appear as soon as they are
 found; a percentage shows as calculating until every parent hex of that country
 has its clipped area. The cache starts over when the bundled boundaries change
 (a fingerprint of every country's identifier and area), when the unlocked cells

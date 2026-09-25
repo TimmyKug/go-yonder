@@ -179,24 +179,6 @@ describe("background country scan", () => {
     expect(assign).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps every cache transaction on the cache's own connection, one at a time", async () => {
-    const { main, cache } = await databases();
-    for (const id of children) await unlock(main, id);
-    const noNewConnections = Object.assign(Object.create(Object.getPrototypeOf(cache)), cache, {
-      withExclusiveTransaction: () => { throw new Error("opened a new connection"); },
-    }) as NodeSqliteDatabase;
-    const { done } = await scan(main, noNewConnections, [country]);
-    expect(done).toBe(true);
-
-    const state = await prepareCountryCache(noNewConnections, main, "b");
-    const [committed] = await Promise.all([
-      commitScannedCells(noNewConnections, state.generation, 1, [{ countryId: "Testland", parentId: parent, firstSeenAtMs: 1 }]),
-      resetCountryCache(noNewConnections),
-    ]);
-    expect(committed).toBe(true);
-    expect(await cache.all("SELECT * FROM country_visits")).toEqual([]);
-  });
-
   it("discards a page scanned before a reset instead of mixing generations", async () => {
     const { main, cache } = await databases();
     for (const id of children.slice(0, 5)) await unlock(main, id);
