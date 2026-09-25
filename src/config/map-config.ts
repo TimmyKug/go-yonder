@@ -50,6 +50,31 @@ export function getMapStyle(theme: MapTheme): StyleSpecification | string {
   return OPENFREEMAP_STYLE_URLS[theme];
 }
 
+/** Colors of the bundled offline map, echoing the online Positron and dark styles. */
+export const OFFLINE_MAP_COLORS = {
+  light: { water: "#D4DADC", land: "#F2F2EF" },
+  dark: { water: "#0C1317", land: "#1E2528" },
+} as const satisfies Record<MapTheme, { water: string; land: string }>;
+
+/**
+ * A style that needs no network: only a water background. The map view draws
+ * land and country borders from the bundled country geometry on top of it.
+ */
+export function getOfflineMapStyle(theme: MapTheme): StyleSpecification {
+  return {
+    version: 8,
+    name: `yonder-offline-${theme}`,
+    sources: {},
+    layers: [
+      {
+        id: "offline-water",
+        type: "background",
+        paint: { "background-color": OFFLINE_MAP_COLORS[theme].water },
+      },
+    ],
+  };
+}
+
 export const DARK_PLACE_LABEL_COLOR = "#FFFFFF";
 
 const PLACE_LABEL_LAYER_PREFIX = "place_";

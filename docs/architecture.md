@@ -427,7 +427,8 @@ untinted; only its subtle frontier distinguishes it from the hidden-area veil.
 ## Country overview
 
 At zoom 7 and below, the same map fades in neutral silver country boundaries
-and a subtle visited-country tint. The explored hex veil remains visible above
+for every country, drawn from the bundled dataset below rather than from the
+basemap tiles, and a subtle visited-country tint. The explored hex veil remains visible above
 the country fill. No mode switch, tab, or visited/unvisited legend is added.
 A compact country count opens a native sheet listing visited countries, first
 visit dates, and approximate uncovered percentages. The count includes all
@@ -662,3 +663,23 @@ A map that cannot load its tiles reports the step that failed (open database,
 read tiles, draw tiles) and the same scrubbed reason under "Saved map
 unavailable", and records a `map-load-error` diagnostics event with the tile
 count. The event never carries cell identifiers or coordinates.
+
+## Offline map fallback (0.4.6)
+
+The online basemap needs the network for its style and tiles, and MapLibre's
+ambient cache is not guaranteed to hold either. When the online style fails to
+load, the map switches to a bundled offline style instead of showing an error:
+a themed water background, land filled from the bundled Natural Earth country
+polygons, and every country's border drawn from the same geometry at all zoom
+levels. Unlocked hexes, the veil, and the location dot draw on top as usual.
+The on-device status pill shows "Offline map" while the fallback is active,
+and the app retries the online style each time it returns to the foreground.
+The error screen remains only for the case where the offline style itself
+cannot load.
+
+The fallback adds no data: it reuses the roughly 0.5 MB (compressed) country
+dataset already bundled for the country overview, and it makes no network
+requests, so it reveals nothing about where the user is looking. Street-level
+detail, place labels, and cities are not available offline. Downloading
+basemap tiles for offline use (for example a zoom 0–6 world pack of roughly
+120 MB) remains a deferred decision.

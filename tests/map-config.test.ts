@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   DARK_PLACE_LABEL_COLOR,
   getMapStyle,
+  getOfflineMapStyle,
+  OFFLINE_MAP_COLORS,
   OPENFREEMAP_URL,
   OPENMAPTILES_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
@@ -120,4 +122,24 @@ describe("dark place labels", () => {
       paint: { "text-color": "rgb(101,101,101)" },
     });
   });
+});
+
+describe("offline map style", () => {
+  it.each(["light", "dark"] as const)(
+    "draws the %s water background without any network source",
+    (theme) => {
+      const style = getOfflineMapStyle(theme);
+
+      expect(style.sources).toEqual({});
+      expect(style).not.toHaveProperty("glyphs");
+      expect(style).not.toHaveProperty("sprite");
+      expect(style.layers).toEqual([
+        {
+          id: "offline-water",
+          type: "background",
+          paint: { "background-color": OFFLINE_MAP_COLORS[theme].water },
+        },
+      ]);
+    },
+  );
 });
