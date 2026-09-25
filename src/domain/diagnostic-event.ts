@@ -6,6 +6,7 @@ export type DiagnosticEventKind =
   | "background-task-error"
   | "foreground-watch-start"
   | "location-update-error"
+  | "map-load-error"
   | "process-start"
   | "task-reregister"
   | "tracking-state";

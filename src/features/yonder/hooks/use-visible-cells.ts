@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import { getYonderRepository } from "@/src/data/app-repository";
+import { describeBackupCause } from "@/src/data/backup-failure";
+import { recordDiagnostic } from "@/src/diagnostics/diagnostics";
 import { unlockedCellsToFeatureCollection } from "@/src/domain/hex-grid";
 import { type MapBounds, nextCoverageBounds, padMapBounds } from "@/src/domain/map-bounds";
 
@@ -50,16 +52,21 @@ export function useVisibleCells(refreshToken?: number): VisibleCellsState {
 
     async function loadVisibleCells() {
       setIsLoading(true);
+      let step = "open database";
+      let cellCount: number | null = null;
 
       try {
         const repository = await getYonderRepository();
         const [west, south, east, north] = bounds;
+        step = "read tiles";
         const cells = await repository.listUnlockedCells({
           east,
           north,
           south,
           west,
         });
+        step = "draw tiles";
+        cellCount = cells.length;
         const collection = unlockedCellsToFeatureCollection(cells);
 
         if (!cancelled && requestRevision.current === revision) {
@@ -68,9 +75,12 @@ export function useVisibleCells(refreshToken?: number): VisibleCellsState {
           );
           setError(undefined);
         }
-      } catch {
+      } catch (error: unknown) {
+        // The reason is scrubbed of URIs, paths, and decimal numbers.
+        const reason = describeBackupCause(error);
+        recordDiagnostic("map-load-error", { step, reason, cellCount });
         if (!cancelled && requestRevision.current === revision) {
-          setError("Your saved map could not be read from this device.");
+          setError(`Your saved map could not be read from this device. (${step}: ${reason})`);
         }
       } finally {
         if (!cancelled && requestRevision.current === revision) {
