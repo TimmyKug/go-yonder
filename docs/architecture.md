@@ -460,6 +460,14 @@ read in pages and cached classifications are reused between refreshes.
 Manual visit editing is deferred; this iteration derives visits from saved
 coverage only. Country list and map use the same completed summary snapshot.
 
+A resumable background country scan with a separate cache database shipped in
+0.4.6-beta.3 and was withdrawn in 0.4.6-beta.5. From that build's first launch,
+every read on the main database connection failed with "file is not a
+database", while location writes through separate connections kept succeeding,
+so the file itself stayed valid. The cause is not yet understood. Any later
+attempt must first reproduce the failure on an Android device and must not add
+concurrent work on the main connection until it is explained.
+
 On Android, Yonder sets MapLibre Native's zoom rate to 1.6 so the one-finger
 double-tap-and-drag gesture traverses the map faster. The React Native wrapper
 does not expose the native setting, so the pinned package is patched during
