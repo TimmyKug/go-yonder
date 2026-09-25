@@ -106,7 +106,11 @@ export async function resetCountryCache(cache: SqlDatabase): Promise<void> {
   await clear(cache, state?.boundaries ?? "");
 }
 
-/** New cells always get a larger rowid, so the cursor finds only unscanned ones. */
+/**
+ * New cells always get a larger rowid, so the cursor finds only unscanned ones.
+ * The unary plus keeps SQLite on the rowid instead of the viewport index, which
+ * would scan and sort every cell for each page.
+ */
 export function readUnscannedCells(
   main: SqlDatabase,
   afterRowId: number,
@@ -115,7 +119,7 @@ export function readUnscannedCells(
 ): Promise<UnscannedCell[]> {
   return main.all<UnscannedCell>(
     `SELECT rowid, cell_id, first_seen_at_ms FROM unlocked_cells
-     WHERE rowid > ? AND resolution = ? ORDER BY rowid LIMIT ?`,
+     WHERE rowid > ? AND +resolution = ? ORDER BY rowid LIMIT ?`,
     [afterRowId, resolution, limit],
   );
 }
