@@ -4,7 +4,7 @@
 
 A private, local-first coverage map. The app records where the device has been, maps accepted location samples to stable H3 cells, persists those cells on-device, and displays them over a native vector map.
 
-The first release is intentionally narrow: map, location tracking, hex unlocking, and persistence. It does not include progress statistics, animations, social features, accounts, or cloud sync.
+Everything stays on the device. There are no accounts, no backend, no analytics, and no cloud sync.
 
 See [Architecture and implementation plan](docs/architecture.md) for the accepted technical decisions, boundaries, schema, and delivery phases.
 
@@ -16,10 +16,12 @@ See [Architecture and implementation plan](docs/architecture.md) for the accepte
 - High-accuracy readings normalized through one source-neutral ingestion service.
 - Resolution-11 H3 unlocking with a 50-metre live-accuracy threshold.
 - Durable, idempotent SQLite storage of normalized observations and unlocked cells.
-- A viewport-aware GeoJSON overlay on a native MapLibre map.
+- A viewport-aware GeoJSON overlay on a native MapLibre map, with an offline fallback map and bundled country borders.
+- A weak-GPS indicator that shows an inaccurate fix with its accuracy radius without unlocking tiles.
+- Visited countries and approximate explored percentages, built by a resumable on-device background scan.
+- Backup export and additive, idempotent backup import in Settings.
+- An on-device diagnostics log of tracking, backup, and map errors that never contains locations.
 - A format-neutral adapter seam for future location-history imports.
-
-There is deliberately no progress UI, animation, account, backend, or import screen yet.
 
 ## Local development
 
@@ -60,10 +62,6 @@ The web route is an informational fallback only. Yonder itself targets iOS and A
 Android release APKs are published on GitHub releases tagged `vMAJOR.MINOR.PATCH`
 (or `vMAJOR.MINOR.PATCH-beta.N` for prereleases). Add
 `https://github.com/TimmyKug/go-yonder` to Obtainium as a GitHub source.
-
-The repository is private, so first add a fine-grained GitHub personal access
-token in Obtainium's GitHub source settings. Restrict the token to this
-repository with read-only access. Do not share or commit the token.
 
 Maintainers must configure the `RELEASE_KEYSTORE_BASE64`,
 `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`
@@ -125,3 +123,9 @@ Set `IOS_QA_DEVICE_NAME` to select a different installed simulator. This loop va
 ## Data model
 
 SQLite is the only source of truth. It stores accepted normalized observations, derived unlocked cells, and bookkeeping for future imports. Live readings and future import adapters enter through the same validation, H3, and transactional upsert path. Re-importing or replaying an identical observation is safe.
+
+## License
+
+Yonder is released under the [MIT License](LICENSE). The bundled country
+boundaries come from [Natural Earth](https://www.naturalearthdata.com/), which is
+in the public domain.

@@ -82,3 +82,8 @@ by the platform identifier rather than the key alone.
 This is a product-name collision screen, not legal clearance. Before a public
 release, recheck the final name in relevant app stores, source hosts, domain
 registries, and EU/US trademark databases.
+
+## Icon concepts
+
+Earlier icon explorations are kept in [`icon-concepts/`](icon-concepts/) for
+reference. The shipped icons live in `assets/`.

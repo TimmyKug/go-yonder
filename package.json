@@ -53,5 +53,6 @@
     "test:watch": "vitest",
     "postinstall": "patch-package"
   },
+  "license": "MIT",
   "private": true
 }

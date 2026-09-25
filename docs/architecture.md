@@ -12,7 +12,7 @@ Android package and iOS bundle identifier are `com.timothykugler.yonder`.
 Operating systems treat this
 identity as a separate app from earlier development builds, and pre-release
 on-device data is not migrated automatically. The considered alternatives and naming rationale are recorded in
-[`docs/branding.md`](branding.md).
+[`docs/branding/README.md`](branding/README.md).
 
 The application will provide:
 
