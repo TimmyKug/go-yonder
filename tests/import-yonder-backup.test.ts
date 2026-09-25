@@ -1,10 +1,12 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ pick: vi.fn(), deserialize: vi.fn(), merge: vi.fn(), close: vi.fn(), getDatabase: vi.fn() }));
+const mocks = vi.hoisted(() => ({ pick: vi.fn(), deserialize: vi.fn(), merge: vi.fn(), close: vi.fn(), getDatabase: vi.fn(), resetCountries: vi.fn() }));
 vi.mock("expo-file-system", () => ({ File: { pickFileAsync: mocks.pick } }));
 vi.mock("expo-sqlite", () => ({ deserializeDatabaseAsync: mocks.deserialize }));
 vi.mock("@/src/data/database", () => ({ getDatabase: mocks.getDatabase }));
 vi.mock("@/src/data/backup-import-repository", () => ({ mergeBackupUnlocks: mocks.merge }));
+vi.mock("@/src/data/country-cache-database", () => ({ getCountryCache: async () => ({}) }));
+vi.mock("@/src/data/country-cache-repository", () => ({ resetCountryCache: mocks.resetCountries }));
 import { importYonderBackup } from "@/src/data/import-yonder-backup";
 
 function sqliteBytes() {
@@ -57,6 +59,19 @@ it("opens serialized WAL snapshots in rollback mode and closes them on merge fai
   expect(mocks.deserialize.mock.calls[0]?.[0][18]).toBe(1);
   expect(mocks.deserialize.mock.calls[0]?.[0][19]).toBe(1);
   expect(mocks.close).toHaveBeenCalledOnce();
+});
+it("rebuilds the country cache after an import, without failing the import if it cannot", async () => {
+  picked(async () => sqliteBytes());
+  mocks.merge.mockResolvedValue({ addedCount: 1, totalCount: 1 });
+  mocks.resetCountries.mockRejectedValue(new Error("cache unavailable"));
+  await expect(importYonderBackup()).resolves.toEqual({ addedCount: 1, totalCount: 1 });
+  expect(mocks.resetCountries).toHaveBeenCalledOnce();
+});
+it("leaves the country cache alone when an import fails", async () => {
+  picked(async () => sqliteBytes());
+  mocks.merge.mockRejectedValue(new Error("invalid tiles"));
+  await expect(importYonderBackup()).rejects.toThrow();
+  expect(mocks.resetCountries).not.toHaveBeenCalled();
 });
 it("returns the merge result even if closing the snapshot fails", async () => {
   picked(async () => sqliteBytes());
