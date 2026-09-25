@@ -2,7 +2,7 @@ import { area } from "@turf/area";
 import { booleanPointInPolygon } from "@turf/boolean-point-in-polygon";
 import { intersect } from "@turf/intersect";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon, Position } from "geojson";
-import { cellToBoundary, cellToLatLng, getResolution } from "h3-js";
+import { cellToBoundary, cellToLatLng, cellToParent, getResolution } from "h3-js";
 
 export const COUNTRY_COVERAGE_RESOLUTION = 4;
 export const COUNTRY_OVERVIEW_ZOOM = 7;
@@ -14,8 +14,6 @@ export type CountryVisit = CountryProperties & {
   firstSeenAtMs: number;
   exploredAreaKm2: number;
   uncoveredPercent: number;
-  /** True while some explored hexes still await their clipped area. */
-  coveragePending: boolean;
 };
 type Box = [number, number, number, number];
 type Part = { country: CountryProperties; feature: Feature<Polygon>; box: Box };
@@ -105,6 +103,33 @@ export class CountryIndex {
     if (this.coverageAreas.size >= 20000) this.coverageAreas.clear();
     this.coverageAreas.set(key, covered);
     return covered;
+  }
+}
+
+export class CountryCoverageAccumulator {
+  private readonly visits = new Map<string, CountryVisit>();
+  private readonly parents = new Set<string>();
+  constructor(private readonly index: CountryIndex) {}
+
+  add(cellId: string, firstSeenAtMs: number) {
+    const country = this.index.countryForCell(cellId);
+    if (!country) return;
+    let visit = this.visits.get(country.id);
+    if (!visit) {
+      visit = { ...country, firstSeenAtMs, exploredAreaKm2: 0, uncoveredPercent: 0 };
+      this.visits.set(country.id, visit);
+    }
+    visit.firstSeenAtMs = Math.min(visit.firstSeenAtMs, firstSeenAtMs);
+    const parent = cellToParent(cellId, COUNTRY_COVERAGE_RESOLUTION);
+    const key = `${country.id}:${parent}`;
+    if (this.parents.has(key)) return;
+    this.parents.add(key);
+    visit.exploredAreaKm2 += this.index.coveredAreaKm2(parent, country.id);
+    visit.uncoveredPercent = Math.min(100, country.areaKm2 > 0 ? visit.exploredAreaKm2 / country.areaKm2 * 100 : 0);
+  }
+
+  result(): CountryVisit[] {
+    return [...this.visits.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
 }
 

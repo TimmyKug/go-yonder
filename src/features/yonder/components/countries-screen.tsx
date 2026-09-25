@@ -36,7 +36,7 @@ export function CountriesScreen() {
   } : {
     background: "#F3F6F5", border: "#D6DFDC", foreground: "#14252F", secondary: "#536774", muted: "#71808A",
   };
-  const { countries, loading, error, refresh } = useCountrySummary();
+  const { countries, loading, error, refresh } = useCountrySummary(true);
   const [search, setSearch] = useState("");
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -100,12 +100,8 @@ export function CountriesScreen() {
               </Text>
             </View>
             <View style={{ alignItems: "flex-end", gap: 5 }}>
-              <Text selectable style={{ color: colors.foreground, fontSize: 19, fontWeight: "600", fontVariant: ["tabular-nums"] }}>
-                {item.coveragePending ? "Calculating…" : `≈ ${formatUncoveredPercent(item.uncoveredPercent)}`}
-              </Text>
-              <Text style={{ color: colors.secondary, fontSize: 12 }}>
-                {item.coveragePending ? `${formatUncoveredPercent(item.uncoveredPercent)} so far` : "uncovered"}
-              </Text>
+              <Text selectable style={{ color: colors.foreground, fontSize: 19, fontWeight: "600", fontVariant: ["tabular-nums"] }}>≈ {formatUncoveredPercent(item.uncoveredPercent)}</Text>
+              <Text style={{ color: colors.secondary, fontSize: 12 }}>uncovered</Text>
             </View>
           </View>
         )}
