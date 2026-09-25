@@ -127,4 +127,56 @@ describe("ingestExpoLocations", () => {
 
     expect(getLocationSnapshot().error).toBeNull();
   });
+  it("shows an inaccurate fix on the map without treating it as a saved location", async () => {
+    vi.mocked(ingestNormalizedSamples).mockResolvedValueOnce({
+      receivedCount: 1,
+      acceptedCount: 0,
+      rejectedCount: 1,
+      insertedSampleCount: 0,
+      duplicateSampleCount: 0,
+      insertedCellCount: 0,
+      updatedCellCount: 0,
+      rejections: [],
+    });
+    const saved = getLocationSnapshot().latestCoordinate;
+    const reading = locationObject({
+      accuracy: 420,
+      latitude: 10,
+      longitude: 20,
+      timestamp: Date.parse("2026-01-01T12:02:00.000Z"),
+    });
+
+    await ingestExpoLocations([reading], "live-background");
+
+    expect(getLocationSnapshot().latestFix).toEqual({
+      latitude: 10,
+      longitude: 20,
+      accuracyM: 420,
+      timestampMs: reading.timestamp,
+    });
+    expect(getLocationSnapshot().latestCoordinate).toEqual(saved);
+  });
+
+  it("keeps the newest fix when an older batch arrives late", async () => {
+    vi.mocked(ingestNormalizedSamples).mockResolvedValue({
+      receivedCount: 1,
+      acceptedCount: 1,
+      rejectedCount: 0,
+      insertedSampleCount: 1,
+      duplicateSampleCount: 0,
+      insertedCellCount: 0,
+      updatedCellCount: 0,
+      rejections: [],
+    });
+    const newer = Date.parse("2026-01-01T12:05:00.000Z");
+    await ingestExpoLocations([locationObject({ timestamp: newer, accuracy: 5 })], "live-foreground");
+    await ingestExpoLocations(
+      [locationObject({ timestamp: newer - 60_000, accuracy: 900 })],
+      "live-background",
+    );
+
+    expect(getLocationSnapshot().latestFix?.timestampMs).toBe(newer);
+    expect(getLocationSnapshot().latestFix?.accuracyM).toBe(5);
+    vi.mocked(ingestNormalizedSamples).mockReset();
+  });
 });

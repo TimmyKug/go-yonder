@@ -38,12 +38,24 @@ export type LatestCoordinate = Readonly<{
   timestampMs: number;
 }>;
 
+export type LatestFix = Readonly<{
+  latitude: number;
+  longitude: number;
+  accuracyM: number;
+  timestampMs: number;
+}>;
+
 export type LocationTrackingState = Readonly<{
   permissions: LocationPermissionSummary;
   trackingMode: LocationTrackingMode;
   servicesEnabled: boolean | null;
   backgroundAvailable: boolean | null;
   latestCoordinate?: LatestCoordinate;
+  /**
+   * The newest valid fix, including ones too inaccurate to unlock tiles. It is
+   * only shown on the map and never stored.
+   */
+  latestFix?: LatestFix;
   busy: boolean;
   error: LocationTrackingError | null;
 }>;
@@ -111,6 +123,14 @@ export function updateLatestCoordinate(coordinate: LatestCoordinate): void {
   });
 }
 
+export function updateLatestFix(fix: LatestFix): void {
+  updateLocationState((current) =>
+    current.latestFix && current.latestFix.timestampMs > fix.timestampMs
+      ? {}
+      : { latestFix: fix },
+  );
+}
+
 function freezeState(state: LocationTrackingState): LocationTrackingState {
   return Object.freeze({
     ...state,
@@ -118,6 +138,7 @@ function freezeState(state: LocationTrackingState): LocationTrackingState {
     latestCoordinate: state.latestCoordinate
       ? Object.freeze({ ...state.latestCoordinate })
       : undefined,
+    latestFix: state.latestFix ? Object.freeze({ ...state.latestFix }) : undefined,
     error: state.error ? Object.freeze({ ...state.error }) : null,
   });
 }

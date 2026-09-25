@@ -1,6 +1,11 @@
 import type * as Location from "expo-location";
 
-import { updateLatestCoordinate, updateLocationState } from "./location-state";
+import {
+  type LatestFix,
+  updateLatestCoordinate,
+  updateLatestFix,
+  updateLocationState,
+} from "./location-state";
 
 import { MAX_LIVE_HORIZONTAL_ACCURACY_M } from "@/src/config/yonder-config";
 import { ingestNormalizedSamples } from "@/src/data/app-repository";
@@ -31,6 +36,9 @@ export async function ingestExpoLocations(
       }
     | undefined;
 
+  // Shown on the map at once, even when too inaccurate to unlock a tile.
+  let newestFix: LatestFix | undefined;
+
   for (const location of locations) {
     const sample = normalizeExpoLocation(location, source);
 
@@ -39,6 +47,14 @@ export async function ingestExpoLocations(
     }
 
     samples.push(sample);
+    if (newestFix === undefined || location.timestamp > newestFix.timestampMs) {
+      newestFix = {
+        latitude: sample.latitude,
+        longitude: sample.longitude,
+        accuracyM: sample.horizontalAccuracyM as number,
+        timestampMs: location.timestamp,
+      };
+    }
     if (
       sample.horizontalAccuracyM !== undefined &&
       sample.horizontalAccuracyM <= MAX_LIVE_HORIZONTAL_ACCURACY_M &&
@@ -52,6 +68,10 @@ export async function ingestExpoLocations(
         timestampMs: location.timestamp,
       };
     }
+  }
+
+  if (newestFix) {
+    updateLatestFix(newestFix);
   }
 
   const summary = {

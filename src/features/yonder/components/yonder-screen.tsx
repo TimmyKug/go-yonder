@@ -218,7 +218,7 @@ export function YonderScreen() {
 
   return (
     <YonderMapView
-      currentCoordinate={location.latestCoordinate}
+      currentCoordinate={location.latestFix ?? location.latestCoordinate}
       countryRefreshToken={location.latestCoordinate?.timestampMs}
       hexagons={visibleCells.hexagons}
       isLoadingHexagons={visibleCells.isLoading}
