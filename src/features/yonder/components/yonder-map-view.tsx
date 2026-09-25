@@ -11,6 +11,7 @@ import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Linking,
   type LayoutChangeEvent,
   type NativeSyntheticEvent,
@@ -25,8 +26,10 @@ import { useCountrySummary } from "../hooks/use-country-summary";
 
 import {
   getMapStyle,
+  getOfflineMapStyle,
   INITIAL_MAP_VIEW,
   loadMapStyle,
+  OFFLINE_MAP_COLORS,
   OPENMAPTILES_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
@@ -58,6 +61,11 @@ type YonderMapViewProps = {
   onOpenSettings: () => void;
   onTrackingAction?: () => void;
   tracking: TrackingPresentation;
+};
+
+const EMPTY_COUNTRY_COLLECTION: CountryCollection = {
+  type: "FeatureCollection",
+  features: [],
 };
 
 const EMPTY_POINT_COLLECTION: GeoJSON.FeatureCollection<GeoJSON.Point> = {
@@ -114,6 +122,7 @@ export function YonderMapView({
   const { resolvedAppearance: themeName } = useAppearance();
   const colors = MAP_THEME[themeName];
   const styleSource = useMemo(() => getMapStyle(themeName), [themeName]);
+  const offlineStyle = useMemo(() => getOfflineMapStyle(themeName), [themeName]);
   const [mapStyle, setMapStyle] = useState<StyleSpecification | string | null>(
     null,
   );
@@ -121,15 +130,27 @@ export function YonderMapView({
     typeof styleSource === "string" && styleSource.includes("openfreemap.org");
   const [mapReady, setMapReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
+  // Set when the online style cannot load, e.g. offline with nothing cached.
+  const [usingOfflineMap, setUsingOfflineMap] = useState(false);
   const [mapSize, setMapSize] = useState({ height: 0, width: 0 });
   const [isAttributionVisible, setIsAttributionVisible] = useState(false);
   const [countryOverview, setCountryOverview] = useState(
     () => INITIAL_MAP_VIEW.zoom <= COUNTRY_OVERVIEW_ZOOM,
   );
   const countrySummary = useCountrySummary(countryOverview, countryRefreshToken);
+  // Parse the bundled borders only once they are first needed, then keep them
+  // so crossing the overview zoom does not resend them to the native map.
+  const [countryBordersNeeded, setCountryBordersNeeded] = useState(countryOverview);
+  if ((countryOverview || usingOfflineMap) && !countryBordersNeeded) {
+    setCountryBordersNeeded(true);
+  }
+  const countryBorders = useMemo(
+    () => (countryBordersNeeded ? getCountries() : EMPTY_COUNTRY_COLLECTION),
+    [countryBordersNeeded],
+  );
   const countryOverlay = useMemo<CountryCollection>(() => {
     if (!countryOverview || !countrySummary.countries?.length) {
-      return { type: "FeatureCollection", features: [] };
+      return EMPTY_COUNTRY_COLLECTION;
     }
     const visited = new Set(countrySummary.countries.map(({ id }) => id));
     const boundaries = getCountries();
@@ -187,6 +208,14 @@ export function YonderMapView({
       cancelled = true;
     };
   }, [themeName]);
+
+  useEffect(() => {
+    // Try the online map again whenever the app returns to the foreground.
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") setUsingOfflineMap(false);
+    });
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (mapReady && currentCoordinate && !hasCenteredOnUser.current) {
@@ -247,9 +276,16 @@ export function YonderMapView({
           attribution={false}
           compass={false}
           logo={false}
-          mapStyle={mapStyle}
+          mapStyle={usingOfflineMap ? offlineStyle : mapStyle}
           zoomRate={Platform.OS === "android" ? ANDROID_ZOOM_RATE : undefined}
-          onDidFailLoadingMap={() => setMapFailed(true)}
+          onDidFailLoadingMap={() => {
+            if (usingOfflineMap) {
+              setMapFailed(true);
+              return;
+            }
+            setMapReady(false);
+            setUsingOfflineMap(true);
+          }}
           onDidFinishLoadingMap={() => {
             setMapFailed(false);
             setMapReady(true);
@@ -268,6 +304,29 @@ export function YonderMapView({
             ref={cameraRef}
           />
 
+          <GeoJSONSource data={countryBorders} id="country-borders">
+            {usingOfflineMap ? (
+              <Layer
+                id="offline-land"
+                type="fill"
+                paint={{ "fill-color": OFFLINE_MAP_COLORS[themeName].land }}
+              />
+            ) : null}
+            <Layer
+              id="country-border"
+              type="line"
+              paint={{
+                "line-color": themeName === "dark" ? "#C4CFD2" : "#516776",
+                "line-width": 1,
+                // Online, the map style takes over from the country overview
+                // zoom; offline, the bundled borders are all there is.
+                "line-opacity": usingOfflineMap
+                  ? 0.6
+                  : ["interpolate", ["linear"], ["zoom"], 6.25, 0.6, 7.15, 0],
+              }}
+            />
+          </GeoJSONSource>
+
           <GeoJSONSource data={countryOverlay} id="visited-countries">
             <Layer
               id="visited-country-fill"
@@ -283,7 +342,9 @@ export function YonderMapView({
               paint={{
                 "line-color": themeName === "dark" ? "#C4CFD2" : "#516776",
                 "line-width": 1.3,
-                "line-opacity": ["interpolate", ["linear"], ["zoom"], 6.25, 0.85, 7.15, 0],
+                "line-opacity": usingOfflineMap
+                  ? 0.85
+                  : ["interpolate", ["linear"], ["zoom"], 6.25, 0.85, 7.15, 0],
               }}
             />
           </GeoJSONSource>
@@ -431,6 +492,15 @@ export function YonderMapView({
           >
             {tracking.kind === "active" ? "Saving on-device" : "Yonder"}
           </Text>
+          {usingOfflineMap ? (
+            <Text
+              selectable
+              style={{ color: colors.secondaryText, fontSize: 13 }}
+              testID="offline-map-indicator"
+            >
+              · Offline map
+            </Text>
+          ) : null}
           {isLoadingHexagons ? (
             <ActivityIndicator color={colors.secondaryText} size="small" />
           ) : null}
