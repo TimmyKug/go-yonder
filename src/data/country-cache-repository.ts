@@ -1,7 +1,7 @@
 import { type CountryCollection, type CountryProperties, type CountryVisit } from "../domain/country-coverage";
 
 import type { DatabaseMigration } from "./migrations";
-import type { SqlDatabase, SqlValue } from "./sql-database";
+import type { SqlDatabase, SqlExecutor, SqlValue } from "./sql-database";
 
 /**
  * A rebuildable cache of which countries the unlocked cells fall in and how
@@ -36,6 +36,32 @@ export const COUNTRY_CACHE_MIGRATIONS: readonly DatabaseMigration[] = Object.fre
   },
 ]);
 
+let transactionQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Runs a transaction on the cache's own connection, one at a time. Expo's
+ * exclusive transactions open and close a new connection each time, and the
+ * scan commits a page every few milliseconds; that churn is avoided here.
+ */
+function inCacheTransaction<T>(
+  cache: SqlDatabase,
+  task: (transaction: SqlExecutor) => Promise<T>,
+): Promise<T> {
+  const run = transactionQueue.then(async () => {
+    await cache.execute("BEGIN IMMEDIATE");
+    try {
+      const result = await task(cache);
+      await cache.execute("COMMIT");
+      return result;
+    } catch (error: unknown) {
+      await cache.execute("ROLLBACK").catch(() => undefined);
+      throw error;
+    }
+  });
+  transactionQueue = run.catch(() => undefined);
+  return run;
+}
+
 export type CountryScanState = Readonly<{
   generation: number;
   lastRowId: number;
@@ -63,7 +89,7 @@ export function countryBoundariesFingerprint(collection: CountryCollection): str
 }
 
 async function clear(cache: SqlDatabase, boundaries: string): Promise<CountryScanState> {
-  return cache.withExclusiveTransaction(async (transaction) => {
+  return inCacheTransaction(cache, async (transaction) => {
     const previous = await transaction.first<{ generation: number }>(
       "SELECT generation FROM scan_state WHERE id = 1",
     );
@@ -142,7 +168,7 @@ export async function commitScannedCells(
       parentRows.push([countryId, parentId]);
     }
   }
-  return cache.withExclusiveTransaction(async (transaction) => {
+  return inCacheTransaction(cache, async (transaction) => {
     const state = await transaction.first<{ generation: number }>(
       "SELECT generation FROM scan_state WHERE id = 1",
     );
