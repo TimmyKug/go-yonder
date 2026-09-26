@@ -76,16 +76,17 @@ it("reports a live database that cannot be opened and still closes the snapshot"
 it("opens serialized WAL snapshots in rollback mode and closes them on merge failure", async () => {
   picked(async () => sqliteBytes());
   mocks.merge.mockRejectedValue(new Error("invalid tiles"));
-  await expect(importYonderBackup()).rejects.toMatchObject({ stage: "check and add tiles", reason: "invalid tiles" });
+  await expect(importYonderBackup()).rejects.toMatchObject({ stage: "check and add data", reason: "invalid tiles" });
   expect(mocks.deserialize.mock.calls[0]?.[0][18]).toBe(1);
   expect(mocks.deserialize.mock.calls[0]?.[0][19]).toBe(1);
   expect(mocks.close).toHaveBeenCalledOnce();
 });
 it("rebuilds the country cache after an import, without failing the import if it cannot", async () => {
   picked(async () => sqliteBytes());
-  mocks.merge.mockResolvedValue({ addedCount: 1, totalCount: 1 });
+  mocks.merge.mockResolvedValue({ addedCount: 1, totalCount: 1, addedSampleCount: 2, totalSampleCount: 2, skippedSampleCount: 0 });
   mocks.resetCountries.mockRejectedValue(new Error("cache unavailable"));
-  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedCount: 1, totalCount: 1 });
+  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedCount: 1, totalCount: 1,
+    addedSampleCount: 2, totalSampleCount: 2, skippedSampleCount: 0 });
   expect(mocks.resetCountries).toHaveBeenCalledOnce();
 });
 it("leaves the country cache alone when an import fails", async () => {
@@ -96,7 +97,8 @@ it("leaves the country cache alone when an import fails", async () => {
 });
 it("returns the merge result even if closing the snapshot fails", async () => {
   picked(async () => sqliteBytes());
-  mocks.merge.mockResolvedValue({ addedCount: 2, totalCount: 3 });
+  mocks.merge.mockResolvedValue({ addedCount: 2, totalCount: 3, addedSampleCount: 0, totalSampleCount: 0, skippedSampleCount: 0 });
   mocks.close.mockRejectedValue(new Error("already closed"));
-  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedCount: 2, totalCount: 3 });
+  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedCount: 2, totalCount: 3,
+    addedSampleCount: 0, totalSampleCount: 0, skippedSampleCount: 0 });
 });

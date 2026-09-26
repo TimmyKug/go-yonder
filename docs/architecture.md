@@ -274,18 +274,30 @@ countries, their first visit and approximate explored percentage.
 - **GPX export:** Settings saves every stored sample, oldest first, as one GPX
   1.1 track (`yonder-points.gpx`): seven decimal places, UTC times, the
   accuracy in a `yonder:accuracy` extension, and a new segment after gaps of
-  more than an hour. Cells merged from backups have no samples, so GPX is not a
-  complete backup.
+  more than an hour. Cells merged from tile-only backups have no samples, so
+  GPX is not a complete backup.
 - **Import:** Settings → Import recognises a file by its contents. A SQLite file
   is imported as a backup; a GPX file as points.
-- **Backup import** accepts Yonder snapshots at schema version 3 and merges only
-  unlocked cells. The snapshot is opened separately in memory, checked for
-  integrity, and every cell is validated against H3 resolution 11 before one
-  atomic merge. Merges run in batches of 500: one lookup, then one multi-row
-  upsert of only new cells and cells whose visit window widens; only new cells
-  derive their center. Overlaps keep the earliest first visit and latest last
-  visit. Re-importing is idempotent and an unchanged backup writes nothing.
-  Invalid backups leave local data unchanged.
+- **Backup import** accepts Yonder snapshots at schema version 3 and merges both
+  unlocked cells and recorded location samples in one transaction. The snapshot
+  is opened separately in memory and checked for integrity. Every cell is
+  validated against H3 resolution 11; an invalid cell rejects the import and
+  leaves local data unchanged. Cells merge in batches of 500: one lookup, then
+  one multi-row upsert of only new cells and cells whose visit window widens;
+  only new cells derive their center. Overlaps keep the earliest first visit
+  and latest last visit.
+  Samples are read by `id` in batches of 120 and validated against the
+  normalized sample contract without the live accuracy limit, because they were
+  accepted when recorded. Their fingerprint is recomputed rather than trusted,
+  so backups from other fingerprint versions or tools still import; samples
+  that fail validation are skipped and counted instead of rejecting the
+  backup. Source, timestamp, coordinates, accuracy and external record ID are
+  restored; an import-batch reference is cleared because it is local to the
+  original device. Samples are deduplicated by fingerprint, so re-importing an
+  unchanged backup writes nothing. Cells are merged as stored, not re-derived
+  from samples, so cells without samples (for example from tile-only backups)
+  are kept. Older snapshots without a `location_samples` table remain
+  importable.
 - **GPX import** reads track, route and waypoint points from any app with a
   tolerant scanner (namespace prefixes, either attribute order or quote style,
   self-closing points; times without a zone are UTC). Points without a time are
@@ -298,9 +310,10 @@ countries, their first visit and approximate explored percentage.
 - **Failures** report their step (export: choose folder, read database, read
   GPS points, create file, write file; folder backup: open folder, read
   database, write file, read GPS points; import: read file, check file type,
-  open backup, open Yonder database, check and add tiles, add GPS points) and a reason made of the native error code and
-  message with URIs, paths and decimal numbers removed. Each failure is recorded
-  as a `backup-error` diagnostics event.
+  open backup, open Yonder database, check and add data, add GPS points) and a
+  reason made of the native error code and message with URIs, paths and
+  decimal numbers removed. Each failure is recorded as a `backup-error`
+  diagnostics event.
 
 ## Diagnostics
 

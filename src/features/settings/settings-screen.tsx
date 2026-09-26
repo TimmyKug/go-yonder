@@ -30,7 +30,13 @@ function plural(count: number, word: string): string {
 
 function describeImport(result: LocationFileImportResult): [string, string] {
   if (result.kind === "backup") {
-    return ["Backup imported", `${plural(result.addedCount, "new tile")} added. Your existing unlocks are preserved.`];
+    const lines = [
+      `${plural(result.addedCount, "new tile")} and ${plural(result.addedSampleCount, "GPS point")} added. Everything already on this device is preserved.`,
+    ];
+    if (result.skippedSampleCount > 0) {
+      lines.push(`${plural(result.skippedSampleCount, "GPS point")} could not be read and were skipped.`);
+    }
+    return ["Backup imported", lines.join("\n")];
   }
   const lines = [`${plural(result.addedTileCount, "new tile")} and ${plural(result.addedPointCount, "GPS point")} added.`];
   if (result.alreadyStoredCount > 0) lines.push(`${plural(result.alreadyStoredCount, "point")} were already saved.`);
@@ -96,7 +102,7 @@ export function SettingsScreen() {
       const reason = error instanceof BackupStageError ? error.reason : describeBackupCause(error);
       recordDiagnostic("backup-error", { operation: kind, stage, reason });
       Alert.alert(kind === "import" ? "Not imported" : kind === "gpx" ? "GPS points not exported" : "Backup not saved",
-        `${kind === "import" ? "Points added before the error are kept; importing the file again continues without duplicates." : "Try choosing a writable folder."}\n\nStep: ${stage}\nReason: ${reason}`);
+        `${kind === "import" ? "A backup changes nothing when it fails. A GPX import keeps the points added before the error; importing it again continues without duplicates." : "Try choosing a writable folder."}\n\nStep: ${stage}\nReason: ${reason}`);
     } finally {
       pending.current = false;
       setBusy(null);
@@ -106,7 +112,7 @@ export function SettingsScreen() {
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: dark ? "#071520" : "#F3F6F5" }} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24, gap: 20 }}>
-      <Text selectable style={{ color: secondary, fontSize: 16, lineHeight: 24 }}>Keep your exploration with you. Importing a backup or GPX file adds to your map and preserves everything you have already unlocked.</Text>
+      <Text selectable style={{ color: secondary, fontSize: 16, lineHeight: 24 }}>Keep your exploration with you. Importing a backup or GPX file adds its tiles and GPS points and preserves everything already on this device.</Text>
       <View style={{ gap: 10 }}>
         <Text style={{ color: foreground, fontSize: 18, fontWeight: "600" }}>Appearance</Text>
         <ChoiceRow

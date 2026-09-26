@@ -10,7 +10,14 @@ import { importYonderBackupBytes, isSqliteFile } from "@/src/data/import-yonder-
 import { looksLikeGpx } from "@/src/domain/gpx";
 
 export type LocationFileImportResult =
-  | { kind: "backup"; addedCount: number; totalCount: number }
+  | {
+      kind: "backup";
+      addedCount: number;
+      totalCount: number;
+      addedSampleCount: number;
+      totalSampleCount: number;
+      skippedSampleCount: number;
+    }
   | ({ kind: "gpx" } & GpxImportResult);
 
 /** Imports a Yonder backup or a GPX file, recognised by its contents. */

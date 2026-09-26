@@ -8,7 +8,7 @@ export type BackupStage =
   | "check file type"
   | "open backup"
   | "open Yonder database"
-  | "check and add tiles"
+  | "check and add data"
   | "read GPS points"
   | "add GPS points";
 
