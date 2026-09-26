@@ -174,10 +174,14 @@ logged.
   the foreground, and the error screen appears only if the offline style also
   fails. It makes no network requests.
 - **Controls:** status pill top-left, Settings top-right, recenter bottom-right,
-  info toggle bottom-left, which expands the `© OpenMapTiles` and
-  `© OpenStreetMap contributors` credits and a "Buy me a coffee" link that opens
-  the page in the browser (no embedded widget or tracking). Actionable tracking warnings appear as a
-  bottom card; normal tracking shows none.
+  and an ⓘ button bottom-left. Actionable tracking warnings appear as a bottom
+  card; normal tracking shows none.
+- **About sheet:** ⓘ opens a bottom sheet with the app icon and version, a short
+  note on why Yonder exists, a "Buy me a coffee" button that opens the page in
+  the browser (nothing is embedded), and the tappable map credits
+  (`© OpenStreetMap contributors`, and `© OpenMapTiles` via OpenFreeMap unless a
+  custom style is set), Natural Earth, and a source-code link. It closes by
+  swiping down, tapping outside, Close, or Android back.
 - **Theme:** System, Light or Dark in Settings; the style, UI and veil follow it.
 - **Android gestures:** MapLibre's zoom rate is set to 1.6 through a patch,
   because the React Native wrapper does not expose it.

@@ -8,6 +8,7 @@ export const OPENSTREETMAP_COPYRIGHT_URL =
 export const OPENMAPTILES_URL = "https://openmaptiles.org/";
 export const OPENFREEMAP_URL = "https://openfreemap.org/";
 export const BUY_ME_A_COFFEE_URL = "https://www.buymeacoffee.com/timmykug";
+export const SOURCE_CODE_URL = "https://github.com/TimmyKug/go-yonder";
 
 export type MapTheme = "dark" | "light";
 

@@ -19,6 +19,7 @@ The app icons live in `assets/` and are referenced from `app.json`:
 - `icon.png`: default icon, iOS dark icon, and Android adaptive foreground.
 - `icon-light.png`: iOS light icon.
 - `android-icon-monochrome.png`: Android themed icon.
+- `about-icon.png`: 144 px copy of `icon.png` shown in the in-app about sheet.
 - `splash-icon.png` and `favicon.png`.
 
 The adaptive icon background colour is `#020D2A`; the splash background is
