@@ -22,9 +22,9 @@ and release history live in the git history.
   live in `app/`; everything else in `src/`. MapLibre and background location
   need native modules, so development builds are the supported runtime, not
   Expo Go.
-- **MapLibre React Native** renders the basemap and overlays natively. Coverage
-  is supplied as batched GeoJSON sources rendered by fill and line layers, never
-  as one React component per hexagon.
+- **MapLibre React Native** (11.4, MapLibre Native Android 13.6.1) renders the
+  basemap and overlays natively. Coverage is supplied as batched GeoJSON sources
+  rendered by fill and line layers, never as one React component per hexagon.
 - **H3 (`h3-js` 4.5.0, pinned).** `h3-js` eagerly builds a UTF-16LE
   `TextDecoder` that Expo's native decoder rejects; `patches/h3-js+4.5.0.patch`
   removes only that unused initializer, and a regression test guards it.
@@ -208,6 +208,12 @@ Coverage rendering:
   least one visited child.
 - The visible query refreshes after ingestion and on app activation, so cells
   written in the background appear immediately.
+- While the app is in the background the map's GeoJSON sources are left
+  unchanged; the newest location, cells and countries are applied when it
+  returns to the foreground. The location dot and accuracy circle are rebuilt
+  only when the fix's position or accuracy changes. Every source update makes
+  MapLibre re-parse tiles on its worker threads, which is wasted on a map
+  nobody can see.
 - If tiles cannot be loaded, "Saved map unavailable" shows the failing step
   (open database, read tiles, draw tiles) and a scrubbed reason, and a
   `map-load-error` diagnostics event is recorded.

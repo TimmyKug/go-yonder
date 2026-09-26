@@ -1,8 +1,8 @@
 diff --git a/node_modules/@maplibre/maplibre-react-native/android/src/main/java/org/maplibre/reactnative/components/mapview/MLRNMapView.kt b/node_modules/@maplibre/maplibre-react-native/android/src/main/java/org/maplibre/reactnative/components/mapview/MLRNMapView.kt
-index 4ea5c73..0fd7ab5 100644
+index b088909..52654f3 100644
 --- a/node_modules/@maplibre/maplibre-react-native/android/src/main/java/org/maplibre/reactnative/components/mapview/MLRNMapView.kt
 +++ b/node_modules/@maplibre/maplibre-react-native/android/src/main/java/org/maplibre/reactnative/components/mapview/MLRNMapView.kt
-@@ -142,6 +142,7 @@ open class MLRNMapView(
+@@ -143,6 +143,7 @@ open class MLRNMapView(
      private var touchZoomEnabled: Boolean? = null
      private var doubleTapZoomEnabled: Boolean? = null
      private var doubleTapHoldZoomEnabled: Boolean? = null
@@ -10,7 +10,7 @@ index 4ea5c73..0fd7ab5 100644
      private var rotateEnabled: Boolean? = null
      private var pitchEnabled: Boolean? = null
  
-@@ -842,6 +843,11 @@ open class MLRNMapView(
+@@ -896,6 +897,11 @@ open class MLRNMapView(
          updateUISettings()
      }
  
@@ -22,7 +22,7 @@ index 4ea5c73..0fd7ab5 100644
      fun setReactRotateEnabled(rotateEnabled: Boolean) {
          this.rotateEnabled = rotateEnabled
          updateUISettings()
-@@ -1219,6 +1225,10 @@ open class MLRNMapView(
+@@ -1281,6 +1287,10 @@ open class MLRNMapView(
              }
          }
  
@@ -53,7 +53,7 @@ index 2179f0b..54a802e 100644
      override fun setTouchRotate(
          mapView: MLRNMapView,
 diff --git a/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/AndroidTextureMapViewNativeComponent.d.ts b/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/AndroidTextureMapViewNativeComponent.d.ts
-index 47f536b..b7272c3 100644
+index 47f536b..8e1beea 100644
 --- a/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/AndroidTextureMapViewNativeComponent.d.ts
 +++ b/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/AndroidTextureMapViewNativeComponent.d.ts
 @@ -46,6 +46,7 @@ export interface NativeProps extends ViewProps {
@@ -65,7 +65,7 @@ index 47f536b..b7272c3 100644
      touchPitch?: CodegenTypes.WithDefault<boolean, true>;
      tintColor?: ColorValue | undefined;
 diff --git a/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/Map.d.ts b/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/Map.d.ts
-index 20bfebd..a80db6d 100644
+index 2565757..c9ac46c 100644
 --- a/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/Map.d.ts
 +++ b/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/Map.d.ts
 @@ -286,6 +286,12 @@ export interface MapProps extends BaseProps, ViewProps {
@@ -82,7 +82,7 @@ index 20bfebd..a80db6d 100644
       * Toggle rotate interaction of the map
       *
 diff --git a/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/MapViewNativeComponent.d.ts b/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/MapViewNativeComponent.d.ts
-index e337bbf..c86fe87 100644
+index e337bbf..ddc2413 100644
 --- a/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/MapViewNativeComponent.d.ts
 +++ b/node_modules/@maplibre/maplibre-react-native/lib/typescript/commonjs/components/map/MapViewNativeComponent.d.ts
 @@ -46,6 +46,7 @@ export interface NativeProps extends ViewProps {
@@ -94,7 +94,7 @@ index e337bbf..c86fe87 100644
      touchPitch?: CodegenTypes.WithDefault<boolean, true>;
      tintColor?: ColorValue | undefined;
 diff --git a/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/AndroidTextureMapViewNativeComponent.d.ts b/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/AndroidTextureMapViewNativeComponent.d.ts
-index 47f536b..b7272c3 100644
+index 47f536b..8e1beea 100644
 --- a/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/AndroidTextureMapViewNativeComponent.d.ts
 +++ b/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/AndroidTextureMapViewNativeComponent.d.ts
 @@ -46,6 +46,7 @@ export interface NativeProps extends ViewProps {
@@ -106,7 +106,7 @@ index 47f536b..b7272c3 100644
      touchPitch?: CodegenTypes.WithDefault<boolean, true>;
      tintColor?: ColorValue | undefined;
 diff --git a/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/Map.d.ts b/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/Map.d.ts
-index 20bfebd..a80db6d 100644
+index 2565757..c9ac46c 100644
 --- a/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/Map.d.ts
 +++ b/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/Map.d.ts
 @@ -286,6 +286,12 @@ export interface MapProps extends BaseProps, ViewProps {
@@ -123,7 +123,7 @@ index 20bfebd..a80db6d 100644
       * Toggle rotate interaction of the map
       *
 diff --git a/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/MapViewNativeComponent.d.ts b/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/MapViewNativeComponent.d.ts
-index e337bbf..c86fe87 100644
+index e337bbf..ddc2413 100644
 --- a/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/MapViewNativeComponent.d.ts
 +++ b/node_modules/@maplibre/maplibre-react-native/lib/typescript/module/components/map/MapViewNativeComponent.d.ts
 @@ -46,6 +46,7 @@ export interface NativeProps extends ViewProps {
@@ -147,7 +147,7 @@ index af4549f..3ecf233 100644
    touchPitch?: CodegenTypes.WithDefault<boolean, true>;
  
 diff --git a/node_modules/@maplibre/maplibre-react-native/src/components/map/Map.tsx b/node_modules/@maplibre/maplibre-react-native/src/components/map/Map.tsx
-index d8ccd4e..fd0b244 100644
+index b193cda..e664f17 100644
 --- a/node_modules/@maplibre/maplibre-react-native/src/components/map/Map.tsx
 +++ b/node_modules/@maplibre/maplibre-react-native/src/components/map/Map.tsx
 @@ -352,6 +352,13 @@ export interface MapProps extends BaseProps, ViewProps {

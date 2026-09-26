@@ -22,6 +22,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCountrySummary } from "../hooks/use-country-summary";
+import { useForegroundValue } from "../hooks/use-foreground-value";
 
 import {
   getMapStyle,
@@ -155,15 +156,19 @@ function veilForResolution(cellIds: readonly string[], resolution: number) {
 }
 
 export function YonderMapView({
-  currentCoordinate,
-  countryRefreshToken,
-  cellIds,
+  currentCoordinate: liveCoordinate,
+  countryRefreshToken: liveCountryRefreshToken,
+  cellIds: liveCellIds,
   isLoadingHexagons,
   onBoundsChange,
   onOpenSettings,
   onTrackingAction,
   tracking,
 }: YonderMapViewProps) {
+  // The map's GeoJSON sources only change while the app is in the foreground.
+  const currentCoordinate = useForegroundValue(liveCoordinate);
+  const countryRefreshToken = useForegroundValue(liveCountryRefreshToken);
+  const cellIds = useForegroundValue(liveCellIds);
   const cameraRef = useRef<CameraRef>(null);
   const hasCenteredOnUser = useRef(false);
   const insets = useSafeAreaInsets();
@@ -208,8 +213,13 @@ export function YonderMapView({
   const [displayResolution, setDisplayResolution] = useState(() =>
     displayResolutionForZoom(INITIAL_MAP_VIEW.zoom),
   );
+  // Location state is copied on every change, so the location sources depend on
+  // the fix's values: an unchanged fix must not resend GeoJSON to the map.
+  const latitude = currentCoordinate?.latitude;
+  const longitude = currentCoordinate?.longitude;
+  const accuracyM = currentCoordinate?.accuracyM;
   const currentPoint = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => {
-    if (!currentCoordinate) {
+    if (latitude === undefined || longitude === undefined) {
       return EMPTY_POINT_COLLECTION;
     }
 
@@ -221,26 +231,23 @@ export function YonderMapView({
           properties: {},
           geometry: {
             type: "Point",
-            coordinates: [
-              currentCoordinate.longitude,
-              currentCoordinate.latitude,
-            ],
+            coordinates: [longitude, latitude],
           },
         },
       ],
     };
-  }, [currentCoordinate]);
+  }, [latitude, longitude]);
   // A fix too inaccurate to unlock tiles is still shown, with its uncertainty.
   const weakSignal =
     currentCoordinate?.accuracyM !== undefined &&
     currentCoordinate.accuracyM > maxAccuracyM;
   const accuracyArea = useMemo(
     () => accuracyAreaCollection(
-      currentCoordinate?.accuracyM === undefined
+      latitude === undefined || longitude === undefined || accuracyM === undefined
         ? undefined
-        : { ...currentCoordinate, accuracyM: currentCoordinate.accuracyM },
+        : { latitude, longitude, accuracyM },
     ),
-    [currentCoordinate],
+    [latitude, longitude, accuracyM],
   );
   const locationColor = weakSignal ? WEAK_SIGNAL_COLOR : colors.location;
   const mapVeil = useMemo(
