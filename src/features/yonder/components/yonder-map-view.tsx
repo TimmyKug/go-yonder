@@ -31,7 +31,6 @@ import {
   loadMapStyle,
   OFFLINE_MAP_COLORS,
 } from "@/src/config/map-config";
-import { MAX_LIVE_HORIZONTAL_ACCURACY_M } from "@/src/config/yonder-config";
 import { getCountries } from "@/src/data/countries";
 import { accuracyAreaCollection, formatAccuracy } from "@/src/domain/accuracy-area";
 import { COUNTRY_OVERVIEW_ZOOM, type CountryCollection } from "@/src/domain/country-coverage";
@@ -39,6 +38,7 @@ import { cellIdsAtDisplayResolution, displayResolutionForZoom, isValidMapZoom, M
 import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
 import { AboutSheet, type AboutSheetColors } from "@/src/features/about/about-sheet";
 import { useAppearance } from "@/src/features/appearance/appearance-provider";
+import { useMaxLiveAccuracyM } from "@/src/features/settings/use-max-live-accuracy";
 
 export type MapCoordinate = {
   latitude: number;
@@ -148,6 +148,7 @@ export function YonderMapView({
   const insets = useSafeAreaInsets();
   const { resolvedAppearance: themeName } = useAppearance();
   const colors = MAP_THEME[themeName];
+  const maxAccuracyM = useMaxLiveAccuracyM();
   const styleSource = useMemo(() => getMapStyle(themeName), [themeName]);
   const offlineStyle = useMemo(() => getOfflineMapStyle(themeName), [themeName]);
   const [mapStyle, setMapStyle] = useState<StyleSpecification | string | null>(
@@ -211,7 +212,7 @@ export function YonderMapView({
   // A fix too inaccurate to unlock tiles is still shown, with its uncertainty.
   const weakSignal =
     currentCoordinate?.accuracyM !== undefined &&
-    currentCoordinate.accuracyM > MAX_LIVE_HORIZONTAL_ACCURACY_M;
+    currentCoordinate.accuracyM > maxAccuracyM;
   const accuracyArea = useMemo(
     () => accuracyAreaCollection(
       currentCoordinate?.accuracyM === undefined

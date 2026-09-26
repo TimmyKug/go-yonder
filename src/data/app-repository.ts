@@ -22,9 +22,12 @@ export function getYonderRepository(): Promise<YonderRepository> {
 
 export async function ingestNormalizedSamples(
   samples: readonly NormalizedLocationSample[],
+  maxLiveHorizontalAccuracyM?: number,
 ): Promise<IngestionResult> {
   const repository = await getYonderRepository();
-  const service = new YonderIngestionService(repository, h3HexGrid);
+  const service = new YonderIngestionService(repository, h3HexGrid, {
+    maxLiveHorizontalAccuracyM,
+  });
   const result = await service.ingest(samples);
 
   if (result.insertedSampleCount > 0) {

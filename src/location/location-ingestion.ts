@@ -7,7 +7,7 @@ import {
   updateLocationState,
 } from "./location-state";
 
-import { MAX_LIVE_HORIZONTAL_ACCURACY_M } from "@/src/config/yonder-config";
+import { readMaxLiveAccuracyM } from "@/src/data/accuracy-preference";
 import { ingestNormalizedSamples } from "@/src/data/app-repository";
 import type { NormalizedLocationSample } from "@/src/domain/location-sample";
 
@@ -26,6 +26,7 @@ export async function ingestExpoLocations(
   locations: readonly Location.LocationObject[],
   source: LiveLocationSource,
 ): Promise<LiveIngestionSummary> {
+  const maxAccuracyM = readMaxLiveAccuracyM();
   const samples: NormalizedLocationSample[] = [];
   let newestAcceptedCoordinate:
     | {
@@ -57,7 +58,7 @@ export async function ingestExpoLocations(
     }
     if (
       sample.horizontalAccuracyM !== undefined &&
-      sample.horizontalAccuracyM <= MAX_LIVE_HORIZONTAL_ACCURACY_M &&
+      sample.horizontalAccuracyM <= maxAccuracyM &&
       (newestAcceptedCoordinate === undefined ||
         location.timestamp > newestAcceptedCoordinate.timestampMs)
     ) {
@@ -87,7 +88,7 @@ export async function ingestExpoLocations(
   }
 
   try {
-    const result = await ingestNormalizedSamples(samples);
+    const result = await ingestNormalizedSamples(samples, maxAccuracyM);
 
     if (result.acceptedCount > 0 && newestAcceptedCoordinate) {
       updateLatestCoordinate(newestAcceptedCoordinate);

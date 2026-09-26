@@ -1,5 +1,5 @@
 import {
-  MAX_LIVE_HORIZONTAL_ACCURACY_M,
+  DEFAULT_MAX_LIVE_HORIZONTAL_ACCURACY_M,
   YONDER_H3_RESOLUTION,
 } from "../config/yonder-config";
 
@@ -45,7 +45,7 @@ export class YonderIngestionService {
   ) {
     this.resolution = options.resolution ?? YONDER_H3_RESOLUTION;
     this.maxLiveHorizontalAccuracyM =
-      options.maxLiveHorizontalAccuracyM ?? MAX_LIVE_HORIZONTAL_ACCURACY_M;
+      options.maxLiveHorizontalAccuracyM ?? DEFAULT_MAX_LIVE_HORIZONTAL_ACCURACY_M;
     assertValidResolution(this.resolution);
 
     if (

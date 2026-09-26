@@ -3,12 +3,56 @@ import { useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { LIVE_ACCURACY_OPTIONS_M, type LiveAccuracyOptionM } from "@/src/config/yonder-config";
+import { writeMaxLiveAccuracyM } from "@/src/data/accuracy-preference";
 import type { AppearancePreference } from "@/src/data/appearance-preference";
 import { BackupStageError, describeBackupCause, isBackupCancellation } from "@/src/data/backup-failure";
 import { importYonderBackup } from "@/src/data/import-yonder-backup";
 import { exportYonderBackup } from "@/src/data/yonder-backup";
 import { recordDiagnostic } from "@/src/diagnostics/diagnostics";
 import { useAppearance } from "@/src/features/appearance/appearance-provider";
+import { useMaxLiveAccuracyM } from "@/src/features/settings/use-max-live-accuracy";
+
+type ChoiceColors = {
+  border: string;
+  foreground: string;
+  selectedBorder: string;
+  selectedSurface: string;
+  surface: string;
+};
+
+function ChoiceRow<T extends string | number>({ colors, onChoose, options, selected, testIDPrefix }: {
+  colors: ChoiceColors;
+  onChoose: (value: T) => void;
+  options: readonly { label: string; value: T }[];
+  selected: T;
+  testIDPrefix?: string;
+}) {
+  return (
+    <View accessibilityRole="radiogroup" style={{ flexDirection: "row", gap: 8 }}>
+      {options.map(({ label, value }) => {
+        const isSelected = value === selected;
+        return (
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ checked: isSelected }}
+            key={value}
+            onPress={() => onChoose(value)}
+            style={({ pressed }) => ({
+              flex: 1, alignItems: "center", borderRadius: 14, borderCurve: "continuous",
+              backgroundColor: isSelected ? colors.selectedSurface : colors.surface,
+              borderWidth: 1, borderColor: isSelected ? colors.selectedBorder : colors.border,
+              paddingHorizontal: 10, paddingVertical: 12, opacity: pressed ? 0.65 : 1,
+            })}
+            testID={testIDPrefix ? `${testIDPrefix}-${value}` : undefined}
+          >
+            <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: isSelected ? "700" : "500" }}>{label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 export function SettingsScreen() {
   const { appearance, resolvedAppearance, setAppearance } = useAppearance();
@@ -20,12 +64,28 @@ export function SettingsScreen() {
   const secondary = dark ? "#A7B6C2" : "#536774";
   const surface = dark ? "#152A38" : "#FFFFFF";
   const selectedSurface = dark ? "#284658" : "#DCEAE6";
+  const maxAccuracyM = useMaxLiveAccuracyM();
+  const choiceColors: ChoiceColors = {
+    border: dark ? "#28404E" : "#D8E0DE",
+    foreground,
+    selectedBorder: dark ? "#6CA69A" : "#789B91",
+    selectedSurface,
+    surface,
+  };
 
   async function chooseAppearance(next: AppearancePreference) {
     try {
       await setAppearance(next);
     } catch {
       Alert.alert("Appearance not saved", "Try choosing the appearance again.");
+    }
+  }
+
+  async function chooseAccuracy(next: LiveAccuracyOptionM) {
+    try {
+      await writeMaxLiveAccuracyM(next);
+    } catch {
+      Alert.alert("Accuracy not saved", "Try choosing the accuracy again.");
     }
   }
 
@@ -59,27 +119,30 @@ export function SettingsScreen() {
       <Text selectable style={{ color: secondary, fontSize: 16, lineHeight: 24 }}>Keep your exploration with you. Importing a Yonder backup adds its tiles to your map and preserves everything you have already unlocked.</Text>
       <View style={{ gap: 10 }}>
         <Text style={{ color: foreground, fontSize: 18, fontWeight: "600" }}>Appearance</Text>
-        <View accessibilityRole="radiogroup" style={{ flexDirection: "row", gap: 8 }}>
-          {(["system", "light", "dark"] as const).map((option) => {
-            const selected = appearance === option;
-            return (
-              <Pressable
-                accessibilityRole="radio"
-                accessibilityState={{ checked: selected }}
-                key={option}
-                onPress={() => void chooseAppearance(option)}
-                style={({ pressed }) => ({
-                  flex: 1, alignItems: "center", borderRadius: 14, borderCurve: "continuous",
-                  backgroundColor: selected ? selectedSurface : surface,
-                  borderWidth: 1, borderColor: selected ? (dark ? "#6CA69A" : "#789B91") : (dark ? "#28404E" : "#D8E0DE"),
-                  paddingHorizontal: 10, paddingVertical: 12, opacity: pressed ? 0.65 : 1,
-                })}
-              >
-                <Text style={{ color: foreground, fontSize: 15, fontWeight: selected ? "700" : "500", textTransform: "capitalize" }}>{option}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <ChoiceRow
+          colors={choiceColors}
+          onChoose={(option) => void chooseAppearance(option)}
+          options={(["system", "light", "dark"] as const).map((option) => ({
+            label: option[0]!.toUpperCase() + option.slice(1),
+            value: option,
+          }))}
+          selected={appearance}
+        />
+      </View>
+      <View style={{ gap: 10 }}>
+        <Text style={{ color: foreground, fontSize: 18, fontWeight: "600" }}>GPS accuracy needed</Text>
+        <ChoiceRow
+          colors={choiceColors}
+          onChoose={(option) => void chooseAccuracy(option)}
+          options={LIVE_ACCURACY_OPTIONS_M.map((option) => ({ label: `${option} m`, value: option }))}
+          selected={maxAccuracyM}
+          testIDPrefix="accuracy"
+        />
+        <Text selectable style={{ color: secondary, fontSize: 15, lineHeight: 22 }}>
+          Readings less accurate than this never unlock tiles. A higher limit unlocks more
+          indoors and between tall buildings, but can now and then unlock a tile next to
+          where you were. Tiles already unlocked are kept.
+        </Text>
       </View>
       <View style={{ gap: 12 }}>
         {([ ["export", "Save backup", "Save a copy of your Yonder data to a folder you choose."], ["import", "Import backup", "Choose a yonder-backup.db file. Repeated imports never duplicate tiles."] ] as const).map(([kind, title, detail]) => (
