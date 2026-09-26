@@ -78,6 +78,12 @@ The **Release on merge** workflow tags the merge commit and builds a signed
 APK. It needs the `RELEASE_KEYSTORE_BASE64`, `RELEASE_STORE_PASSWORD`,
 `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD` repository secrets.
 
+## Support
+
+If Yonder is useful to you:
+
+<a href="https://www.buymeacoffee.com/timmykug"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-green.png" alt="Buy me a coffee" height="44"></a>
+
 ## License
 
 [MIT](LICENSE). Country boundaries come from
