@@ -26,7 +26,7 @@ export async function importYonderBackup() {
   const snapshot = await atBackupStage("open backup", () => deserializeDatabaseAsync(bytes));
   try {
     const target = await atBackupStage("open Yonder database", getDatabase);
-    const result = await atBackupStage("check and add tiles", () =>
+    const result = await atBackupStage("check and add data", () =>
       mergeBackupUnlocks(new ExpoSqliteDatabase(snapshot), target));
     // An import can make existing visits earlier, which the country cache
     // cannot see; rebuild it. It is derived data, so failure is not an error.
