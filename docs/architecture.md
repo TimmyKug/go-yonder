@@ -174,8 +174,9 @@ logged.
   the foreground, and the error screen appears only if the offline style also
   fails. It makes no network requests.
 - **Controls:** status pill top-left, Settings top-right, recenter bottom-right,
-  attribution toggle bottom-left (expands `© OpenMapTiles` and
-  `© OpenStreetMap contributors`). Actionable tracking warnings appear as a
+  info toggle bottom-left, which expands the `© OpenMapTiles` and
+  `© OpenStreetMap contributors` credits and a "Buy me a coffee" link that opens
+  the page in the browser (no embedded widget or tracking). Actionable tracking warnings appear as a
   bottom card; normal tracking shows none.
 - **Theme:** System, Light or Dark in Settings; the style, UI and veil follow it.
 - **Android gestures:** MapLibre's zoom rate is set to 1.6 through a patch,

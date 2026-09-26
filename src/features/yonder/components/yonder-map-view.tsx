@@ -30,6 +30,7 @@ import {
   INITIAL_MAP_VIEW,
   loadMapStyle,
   OFFLINE_MAP_COLORS,
+  BUY_ME_A_COFFEE_URL,
   OPENMAPTILES_URL,
   OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
@@ -708,64 +709,80 @@ export function YonderMapView({
 
         {isAttributionVisible ? (
           <View
-            accessibilityLabel="Map attribution"
             style={{
-              alignItems: "center",
+              alignItems: "flex-start",
               backgroundColor: colors.surface,
               borderColor: colors.border,
               borderCurve: "continuous",
               borderRadius: 9,
               borderWidth: 1,
-              flexDirection: "row",
-              gap: 5,
+              gap: 6,
               minHeight: 32,
               paddingHorizontal: 9,
-              paddingVertical: 5,
+              paddingVertical: 6,
             }}
-            testID="map-attribution"
+            testID="map-info"
           >
-            {usesOpenFreeMap ? (
-              <>
-                <Pressable
-                  accessibilityLabel="Open OpenMapTiles attribution"
-                  accessibilityRole="link"
-                  hitSlop={8}
-                  onPress={() => void Linking.openURL(OPENMAPTILES_URL)}
-                >
+            <View
+              accessibilityLabel="Map attribution"
+              style={{ alignItems: "center", flexDirection: "row", gap: 5 }}
+              testID="map-attribution"
+            >
+              {usesOpenFreeMap ? (
+                <>
+                  <Pressable
+                    accessibilityLabel="Open OpenMapTiles attribution"
+                    accessibilityRole="link"
+                    hitSlop={8}
+                    onPress={() => void Linking.openURL(OPENMAPTILES_URL)}
+                  >
+                    <Text
+                      selectable
+                      style={{
+                        color: colors.secondaryText,
+                        fontSize: 10,
+                        fontWeight: "600",
+                      }}
+                    >
+                      © OpenMapTiles
+                    </Text>
+                  </Pressable>
                   <Text
                     selectable
-                    style={{
-                      color: colors.secondaryText,
-                      fontSize: 10,
-                      fontWeight: "600",
-                    }}
+                    style={{ color: colors.secondaryText, fontSize: 10 }}
                   >
-                    © OpenMapTiles
+                    ·
                   </Text>
-                </Pressable>
+                </>
+              ) : null}
+              <Pressable
+                accessibilityLabel="Open OpenStreetMap copyright information"
+                accessibilityRole="link"
+                hitSlop={8}
+                onPress={() => void Linking.openURL(OPENSTREETMAP_COPYRIGHT_URL)}
+              >
                 <Text
                   selectable
-                  style={{ color: colors.secondaryText, fontSize: 10 }}
+                  style={{
+                    color: colors.secondaryText,
+                    fontSize: 10,
+                    fontWeight: "600",
+                  }}
                 >
-                  ·
+                  © OpenStreetMap contributors
                 </Text>
-              </>
-            ) : null}
+              </Pressable>
+            </View>
             <Pressable
-              accessibilityLabel="Open OpenStreetMap copyright information"
+              accessibilityHint="Opens Buy Me a Coffee in your browser"
+              accessibilityLabel="Support Yonder: buy me a coffee"
               accessibilityRole="link"
               hitSlop={8}
-              onPress={() => void Linking.openURL(OPENSTREETMAP_COPYRIGHT_URL)}
+              onPress={() => void Linking.openURL(BUY_ME_A_COFFEE_URL)}
+              testID="buy-me-a-coffee"
             >
-              <Text
-                selectable
-                style={{
-                  color: colors.secondaryText,
-                  fontSize: 10,
-                  fontWeight: "600",
-                }}
-              >
-                © OpenStreetMap contributors
+              <Text style={{ color: colors.text, fontSize: 12, fontWeight: "600" }}>
+                ☕ Buy me a coffee
               </Text>
             </Pressable>
           </View>
