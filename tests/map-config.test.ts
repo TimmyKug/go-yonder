@@ -5,6 +5,7 @@ import {
   DARK_PLACE_LABEL_COLOR,
   getMapStyle,
   getOfflineMapStyle,
+  isOpenFreeMapStyle,
   OFFLINE_MAP_COLORS,
   OPENFREEMAP_URL,
   OPENMAPTILES_URL,
@@ -142,4 +143,13 @@ describe("offline map style", () => {
       ]);
     },
   );
+});
+
+describe("isOpenFreeMapStyle", () => {
+  it("matches only the bundled OpenFreeMap styles", () => {
+    expect(isOpenFreeMapStyle(getMapStyle("light"))).toBe(true);
+    expect(isOpenFreeMapStyle(getMapStyle("dark"))).toBe(true);
+    expect(isOpenFreeMapStyle("https://example.test/style?from=tiles.openfreemap.org")).toBe(false);
+    expect(isOpenFreeMapStyle(getOfflineMapStyle("light"))).toBe(false);
+  });
 });

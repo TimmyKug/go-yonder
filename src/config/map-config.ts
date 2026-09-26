@@ -52,6 +52,11 @@ export function getMapStyle(theme: MapTheme): StyleSpecification | string {
   return OPENFREEMAP_STYLE_URLS[theme];
 }
 
+/** True when the style is one of the bundled OpenFreeMap styles, which need its attribution. */
+export function isOpenFreeMapStyle(style: StyleSpecification | string): boolean {
+  return Object.values<string>(OPENFREEMAP_STYLE_URLS).includes(style as string);
+}
+
 /** Colors of the bundled offline map, echoing the online Positron and dark styles. */
 export const OFFLINE_MAP_COLORS = {
   light: { water: "#D4DADC", land: "#F2F2EF" },

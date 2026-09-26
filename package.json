@@ -54,5 +54,10 @@
     "postinstall": "patch-package"
   },
   "license": "MIT",
-  "private": true
+  "private": true,
+  "overrides": {
+    "xcode": {
+      "uuid": "^11.1.1"
+    }
+  }
 }
