@@ -593,12 +593,12 @@ export function YonderMapView({
           ) : null}
           {tileDerivation.running && tileDerivation.totalCount > 0 ? (
             <Text
-              accessibilityLabel="Unlocking tiles for imported GPS points"
+              accessibilityLabel="Calculating tiles for imported GPS points"
               selectable
               style={{ color: colors.secondaryText, fontSize: 13, fontVariant: ["tabular-nums"] }}
               testID="tile-derivation-progress"
             >
-              · Unlocking tiles {Math.floor((tileDerivation.processedCount / tileDerivation.totalCount) * 100)}%
+              · Calculating tiles {Math.floor((tileDerivation.processedCount / tileDerivation.totalCount) * 100)}%
             </Text>
           ) : null}
           {isLoadingHexagons || tileDerivation.running ? (

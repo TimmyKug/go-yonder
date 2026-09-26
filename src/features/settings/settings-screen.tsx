@@ -22,7 +22,7 @@ type DataAction = "export" | "gpx" | "import";
 const DATA_ACTIONS: readonly (readonly [DataAction, string, string])[] = [
   ["export", "Save backup", "Save a copy of all your Yonder data to a folder you choose."],
   ["gpx", "Export GPS points", "Save every recorded GPS point as a GPX track that other map apps can open."],
-  ["import", "Import", "Choose a Yonder backup or a GPX file from any app. Repeated imports never duplicate points. Tiles for imported points unlock in the background, which can take a few minutes for large files."],
+  ["import", "Import", "Choose a Yonder backup or a GPX file from any app. Repeated imports never duplicate points. Tiles for imported points are calculated in the background, which can take a few minutes for large files."],
 ];
 
 function plural(count: number, word: string): string {
@@ -32,7 +32,7 @@ function plural(count: number, word: string): string {
 function describeImport(result: LocationFileImportResult): [string, string] {
   const lines = [`${plural(result.addedPointCount, "GPS point")} added. Everything already on this device is preserved.`];
   if (result.addedPointCount > 0) {
-    lines.push("Tiles unlock in the background and appear on the map over the next minutes.");
+    lines.push("Tiles are calculated in the background and appear on the map over the next minutes.");
   }
   const skipped = result.kind === "backup" ? result.skippedPointCount : result.skippedCount;
   if (result.kind === "gpx" && result.alreadyStoredCount > 0) {

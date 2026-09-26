@@ -298,7 +298,7 @@ countries, their first visit and approximate explored percentage.
   time, because live ingestion unlocks its own tiles immediately. It runs at
   launch, after an import and when the app returns to the foreground, pauses in
   the background, refreshes the visible tiles at most once a second, shows
-  "Unlocking tiles N%" in the status pill, then rebuilds the country cache if
+  "Calculating tiles N%" in the status pill, then rebuilds the country cache if
   tiles changed and records a `tiles-derived` diagnostics event.
 - **Backup import** accepts Yonder snapshots at schema version 3 that contain a
   `location_samples` table. The snapshot is opened separately in memory,
