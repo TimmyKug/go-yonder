@@ -258,17 +258,24 @@ countries, their first visit and approximate explored percentage.
   name exists the provider picks a unique one, such as `yonder-backup (1).db`,
   which Settings reports. Provider documents are never overwritten in place,
   because some providers do not truncate. A partly written document is deleted.
-- **Import:** accepts Yonder snapshots at schema version 3 and merges only
-  unlocked cells. The snapshot is opened separately in memory, checked for
-  integrity, and every cell is validated against H3 resolution 11 before one
-  atomic merge. Merges run in batches of 500: one lookup, then one multi-row
-  upsert of only new cells and cells whose visit window widens; only new cells
-  derive their center. Overlaps keep the earliest first visit and latest last
-  visit. Re-importing is idempotent and an unchanged backup writes nothing.
-  Invalid backups leave local data unchanged.
+- **Import:** accepts Yonder snapshots at schema version 3 and merges both
+  unlocked cells and recorded location samples. The snapshot is opened
+  separately in memory and checked for integrity. Cells are validated against
+  H3 resolution 11; samples are validated against the normalized observation
+  contract and their stored fingerprints. Both tables merge in one transaction,
+  so invalid backup data leaves local history and coverage unchanged. Cells
+  merge in batches of 500: one lookup and one multi-row upsert for new cells or
+  wider visit windows. Samples are read and inserted in bounded batches and
+  deduplicated by their versioned fingerprint. Existing samples are preserved,
+  and re-importing an unchanged backup writes nothing. The sample's source,
+  timestamp, coordinates, accuracy, and external record ID are restored; an
+  import-batch reference is cleared because batch bookkeeping is local to the
+  original device. Older tile-only snapshots without a `location_samples`
+  table remain importable. The importer restores persisted observations and
+  cells; it does not infer travel between points or unlock extra cells.
 - **Failures** report their step (export: choose folder, read database, create
   file, write file; import: read file, check file type, open backup, open Yonder
-  database, check and add tiles) and a reason made of the native error code and
+  database, check and add data) and a reason made of the native error code and
   message with URIs, paths and decimal numbers removed. Each failure is recorded
   as a `backup-error` diagnostics event.
 
