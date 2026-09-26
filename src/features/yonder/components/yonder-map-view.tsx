@@ -27,6 +27,7 @@ import {
   getMapStyle,
   getOfflineMapStyle,
   INITIAL_MAP_VIEW,
+  isOpenFreeMapStyle,
   loadMapStyle,
   OFFLINE_MAP_COLORS,
 } from "@/src/config/map-config";
@@ -152,8 +153,7 @@ export function YonderMapView({
   const [mapStyle, setMapStyle] = useState<StyleSpecification | string | null>(
     null,
   );
-  const usesOpenFreeMap =
-    typeof styleSource === "string" && styleSource.includes("openfreemap.org");
+  const usesOpenFreeMap = isOpenFreeMapStyle(styleSource);
   const [mapReady, setMapReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
   // Set when the online style cannot load, e.g. offline with nothing cached.
