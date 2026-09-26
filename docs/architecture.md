@@ -330,6 +330,14 @@ it or share it as text; nothing leaves the device unless the user shares it.
 
 Signed APKs are published as GitHub releases for installers such as Obtainium.
 
+- The `CI` workflow's `Checks` job runs typecheck, lint and tests on every pull
+  request and on `main`, and checks the version: `app.json`, `package.json` and
+  `package-lock.json` agree, the `versionCode` follows the formula below, a
+  changed version has a higher `versionCode` than the base branch and is not
+  tagged yet. A ruleset on `main` requires this check, so a release is never
+  tagged for a change that fails it. Version rules live in
+  `.github/scripts/release-version.mjs`, shared by the check and the build.
+
 - Merging a change to `main` that sets a new version in `app.json` and
   `package.json` makes CI tag the merge commit `v<version>` and build it. A
   version that is already tagged releases nothing. Pushing a tag by hand also
