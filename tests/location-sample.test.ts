@@ -74,7 +74,7 @@ describe("validateNormalizedLocationSample", () => {
       recordedAt: "2026-01-01T00:00:00Z",
       latitude: 10,
       longitude: 20,
-      horizontalAccuracyM: 51,
+      horizontalAccuracyM: 101,
     };
 
     const live = validateNormalizedLocationSample({
@@ -88,6 +88,18 @@ describe("validateNormalizedLocationSample", () => {
 
     expect(live.accepted).toBe(false);
     expect(imported.accepted).toBe(true);
+  });
+
+  it("accepts live readings exactly at the accuracy threshold", () => {
+    const result = validateNormalizedLocationSample({
+      source: "live-foreground",
+      recordedAt: "2026-01-01T00:00:00Z",
+      latitude: 10,
+      longitude: 20,
+      horizontalAccuracyM: 100,
+    });
+
+    expect(result.accepted).toBe(true);
   });
 });
 

@@ -119,7 +119,9 @@ the backup schema unchanged:
 
 - `yonder-diagnostics.db`: the diagnostics log.
 - `yonder-country-cache.db`: the rebuildable country summary.
-- Expo SQLite's key-value store: the appearance preference.
+- Expo SQLite's key-value store: the appearance preference and the live
+  accuracy limit. The limit is read synchronously, so background tasks apply
+  the current choice.
 
 Exclusive transactions on the main database run on a separate Expo connection,
 which gets its own 5 s busy timeout so concurrent background writes wait rather
@@ -142,8 +144,9 @@ than fail.
 For each sample:
 
 1. Validate finite WGS84 coordinates and a valid timestamp.
-2. Reject live readings less accurate than **50 m**. They never unlock cells and
-   are not stored.
+2. Reject live readings less accurate than the chosen limit: **25, 50 or
+   100 m** (default 100 m), set in Settings. They never unlock cells and are not
+   stored. Imported history is not filtered by it.
 3. Compute the fingerprint and the resolution-11 H3 cell.
 4. In one transaction, insert the sample if new and upsert the cell's
    first/last-seen range.
@@ -153,7 +156,7 @@ Only the cell containing each accepted observation is unlocked. The app never
 interpolates between fixes.
 
 The newest valid fix of any accuracy is kept in memory only as `latestFix` and
-drawn on the map with a circle at its accuracy radius. Above 50 m the dot and
+drawn on the map with a circle at its accuracy radius. Above the limit the dot and
 circle turn amber, the circle is dashed, and the status pill reads "Weak GPS
 signal · ±N m". This fix never unlocks cells, never replaces the saved
 coordinate that triggers tile and country refreshes, and is never stored or

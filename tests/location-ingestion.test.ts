@@ -7,6 +7,11 @@ vi.mock("@/src/data/app-repository", () => ({
   ingestNormalizedSamples: vi.fn(),
 }));
 
+const accuracyPreference = vi.hoisted(() => ({ maxM: 100 }));
+vi.mock("@/src/data/accuracy-preference", () => ({
+  readMaxLiveAccuracyM: () => accuracyPreference.maxM,
+}));
+
 import {
   ingestExpoLocations,
   normalizeExpoLocation,
@@ -155,6 +160,30 @@ describe("ingestExpoLocations", () => {
       timestampMs: reading.timestamp,
     });
     expect(getLocationSnapshot().latestCoordinate).toEqual(saved);
+  });
+
+  it("applies the accuracy limit chosen in Settings", async () => {
+    vi.mocked(ingestNormalizedSamples).mockResolvedValueOnce({
+      receivedCount: 1,
+      acceptedCount: 0,
+      rejectedCount: 1,
+      insertedSampleCount: 0,
+      duplicateSampleCount: 0,
+      insertedCellCount: 0,
+      updatedCellCount: 0,
+      rejections: [],
+    });
+    accuracyPreference.maxM = 25;
+    const saved = getLocationSnapshot().latestCoordinate;
+
+    await ingestExpoLocations(
+      [locationObject({ accuracy: 40, timestamp: Date.parse("2026-01-01T12:03:00.000Z") })],
+      "live-foreground",
+    );
+
+    expect(vi.mocked(ingestNormalizedSamples)).toHaveBeenLastCalledWith(expect.any(Array), 25);
+    expect(getLocationSnapshot().latestCoordinate).toEqual(saved);
+    accuracyPreference.maxM = 100;
   });
 
   it("keeps the newest fix when an older batch arrives late", async () => {

@@ -1,4 +1,4 @@
-import { MAX_LIVE_HORIZONTAL_ACCURACY_M } from "../config/yonder-config";
+import { DEFAULT_MAX_LIVE_HORIZONTAL_ACCURACY_M } from "../config/yonder-config";
 
 export const LOCATION_SOURCES = [
   "live-foreground",
@@ -180,7 +180,7 @@ export function createLocationSampleFingerprint(
 export function validateNormalizedLocationSample(
   candidate: unknown,
   policy: LocationSampleValidationPolicy = {
-    maxLiveHorizontalAccuracyM: MAX_LIVE_HORIZONTAL_ACCURACY_M,
+    maxLiveHorizontalAccuracyM: DEFAULT_MAX_LIVE_HORIZONTAL_ACCURACY_M,
   },
 ): LocationSampleValidationResult {
   if (!isRecord(candidate)) {

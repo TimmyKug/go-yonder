@@ -45,7 +45,7 @@ describe("SqliteYonderRepository", () => {
     const earlier = sample({ recordedAt: "2025-12-31T23:55:00.000Z" });
     const inaccurate = sample({
       recordedAt: "2026-01-01T00:10:00.000Z",
-      horizontalAccuracyM: 51,
+      horizontalAccuracyM: 101,
     });
 
     const first = await service.ingest([later, earlier, inaccurate]);
