@@ -99,7 +99,8 @@ export function SettingsScreen() {
         Alert.alert("Backup saved", `Your Yonder data was saved as ${result.fileName}.`);
       } else {
         const result = await importYonderBackup();
-        if (result) Alert.alert("Backup imported", `${result.addedCount} new tiles added. Your existing unlocks are preserved.`);
+        if (result) Alert.alert("Backup imported",
+          `${result.addedCount} new tiles and ${result.addedSampleCount} location records added. Your existing data is preserved.`);
       }
     } catch (error: unknown) {
       if (isBackupCancellation(error)) return;
@@ -107,7 +108,7 @@ export function SettingsScreen() {
       const reason = error instanceof BackupStageError ? error.reason : describeBackupCause(error);
       recordDiagnostic("backup-error", { operation: kind, stage, reason });
       Alert.alert(kind === "import" ? "Backup not imported" : "Backup not saved",
-        `${kind === "import" ? "Your existing unlocks are unchanged." : "Try choosing a writable folder."}\n\nStep: ${stage}\nReason: ${reason}`);
+        `${kind === "import" ? "Your existing data is unchanged." : "Try choosing a writable folder."}\n\nStep: ${stage}\nReason: ${reason}`);
     } finally {
       pending.current = false;
       setBusy(null);
@@ -116,7 +117,7 @@ export function SettingsScreen() {
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: dark ? "#071520" : "#F3F6F5" }} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24, gap: 20 }}>
-      <Text selectable style={{ color: secondary, fontSize: 16, lineHeight: 24 }}>Keep your exploration with you. Importing a Yonder backup adds its tiles to your map and preserves everything you have already unlocked.</Text>
+      <Text selectable style={{ color: secondary, fontSize: 16, lineHeight: 24 }}>Keep your exploration with you. Importing a Yonder backup adds its tiles and recorded locations while preserving data already on this device.</Text>
       <View style={{ gap: 10 }}>
         <Text style={{ color: foreground, fontSize: 18, fontWeight: "600" }}>Appearance</Text>
         <ChoiceRow
