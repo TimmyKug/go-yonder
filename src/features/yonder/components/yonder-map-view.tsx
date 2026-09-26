@@ -598,7 +598,7 @@ export function YonderMapView({
               style={{ color: colors.secondaryText, fontSize: 13, fontVariant: ["tabular-nums"] }}
               testID="tile-derivation-progress"
             >
-              · Calculating tiles {Math.floor((tileDerivation.processedCount / tileDerivation.totalCount) * 100)}%
+              · Mapping {Math.floor((tileDerivation.processedCount / tileDerivation.totalCount) * 100)}%
             </Text>
           ) : null}
           {isLoadingHexagons || tileDerivation.running ? (
