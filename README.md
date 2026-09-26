@@ -15,7 +15,7 @@ analytics, or cloud sync.
 ## Features
 
 - Foreground and background tracking; readings less accurate than the limit
-  chosen in Settings (25, 50 or 100 m; default 100 m) never unlock tiles.
+  chosen in Settings (25, 50 or 100 m; default 50 m) never unlock tiles.
 - Resolution-11 H3 coverage revealed through a veil over unvisited areas, with
   coarser hexes when zoomed out.
 - A weak-GPS indicator that shows an inaccurate fix and its accuracy radius.

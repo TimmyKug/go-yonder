@@ -96,7 +96,7 @@ describe("validateNormalizedLocationSample", () => {
       recordedAt: "2026-01-01T00:00:00Z",
       latitude: 10,
       longitude: 20,
-      horizontalAccuracyM: 100,
+      horizontalAccuracyM: 50,
     });
 
     expect(result.accepted).toBe(true);
