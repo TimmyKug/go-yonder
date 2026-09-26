@@ -68,6 +68,7 @@ src/data/               SQLite databases, migrations, repositories, backups,
                         GPX export and import, bundled country data
 src/location/           Permissions, foreground/background tracking, ingestion
 src/countries/          Background country scan
+src/tiles/              Background tile derivation for imported points
 src/diagnostics/        On-device diagnostics recorder and report
 src/features/           Screens, map view, hooks, appearance, globe
 src/import/             Source-neutral import adapter contract
@@ -122,8 +123,8 @@ the backup schema unchanged:
 - `yonder-diagnostics.db`: the diagnostics log.
 - `yonder-country-cache.db`: the rebuildable country summary.
 - Expo SQLite's key-value store: the appearance preference, the live accuracy
-  limit and the folder backup settings. They are read synchronously, so
-  background tasks apply the current choice.
+  limit, the folder backup settings and the tile derivation cursor. They are
+  read synchronously, so background tasks apply the current choice.
 
 Exclusive transactions on the main database run on a separate Expo connection,
 which gets its own 5 s busy timeout so concurrent background writes wait rather
@@ -276,35 +277,46 @@ countries, their first visit and approximate explored percentage.
   accuracy in a `yonder:accuracy` extension, and a new segment after gaps of
   more than an hour.
 - **Import:** GPS points are the source of truth. Settings → Import recognises
-  a file by its contents (a SQLite file is a backup, otherwise GPX), imports
-  only its points and derives tiles from them; tiles stored in a backup are
-  ignored. Tiles on a device that have no points behind them (from tile-only
-  imports in earlier versions) stay on that device but are not carried by
-  backups or GPX. Both paths share one batched writer: points are validated
+  a file by its contents (a SQLite file is a backup, otherwise GPX) and stores
+  only its points; tiles stored in a backup are ignored. Tiles on a device that
+  have no points behind them (from tile-only imports in earlier versions) stay
+  on that device but are not carried by backups or GPX. Points are validated
   without the live accuracy limit (they were accepted when recorded), get a
   freshly computed fingerprint, and are inserted 120 per statement after one
-  fingerprint lookup; the resolution-11 cells of the newly inserted points
-  are then merged 500 per statement, adding new cells and widening the visit
-  window of existing ones. Only new cells derive their center. Points that
-  fail validation are skipped and counted. Each finished import records its
-  duration and counts as an `import-finished` diagnostics event.
+  fingerprint lookup. Points that fail validation are skipped and counted.
+  Each finished import records its duration and counts as an
+  `import-finished` diagnostics event. Settings says that tiles for imported
+  points appear gradually.
+- **Background tile derivation:** imports leave tiles to `src/tiles`, which
+  derives them in steps of 2,000 samples after a cursor (the highest sample ID
+  covered by tiles, kept in the key-value store). Each step computes the
+  resolution-11 cells, skipping the H3 call for a repeated position, and merges
+  them 500 per statement in one short transaction, adding new cells and
+  widening the visit window of existing ones; only new cells derive their
+  center. The cursor moves only after a step commits, so an interruption
+  repeats an idempotent step. The first cursor is the newest sample at the
+  time, because live ingestion unlocks its own tiles immediately. It runs at
+  launch, after an import and when the app returns to the foreground, pauses in
+  the background, refreshes the visible tiles at most once a second, shows
+  "Mapping N%" in the status pill, then rebuilds the country cache if
+  tiles changed and records a `tiles-derived` diagnostics event.
 - **Backup import** accepts Yonder snapshots at schema version 3 that contain a
   `location_samples` table. The snapshot is opened separately in memory,
   checked for integrity and read in pages of 1,000 by row ID. Source, time,
   coordinates, accuracy and external record ID are restored; an import-batch
-  reference is cleared because it is local to the original device. Everything
-  is written in one transaction, so a failure changes nothing, and
+  reference is cleared because it is local to the original device. All points
+  are written in one transaction, so a failure changes nothing, and
   re-importing an unchanged backup writes nothing. Snapshots without points
   are rejected.
 - **GPX import** reads track, route and waypoint points from any app with a
   tolerant scanner (namespace prefixes, either attribute order or quote style,
   self-closing points; times without a zone are UTC). Points without a time are
   skipped, because a visit needs one. Points become `external-import` samples,
-  written in chunks of 1,000 that each commit on their own, with progress
+  written in chunks of 5,000 that each commit on their own, with progress
   shown. A point already stored at the same second within about
   10 cm, from any source, is skipped, so re-importing a file or Yonder's own
-  export adds nothing. The country cache is rebuilt afterwards. An interrupted
-  import keeps the chunks already committed.
+  export adds nothing. An interrupted import keeps the chunks already
+  committed.
 - **Failures** report their step (export: choose folder, read database, read
   GPS points, create file, write file; folder backup: open folder, read
   database, write file, read GPS points; import: read file, check file type,
@@ -329,6 +341,14 @@ it or share it as text; nothing leaves the device unless the user shares it.
 ## Android releases
 
 Signed APKs are published as GitHub releases for installers such as Obtainium.
+
+- The `CI` workflow's `Checks` job runs typecheck, lint and tests on every pull
+  request and on `main`, and checks the version: `app.json`, `package.json` and
+  `package-lock.json` agree, the `versionCode` follows the formula below, a
+  changed version has a higher `versionCode` than the base branch and is not
+  tagged yet. A ruleset on `main` requires this check, so a release is never
+  tagged for a change that fails it. Version rules live in
+  `.github/scripts/release-version.mjs`, shared by the check and the build.
 
 - Merging a change to `main` that sets a new version in `app.json` and
   `package.json` makes CI tag the merge commit `v<version>` and build it. A

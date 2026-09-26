@@ -15,13 +15,14 @@ import { useAppearance } from "@/src/features/appearance/appearance-provider";
 import { ChoiceRow, type ChoiceColors } from "@/src/features/settings/choice-row";
 import { FolderBackupSection } from "@/src/features/settings/folder-backup-section";
 import { useMaxLiveAccuracyM } from "@/src/features/settings/use-max-live-accuracy";
+import { requestTileDerivation } from "@/src/tiles/tile-deriver";
 
 type DataAction = "export" | "gpx" | "import";
 
 const DATA_ACTIONS: readonly (readonly [DataAction, string, string])[] = [
   ["export", "Save backup", "Save a copy of all your Yonder data to a folder you choose."],
   ["gpx", "Export GPS points", "Save every recorded GPS point as a GPX track that other map apps can open."],
-  ["import", "Import", "Choose a Yonder backup or a GPX file from any app. Repeated imports never duplicate tiles or points."],
+  ["import", "Import", "Choose a Yonder backup or a GPX file from any app. Repeated imports never duplicate points. Tiles for imported points are calculated in the background, which can take a few minutes for large files."],
 ];
 
 function plural(count: number, word: string): string {
@@ -29,9 +30,10 @@ function plural(count: number, word: string): string {
 }
 
 function describeImport(result: LocationFileImportResult): [string, string] {
-  const lines = [
-    `${plural(result.addedTileCount, "new tile")} and ${plural(result.addedPointCount, "GPS point")} added. Everything already on this device is preserved.`,
-  ];
+  const lines = [`${plural(result.addedPointCount, "GPS point")} added. Everything already on this device is preserved.`];
+  if (result.addedPointCount > 0) {
+    lines.push("Tiles are calculated in the background and appear on the map over the next minutes.");
+  }
   const skipped = result.kind === "backup" ? result.skippedPointCount : result.skippedCount;
   if (result.kind === "gpx" && result.alreadyStoredCount > 0) {
     lines.push(`${plural(result.alreadyStoredCount, "point")} were already saved.`);
@@ -90,7 +92,10 @@ export function SettingsScreen() {
       } else {
         const result = await importLocationFile((processed, total) =>
           setImportProgress(`Adding GPS points… ${Math.round((processed / total) * 100)}%`));
-        if (result) Alert.alert(...describeImport(result));
+        if (result) {
+          if (result.addedPointCount > 0) requestTileDerivation();
+          Alert.alert(...describeImport(result));
+        }
       }
     } catch (error: unknown) {
       if (isBackupCancellation(error)) return;

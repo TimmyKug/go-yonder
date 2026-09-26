@@ -1,13 +1,25 @@
 import { latLngToCell } from "h3-js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { deriveAllTiles } from "./support/derive-all-tiles";
+import { NodeSqliteDatabase } from "./support/node-sqlite-database";
 
 import { importBackupSamples } from "@/src/data/backup-import-repository";
 import { runMigrations } from "@/src/data/migrations";
 import { validateNormalizedLocationSample } from "@/src/domain/location-sample";
 
-import { NodeSqliteDatabase } from "./support/node-sqlite-database";
+
+const kv = vi.hoisted(() => new Map<string, string>());
+vi.mock("expo-sqlite/kv-store", () => ({
+  default: {
+    getItemSync: (key: string) => kv.get(key) ?? null,
+    setItemAsync: async (key: string, value: string) => { kv.set(key, value); },
+  },
+}));
+
 
 const databases: NodeSqliteDatabase[] = [];
+beforeEach(() => kv.clear());
 afterEach(() => databases.splice(0).forEach((database) => database.close()));
 
 async function database() {
@@ -37,7 +49,7 @@ const cells = (db: NodeSqliteDatabase) =>
     "SELECT cell_id, first_seen_at_ms, last_seen_at_ms FROM unlocked_cells ORDER BY cell_id");
 
 describe("GPS-only backup import", () => {
-  it("imports points, derives their tiles and ignores the backup's stored tiles", async () => {
+  it("imports points only; their tiles are derived afterwards and stored tiles are ignored", async () => {
     const source = await database();
     const target = await database();
     await addSample(source, "2026-01-01T00:00:00.000Z", 1);
@@ -47,8 +59,10 @@ describe("GPS-only backup import", () => {
     await source.run("INSERT INTO unlocked_cells VALUES (?, 11, 0, 0, 1, 2)", [latLngToCell(40, 40, 11)]);
 
     expect(await importBackupSamples(source, target)).toEqual({
-      addedTileCount: 2, addedPointCount: 3, totalPointCount: 3, skippedPointCount: 0,
+      addedPointCount: 3, totalPointCount: 3, skippedPointCount: 0,
     });
+    expect(await cells(target)).toEqual([]);
+    expect(await deriveAllTiles(target)).toMatchObject({ addedTileCount: 2 });
     expect(await cells(target)).toEqual([
       { cell_id: latLngToCell(1, 0, 11), first_seen_at_ms: Date.UTC(2026, 0, 1), last_seen_at_ms: Date.UTC(2026, 0, 2) },
       { cell_id: latLngToCell(2, 0, 11), first_seen_at_ms: Date.UTC(2026, 0, 3), last_seen_at_ms: Date.UTC(2026, 0, 3) },
@@ -60,19 +74,22 @@ describe("GPS-only backup import", () => {
   it("keeps local history, widens visit windows and writes nothing when reimported", async () => {
     const source = await database();
     const target = await database();
+    // A point recorded live before this import, with its tile.
     await addSample(target, "2026-01-05T00:00:00.000Z", 1);
     await target.run("INSERT INTO unlocked_cells VALUES (?, 11, 1, 0, ?, ?)",
       [latLngToCell(1, 0, 11), Date.UTC(2026, 0, 5), Date.UTC(2026, 0, 5)]);
     await addSample(source, "2026-01-05T00:00:00.000Z", 1);
     await addSample(source, "2026-01-01T00:00:00.000Z", 1);
 
-    expect(await importBackupSamples(source, target)).toMatchObject({ addedTileCount: 0, addedPointCount: 1 });
+    expect(await importBackupSamples(source, target)).toMatchObject({ addedPointCount: 1 });
+    // Only the imported point is left for the deriver; the live one had its tile.
+    expect(await deriveAllTiles(target)).toMatchObject({ addedTileCount: 0 });
     expect(await cells(target)).toEqual([
       { cell_id: latLngToCell(1, 0, 11), first_seen_at_ms: Date.UTC(2026, 0, 1), last_seen_at_ms: Date.UTC(2026, 0, 5) },
     ]);
     const before = await target.all("SELECT * FROM location_samples ORDER BY id");
     expect(await importBackupSamples(source, target)).toEqual({
-      addedTileCount: 0, addedPointCount: 0, totalPointCount: 2, skippedPointCount: 0,
+      addedPointCount: 0, totalPointCount: 2, skippedPointCount: 0,
     });
     expect(await target.all("SELECT * FROM location_samples ORDER BY id")).toEqual(before);
   });
@@ -87,7 +104,8 @@ describe("GPS-only backup import", () => {
       horizontal_accuracy_m, import_batch_id, fingerprint)
       VALUES ('live-background', ?, 3, 0, 400, 'other-device-batch', 'other-fingerprint-format')`, [Date.UTC(2026, 2, 1)]);
 
-    expect(await importBackupSamples(source, target)).toMatchObject({ addedTileCount: 1, addedPointCount: 1 });
+    expect(await importBackupSamples(source, target)).toMatchObject({ addedPointCount: 1 });
+    expect(await deriveAllTiles(target)).toMatchObject({ addedTileCount: 1 });
     const restored = await target.first<{ source: string; fingerprint: string; import_batch_id: string | null }>(
       "SELECT source, fingerprint, import_batch_id FROM location_samples");
     expect(restored?.source).toBe("live-background");
@@ -121,12 +139,12 @@ describe("GPS-only backup import", () => {
     expect(await target.all("SELECT * FROM location_samples")).toEqual([]);
   });
 
-  it("rolls back every point and tile when writing fails", async () => {
+  it("rolls back every point when writing fails", async () => {
     const source = await database();
     const target = await database();
     for (let i = 0; i < 300; i += 1) await addSample(source, new Date(Date.UTC(2026, 1, 1, 0, i)).toISOString(), 1);
-    await target.execute(`CREATE TRIGGER fail_import BEFORE INSERT ON unlocked_cells
-      BEGIN SELECT RAISE(ABORT, 'synthetic failure'); END`);
+    await target.execute(`CREATE TRIGGER fail_import BEFORE INSERT ON location_samples
+      WHEN NEW.recorded_at_ms > ${Date.UTC(2026, 1, 1, 4)} BEGIN SELECT RAISE(ABORT, 'synthetic failure'); END`);
 
     await expect(importBackupSamples(source, target)).rejects.toThrow("synthetic failure");
     expect(await target.all("SELECT * FROM location_samples")).toEqual([]);

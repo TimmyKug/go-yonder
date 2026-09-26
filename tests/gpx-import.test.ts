@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { importGpxText } from "../src/data/gpx-import";
 import { readAllSamplePoints } from "../src/data/location-sample-repository";
@@ -8,7 +8,17 @@ import { formatGpx } from "../src/domain/gpx";
 import { H3HexGrid } from "../src/domain/hex-grid";
 import { YonderIngestionService } from "../src/domain/ingest-location";
 
+import { deriveAllTiles } from "./support/derive-all-tiles";
 import { NodeSqliteDatabase } from "./support/node-sqlite-database";
+
+const kv = vi.hoisted(() => new Map<string, string>());
+vi.mock("expo-sqlite/kv-store", () => ({
+  default: {
+    getItemSync: (key: string) => kv.get(key) ?? null,
+    setItemAsync: async (key: string, value: string) => { kv.set(key, value); },
+  },
+}));
+
 
 type CountRow = { count: number };
 
@@ -30,6 +40,7 @@ describe("importGpxText", () => {
     (await database.first<CountRow>(`SELECT COUNT(*) AS count FROM ${table}`))?.count;
 
   beforeEach(async () => {
+    kv.clear();
     database = new NodeSqliteDatabase();
     await runMigrations(database);
     service = new YonderIngestionService(new SqliteYonderRepository(database), new H3HexGrid());
@@ -39,12 +50,14 @@ describe("importGpxText", () => {
     database.close();
   });
 
-  it("adds points as imported history and unlocks their tiles", async () => {
+  it("adds points as imported history, leaving their tiles to the background deriver", async () => {
     const result = await importGpxText(syntheticWalk(), { database });
 
-    expect(result).toMatchObject({ pointCount: 30, addedPointCount: 30, alreadyStoredCount: 0, skippedCount: 0 });
-    expect(result.addedTileCount).toBeGreaterThan(20);
-    expect(await count("unlocked_cells")).toBe(result.addedTileCount);
+    expect(result).toEqual({ pointCount: 30, addedPointCount: 30, alreadyStoredCount: 0, skippedCount: 0 });
+    expect(await count("unlocked_cells")).toBe(0);
+    const { addedTileCount } = await deriveAllTiles(database);
+    expect(addedTileCount).toBeGreaterThan(20);
+    expect(await count("unlocked_cells")).toBe(addedTileCount);
     const sources = await database.all<{ source: string }>("SELECT DISTINCT source FROM location_samples");
     expect(sources).toEqual([{ source: "external-import" }]);
   });
@@ -53,7 +66,7 @@ describe("importGpxText", () => {
     await importGpxText(syntheticWalk(), { database });
     const again = await importGpxText(syntheticWalk(), { database });
 
-    expect(again).toMatchObject({ addedPointCount: 0, addedTileCount: 0, alreadyStoredCount: 30 });
+    expect(again).toMatchObject({ addedPointCount: 0, alreadyStoredCount: 30 });
     expect(await count("location_samples")).toBe(30);
   });
 
@@ -75,7 +88,8 @@ describe("importGpxText", () => {
 <extensions><yonder:accuracy>400</yonder:accuracy></extensions></trkpt></trkseg></trk></gpx>`;
     const result = await importGpxText(gpx, { database });
 
-    expect(result).toMatchObject({ addedPointCount: 1, addedTileCount: 1 });
+    expect(result).toMatchObject({ addedPointCount: 1 });
+    expect(await deriveAllTiles(database)).toMatchObject({ addedTileCount: 1 });
     expect(await readAllSamplePoints(database)).toEqual([
       { latitude: 10, longitude: 20, recordedAtMs: Date.parse("2026-03-01T08:00:00Z"), horizontalAccuracyM: 400 },
     ]);
@@ -95,10 +109,10 @@ describe("importGpxText", () => {
 
   it("reports progress per chunk", async () => {
     const progress: [number, number][] = [];
-    await importGpxText(syntheticWalk(2_500), {
+    await importGpxText(syntheticWalk(12_000), {
       database,
       onProgress: (done, total) => progress.push([done, total]),
     });
-    expect(progress).toEqual([[1_000, 2_500], [2_000, 2_500], [2_500, 2_500]]);
+    expect(progress).toEqual([[5_000, 12_000], [10_000, 12_000], [12_000, 12_000]]);
   });
 });

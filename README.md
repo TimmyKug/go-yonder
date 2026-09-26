@@ -70,8 +70,10 @@ Add `https://github.com/TimmyKug/go-yonder` to Obtainium as a GitHub source.
 Turn on **Include prereleases** to also receive beta builds; betas update the
 installed app in place and keep its data.
 
-To release, merge a change to `main` that sets the new version in `app.json`
-(`expo.version` and `expo.android.versionCode`) and `package.json`:
+Every pull request runs the **CI** checks (typecheck, lint, tests and a version
+check), which must pass before merging. To release, merge a change to `main`
+that sets the new version in `app.json` (`expo.version` and
+`expo.android.versionCode`), `package.json` and `package-lock.json`:
 
 - `X.Y.Z` publishes a release, `X.Y.Z-beta.N` a prerelease.
 - `versionCode = (X * 1,000,000 + Y * 1,000 + Z) * 100 + N`, with `N = 99` for

@@ -1,0 +1,64 @@
+name: CI
+
+# Runs on every pull request and on main. Branch rules on main require the
+# "Checks" job, so nothing is merged unless it passes, and "Release on merge"
+# never tags a version that cannot build.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          # The base branch and tags are needed to check a version change.
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Check version
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            git show "origin/$BASE_REF:app.json" > "$RUNNER_TEMP/base-app.json"
+            node .github/scripts/check-version.mjs app.json package.json package-lock.json "$RUNNER_TEMP/base-app.json"
+            VERSION="$(node -p 'require("./app.json").expo.version')"
+            BASE_VERSION="$(node -p "require('$RUNNER_TEMP/base-app.json').expo.version")"
+            if [ "$VERSION" != "$BASE_VERSION" ] && git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
+              echo "::error::v$VERSION is already tagged; merging would release nothing. Use a new version."
+              exit 1
+            fi
+          else
+            node .github/scripts/check-version.mjs app.json package.json package-lock.json
+          fi
