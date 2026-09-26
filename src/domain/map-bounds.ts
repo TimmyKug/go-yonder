@@ -30,8 +30,16 @@ export function mapBoundsContain(outer: MapBounds, inner: MapBounds): boolean {
   return offset + longitudeWidth(inner) <= width;
 }
 
+// Loaded coverage this much larger than a fresh load is dropped on zoom in, so
+// street-level views do not redraw a whole zoomed-out region's tiles.
+const MAX_COVERAGE_OVERSIZE = 2;
+
 export function nextCoverageBounds(current: MapBounds, viewport: MapBounds): MapBounds {
-  return mapBoundsContain(current, padMapBounds(viewport, 0.5))
+  const target = padMapBounds(viewport);
+  const oversized =
+    longitudeWidth(current) > MAX_COVERAGE_OVERSIZE * longitudeWidth(target) ||
+    current[3] - current[1] > MAX_COVERAGE_OVERSIZE * (target[3] - target[1]);
+  return !oversized && mapBoundsContain(current, padMapBounds(viewport, 0.5))
     ? current
-    : padMapBounds(viewport);
+    : target;
 }

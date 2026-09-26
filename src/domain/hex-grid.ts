@@ -1,4 +1,4 @@
-import type { Feature, FeatureCollection, Polygon, Position } from "geojson";
+import type { FeatureCollection, Polygon, Position } from "geojson";
 import {
   cellToBoundary,
   cellToLatLng,
@@ -7,7 +7,7 @@ import {
   latLngToCell,
 } from "h3-js";
 
-import type { GeographicCoordinate, UnlockedCell } from "./yonder";
+import type { GeographicCoordinate } from "./yonder";
 import { assertValidResolution } from "./yonder";
 
 export interface HexGrid {
@@ -47,54 +47,6 @@ export class H3HexGrid implements HexGrid {
 }
 
 export const h3HexGrid: HexGrid = new H3HexGrid();
-
-export type UnlockedCellFeatureProperties = {
-  cellId: string;
-  resolution: number;
-  firstSeenAtMs: number;
-  lastSeenAtMs: number;
-};
-
-export function unlockedCellsToFeatureCollection(
-  cells: readonly UnlockedCell[],
-  hexGrid: HexGrid = h3HexGrid,
-): FeatureCollection<Polygon, UnlockedCellFeatureProperties> {
-  const features: Feature<Polygon, UnlockedCellFeatureProperties>[] = cells.map(
-    (cell) => {
-      const actualResolution = hexGrid.resolutionForCell(cell.cellId);
-      if (actualResolution !== cell.resolution) {
-        throw new Error(
-          "persisted cell resolution does not match its cell identifier",
-        );
-      }
-
-      const ring = hexGrid
-        .boundaryForCell(cell.cellId)
-        .map<Position>(({ latitude, longitude }) => [longitude, latitude]);
-
-      if (ring[0]) {
-        ring.push([...ring[0]]);
-      }
-
-      return {
-        type: "Feature",
-        id: `${cell.resolution}:${cell.cellId}`,
-        properties: {
-          cellId: cell.cellId,
-          resolution: cell.resolution,
-          firstSeenAtMs: cell.firstSeenAtMs,
-          lastSeenAtMs: cell.lastSeenAtMs,
-        },
-        geometry: {
-          type: "Polygon",
-          coordinates: [ring],
-        },
-      };
-    },
-  );
-
-  return { type: "FeatureCollection", features };
-}
 
 export function unlockedCellIdsToVeilMask(
   cellIds: readonly string[],

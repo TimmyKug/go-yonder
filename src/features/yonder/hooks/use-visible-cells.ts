@@ -5,17 +5,14 @@ import { AppState } from "react-native";
 import { getYonderRepository } from "@/src/data/app-repository";
 import { describeBackupCause } from "@/src/data/backup-failure";
 import { recordDiagnostic } from "@/src/diagnostics/diagnostics";
-import { unlockedCellsToFeatureCollection } from "@/src/domain/hex-grid";
 import { type MapBounds, nextCoverageBounds, padMapBounds } from "@/src/domain/map-bounds";
 
-const EMPTY_HEXAGONS: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
-  type: "FeatureCollection",
-  features: [],
-};
+const NO_CELLS: readonly string[] = [];
 
 type VisibleCellsState = {
+  /** Resolution-11 cell IDs unlocked within the loaded bounds. */
+  cellIds: readonly string[];
   error?: string;
-  hexagons: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
   isLoading: boolean;
   setBounds: (bounds: MapBounds) => void;
 };
@@ -24,8 +21,7 @@ export function useVisibleCells(refreshToken?: number): VisibleCellsState {
   const [bounds, setBounds] = useState<MapBounds>(() =>
     padMapBounds([13.1, 52.35, 13.7, 52.7]),
   );
-  const [hexagons, setHexagons] =
-    useState<GeoJSON.FeatureCollection<GeoJSON.Polygon>>(EMPTY_HEXAGONS);
+  const [cellIds, setCellIds] = useState<readonly string[]>(NO_CELLS);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [activationRevision, setActivationRevision] = useState(0);
@@ -65,14 +61,10 @@ export function useVisibleCells(refreshToken?: number): VisibleCellsState {
           south,
           west,
         });
-        step = "draw tiles";
         cellCount = cells.length;
-        const collection = unlockedCellsToFeatureCollection(cells);
 
         if (!cancelled && requestRevision.current === revision) {
-          setHexagons(
-            collection as GeoJSON.FeatureCollection<GeoJSON.Polygon>,
-          );
+          setCellIds(cells.map(({ cellId }) => cellId));
           setError(undefined);
         }
       } catch (error: unknown) {
@@ -101,8 +93,8 @@ export function useVisibleCells(refreshToken?: number): VisibleCellsState {
   }, []);
 
   return {
+    cellIds,
     error,
-    hexagons,
     isLoading,
     setBounds: updateBounds,
   };

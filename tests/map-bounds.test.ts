@@ -20,6 +20,13 @@ describe("coverage preloading", () => {
     expect(nextCoverageBounds(loaded, [8, 16, 14, 28])).toEqual([2, 4, 20, 40]);
   });
 
+  it("drops a zoomed-out region's coverage after zooming in further", () => {
+    const zoomedOut = padMapBounds([0, 0, 8, 8]);
+    const street = [3.9, 3.9, 4.1, 4.1] as const;
+    expect(mapBoundsContain(zoomedOut, padMapBounds([...street], 0.5))).toBe(true);
+    expect(nextCoverageBounds(zoomedOut, [...street])).toEqual(padMapBounds([...street]));
+  });
+
   it("wraps across the antimeridian and tests containment across it", () => {
     const loaded = padMapBounds([179, 0, -179, 2]);
     expect(loaded).toEqual([177, -2, -177, 4]);

@@ -60,7 +60,7 @@ export type TrackingPresentation = {
 type YonderMapViewProps = {
   currentCoordinate?: MapCoordinate;
   countryRefreshToken?: number;
-  hexagons: GeoJSON.FeatureCollection<GeoJSON.Polygon>;
+  cellIds: readonly string[];
   isLoadingHexagons: boolean;
   onBoundsChange: (bounds: [number, number, number, number]) => void;
   onOpenSettings: () => void;
@@ -133,10 +133,31 @@ const ABOUT_SHEET_COLORS: Record<"dark" | "light", AboutSheetColors> = {
   },
 };
 
+// Veils already built for each loaded cell list, so zooming back across a
+// resolution threshold does not rebuild them. Entries go with their list.
+const veilCache = new WeakMap<
+  readonly string[],
+  Map<number, GeoJSON.FeatureCollection<GeoJSON.Polygon>>
+>();
+
+function veilForResolution(cellIds: readonly string[], resolution: number) {
+  let veils = veilCache.get(cellIds);
+  if (!veils) {
+    veils = new globalThis.Map();
+    veilCache.set(cellIds, veils);
+  }
+  let veil = veils.get(resolution);
+  if (!veil) {
+    veil = unlockedCellIdsToVeilMask(cellIdsAtDisplayResolution(cellIds, resolution));
+    veils.set(resolution, veil);
+  }
+  return veil;
+}
+
 export function YonderMapView({
   currentCoordinate,
   countryRefreshToken,
-  hexagons,
+  cellIds,
   isLoadingHexagons,
   onBoundsChange,
   onOpenSettings,
@@ -222,18 +243,9 @@ export function YonderMapView({
     [currentCoordinate],
   );
   const locationColor = weakSignal ? WEAK_SIGNAL_COLOR : colors.location;
-  const loadedCellIds = useMemo(
-    () => hexagons.features.flatMap((feature) => {
-      const cellId = feature.properties?.cellId;
-      return typeof cellId === "string" ? [cellId] : [];
-    }),
-    [hexagons],
-  );
   const mapVeil = useMemo(
-    () => unlockedCellIdsToVeilMask(
-      cellIdsAtDisplayResolution(loadedCellIds, displayResolution),
-    ),
-    [loadedCellIds, displayResolution],
+    () => veilForResolution(cellIds, displayResolution),
+    [cellIds, displayResolution],
   );
 
   useEffect(() => {

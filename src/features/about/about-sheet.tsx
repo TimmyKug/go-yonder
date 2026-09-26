@@ -8,6 +8,7 @@ import {
   PanResponder,
   Pressable,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -40,8 +41,7 @@ type AboutSheetProps = {
 
 // Dragging the sheet down further than this closes it.
 const DISMISS_DISTANCE = 80;
-// Start below the screen so the sheet slides up while the backdrop fades in.
-const OFFSCREEN_Y = 800;
+const CLOSE_DURATION_MS = 220;
 
 function open(url: string) {
   void Linking.openURL(url);
@@ -49,53 +49,76 @@ function open(url: string) {
 
 export function AboutSheet({ colors, onClose, showOpenMapTiles, visible }: AboutSheetProps) {
   const insets = useSafeAreaInsets();
-  const [dragY] = useState(() => new Animated.Value(0));
+  // The sheet starts below the screen, so it slides up while the backdrop fades in.
+  const offscreenY = useWindowDimensions().height;
+  const [dragY] = useState(() => new Animated.Value(offscreenY));
+  const [backdropOpacity] = useState(() => new Animated.Value(0));
+  // Stays mounted after `visible` turns false until the sheet has slid away.
+  const [mounted, setMounted] = useState(visible);
+  if (visible && !mounted) setMounted(true);
 
   useEffect(() => {
-    if (!visible) return;
-    dragY.setValue(OFFSCREEN_Y);
-    Animated.spring(dragY, {
-      bounciness: 0,
-      toValue: 0,
-      useNativeDriver: true,
-    }).start();
-  }, [dragY, visible]);
+    if (visible) {
+      dragY.setValue(offscreenY);
+      backdropOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(dragY, { bounciness: 0, toValue: 0, useNativeDriver: true }),
+        Animated.timing(backdropOpacity, { duration: 200, toValue: 1, useNativeDriver: true }),
+      ]).start();
+      return;
+    }
+    // Slide away from wherever the sheet is, including mid-drag.
+    const close = Animated.parallel([
+      Animated.timing(dragY, { duration: CLOSE_DURATION_MS, toValue: offscreenY, useNativeDriver: true }),
+      Animated.timing(backdropOpacity, { duration: CLOSE_DURATION_MS, toValue: 0, useNativeDriver: true }),
+    ]);
+    close.start(({ finished }) => {
+      if (finished) setMounted(false);
+    });
+    return () => close.stop();
+  }, [backdropOpacity, dragY, offscreenY, visible]);
 
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, { dx, dy }) =>
-          dy > 6 && Math.abs(dy) > Math.abs(dx),
-        onPanResponderMove: (_event, { dy }) => dragY.setValue(Math.max(0, dy)),
-        onPanResponderRelease: (_event, { dy, vy }) => {
-          if (dy > DISMISS_DISTANCE || vy > 1) {
-            onClose();
-          } else {
-            Animated.spring(dragY, { toValue: 0, useNativeDriver: true }).start();
-          }
-        },
-      }),
-    [dragY, onClose],
-  );
+  const panResponder = useMemo(() => {
+    const settle = () =>
+      Animated.spring(dragY, { bounciness: 0, toValue: 0, useNativeDriver: true }).start();
+    // A clear downward drag, even one starting on text or a button.
+    const isDismissDrag = (dx: number, dy: number) => dy > 8 && dy > Math.abs(dx) * 1.5;
+    return PanResponder.create({
+      onMoveShouldSetPanResponder: (_event, { dx, dy }) => isDismissDrag(dx, dy),
+      onMoveShouldSetPanResponderCapture: (_event, { dx, dy }) => isDismissDrag(dx, dy),
+      onPanResponderMove: (_event, { dy }) => dragY.setValue(Math.max(0, dy)),
+      onPanResponderRelease: (_event, { dy, vy }) => {
+        if (dy > DISMISS_DISTANCE || vy > 1) {
+          onClose();
+        } else {
+          settle();
+        }
+      },
+      onPanResponderTerminate: settle,
+      onPanResponderTerminationRequest: () => false,
+    });
+  }, [dragY, onClose]);
 
   const link = { color: colors.secondaryText, fontWeight: "600" } as const;
 
   return (
     <Modal
-      animationType="fade"
+      animationType="none"
       navigationBarTranslucent
       onRequestClose={onClose}
       statusBarTranslucent
       transparent
-      visible={visible}
+      visible={mounted}
     >
-      <Pressable
-        accessibilityLabel="Close"
-        accessibilityRole="button"
-        onPress={onClose}
-        style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-        testID="about-backdrop"
-      />
+      <Animated.View style={{ flex: 1, opacity: backdropOpacity }}>
+        <Pressable
+          accessibilityLabel="Close"
+          accessibilityRole="button"
+          onPress={onClose}
+          style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+          testID="about-backdrop"
+        />
+      </Animated.View>
       <Animated.View
         {...panResponder.panHandlers}
         accessibilityViewIsModal
@@ -157,12 +180,12 @@ export function AboutSheet({ colors, onClose, showOpenMapTiles, visible }: About
         </View>
 
         <View style={{ gap: 8 }}>
-          <Text selectable style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>
+          <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>
             Made by someone who travels too much and likes progress bars a little
             too much. Every street you walk clears more fog, and every country
             counts.
           </Text>
-          <Text selectable style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>
+          <Text style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>
             Your map lives only on your phone. No accounts, no tracking, no one
             watching. Enjoying it? A coffee keeps me going.
           </Text>
