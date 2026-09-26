@@ -158,12 +158,13 @@ export function AboutSheet({ colors, onClose, showOpenMapTiles, visible }: About
 
         <View style={{ gap: 8 }}>
           <Text selectable style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>
-            I made Yonder because I wanted to see everywhere I&apos;ve actually been,
-            without handing my location history to anyone.
+            Made by someone who travels too much and likes progress bars a little
+            too much. Every street you walk clears more fog, and every country
+            counts.
           </Text>
           <Text selectable style={{ color: colors.text, fontSize: 15, lineHeight: 22 }}>
-            It&apos;s free, open source, and everything stays on your phone. If you
-            enjoy it, a coffee keeps me going.
+            Your map lives only on your phone. No accounts, no tracking, no one
+            watching. Enjoying it? A coffee keeps me going.
           </Text>
         </View>
 
