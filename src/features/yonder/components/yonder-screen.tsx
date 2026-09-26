@@ -220,7 +220,7 @@ export function YonderScreen() {
     <YonderMapView
       currentCoordinate={location.latestFix ?? location.latestCoordinate}
       countryRefreshToken={location.latestCoordinate?.timestampMs}
-      hexagons={visibleCells.hexagons}
+      cellIds={visibleCells.cellIds}
       isLoadingHexagons={visibleCells.isLoading}
       onBoundsChange={visibleCells.setBounds}
       onOpenSettings={handleOpenSettings}

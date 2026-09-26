@@ -184,20 +184,24 @@ logged.
   the browser (nothing is embedded), and the tappable map credits
   (`© OpenStreetMap contributors`, and `© OpenMapTiles` via OpenFreeMap unless a
   custom style is set), Natural Earth, and a source-code link. It closes by
-  swiping down, tapping outside, Close, or Android back.
+  swiping down anywhere on the sheet, tapping outside, Close, or Android back,
+  and slides away while the backdrop fades.
 - **Theme:** System, Light or Dark in Settings; the style, UI and veil follow it.
 - **Android gestures:** MapLibre's zoom rate is set to 1.6 through a patch,
   because the React Native wrapper does not expose it.
 
 Coverage rendering:
 
-- Unlocked cells within one extra viewport on each side are loaded; the query
-  recenters when a half-viewport margin no longer fits, keeping the old geometry
-  while loading. Antimeridian bounds are handled explicitly.
+- The IDs of unlocked cells within one extra viewport on each side are loaded;
+  the query recenters when a half-viewport margin no longer fits, or when the
+  loaded area is more than twice as wide or tall as a fresh load (after zooming
+  in), keeping the old geometry while loading. Antimeridian bounds are handled
+  explicitly.
 - The union of unlocked cells is cut out of an unvisited-area veil (a charcoal
   veil in light mode, translucent grey fog in dark mode). Internal cell edges
   are hidden; a subtle line marks the frontier. Enclosed unvisited areas stay
-  veiled. Veil geometry is derived at render time and never persisted.
+  veiled. Veil geometry is derived at render time, kept per display resolution
+  for the currently loaded cells, and never persisted.
 - Zoomed out, coverage is aggregated to H3 parents for display only: resolution
   11 at zoom 14 and above, one resolution coarser every two zoom levels, down to
   resolution 5 at zoom 2–4, with 0.15-zoom hysteresis. A coarse cell means at
