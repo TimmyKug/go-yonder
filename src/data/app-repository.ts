@@ -5,6 +5,7 @@ import type { NormalizedLocationSample } from "../domain/location-sample";
 import type { YonderRepository } from "../domain/yonder-repository";
 
 import { getDatabase } from "./database";
+import { runFolderBackupIfDue } from "./folder-backup";
 import { refreshAutomaticYonderBackupIfDue } from "./yonder-backup";
 import { createYonderRepository } from "./yonder-repository";
 
@@ -32,6 +33,8 @@ export async function ingestNormalizedSamples(
 
   if (result.insertedSampleCount > 0) {
     await refreshAutomaticYonderBackupIfDue().catch(() => undefined);
+    // Runs in the background location task too, so it happens while tracking.
+    await runFolderBackupIfDue().catch(() => undefined);
   }
 
   return result;

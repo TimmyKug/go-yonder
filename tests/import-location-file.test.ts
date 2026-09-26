@@ -1,13 +1,16 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ pick: vi.fn(), deserialize: vi.fn(), merge: vi.fn(), close: vi.fn(), getDatabase: vi.fn(), resetCountries: vi.fn() }));
+import { importLocationFile as importYonderBackup } from "@/src/data/import-location-file";
+
+const mocks = vi.hoisted(() => ({ pick: vi.fn(), deserialize: vi.fn(), merge: vi.fn(), close: vi.fn(), getDatabase: vi.fn(), resetCountries: vi.fn(), importGpx: vi.fn() }));
 vi.mock("expo-file-system", () => ({ File: { pickFileAsync: mocks.pick } }));
 vi.mock("expo-sqlite", () => ({ deserializeDatabaseAsync: mocks.deserialize }));
 vi.mock("@/src/data/database", () => ({ getDatabase: mocks.getDatabase }));
 vi.mock("@/src/data/backup-import-repository", () => ({ mergeBackupUnlocks: mocks.merge }));
 vi.mock("@/src/data/country-cache-database", () => ({ getCountryCache: async () => ({}) }));
 vi.mock("@/src/data/country-cache-repository", () => ({ resetCountryCache: mocks.resetCountries }));
-import { importYonderBackup } from "@/src/data/import-yonder-backup";
+vi.mock("@/src/data/app-repository", () => ({ ingestNormalizedSamples: vi.fn() }));
+vi.mock("@/src/data/gpx-import", () => ({ importGpxText: mocks.importGpx }));
 
 function sqliteBytes() {
   const bytes = new Uint8Array(100);
@@ -15,8 +18,8 @@ function sqliteBytes() {
   bytes[18] = bytes[19] = 2;
   return bytes;
 }
-function picked(bytes: () => Promise<Uint8Array>) {
-  mocks.pick.mockResolvedValue({ canceled: false, result: { bytes } });
+function picked(bytes: () => Promise<Uint8Array>, text = async () => "") {
+  mocks.pick.mockResolvedValue({ canceled: false, result: { bytes, text } });
 }
 
 beforeEach(() => {
@@ -31,10 +34,28 @@ it("cancellation never opens or changes a database", async () => {
   expect(mocks.deserialize).not.toHaveBeenCalled();
   expect(mocks.merge).not.toHaveBeenCalled();
 });
-it("rejects non-database files before deserialization", async () => {
-  picked(async () => new Uint8Array(100));
-  await expect(importYonderBackup()).rejects.toMatchObject({ stage: "check file type", reason: "This is not a SQLite backup." });
+it("rejects files that are neither a backup nor GPX before opening anything", async () => {
+  picked(async () => new Uint8Array(100), async () => "name,latitude\n");
+  await expect(importYonderBackup()).rejects.toMatchObject({ stage: "check file type", reason: "Choose a Yonder backup (.db) or a GPX file." });
   expect(mocks.deserialize).not.toHaveBeenCalled();
+  expect(mocks.importGpx).not.toHaveBeenCalled();
+});
+it("imports GPX files as GPS points and rebuilds the country cache", async () => {
+  const gpx = '<?xml version="1.0"?><gpx version="1.1"><trk><trkseg></trkseg></trk></gpx>';
+  picked(async () => new TextEncoder().encode(gpx), async () => gpx);
+  const summary = { pointCount: 0, addedPointCount: 0, alreadyStoredCount: 0, addedTileCount: 0, skippedCount: 0 };
+  mocks.importGpx.mockResolvedValue(summary);
+  await expect(importYonderBackup()).resolves.toEqual({ kind: "gpx", ...summary });
+  expect(mocks.importGpx.mock.calls[0]?.[0]).toBe(gpx);
+  expect(mocks.deserialize).not.toHaveBeenCalled();
+  expect(mocks.resetCountries).toHaveBeenCalledOnce();
+});
+it("reports the step when adding GPX points fails", async () => {
+  const gpx = "<gpx></gpx>";
+  picked(async () => new TextEncoder().encode(gpx), async () => gpx);
+  mocks.importGpx.mockRejectedValue(new Error("database is locked"));
+  await expect(importYonderBackup()).rejects.toMatchObject({ stage: "add GPS points", reason: "database is locked" });
+  expect(mocks.resetCountries).not.toHaveBeenCalled();
 });
 it("reports a file that cannot be read without quoting its location", async () => {
   picked(async () => { throw new Error("Unable to open input stream for URI: content://com.example.documents/document/primary%3AHome%2Fyonder-backup.db"); });
@@ -64,7 +85,7 @@ it("rebuilds the country cache after an import, without failing the import if it
   picked(async () => sqliteBytes());
   mocks.merge.mockResolvedValue({ addedCount: 1, totalCount: 1 });
   mocks.resetCountries.mockRejectedValue(new Error("cache unavailable"));
-  await expect(importYonderBackup()).resolves.toEqual({ addedCount: 1, totalCount: 1 });
+  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedCount: 1, totalCount: 1 });
   expect(mocks.resetCountries).toHaveBeenCalledOnce();
 });
 it("leaves the country cache alone when an import fails", async () => {
@@ -77,5 +98,5 @@ it("returns the merge result even if closing the snapshot fails", async () => {
   picked(async () => sqliteBytes());
   mocks.merge.mockResolvedValue({ addedCount: 2, totalCount: 3 });
   mocks.close.mockRejectedValue(new Error("already closed"));
-  await expect(importYonderBackup()).resolves.toEqual({ addedCount: 2, totalCount: 3 });
+  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedCount: 2, totalCount: 3 });
 });

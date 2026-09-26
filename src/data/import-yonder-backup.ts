@@ -1,4 +1,3 @@
-import { File } from "expo-file-system";
 import { deserializeDatabaseAsync } from "expo-sqlite";
 
 import { atBackupStage } from "@/src/data/backup-failure";
@@ -8,14 +7,14 @@ import { resetCountryCache } from "@/src/data/country-cache-repository";
 import { getDatabase } from "@/src/data/database";
 import { ExpoSqliteDatabase } from "@/src/data/expo-sqlite-database";
 
-export async function importYonderBackup() {
-  // The picker reports every failure, not only a cancellation, as canceled.
-  const selection = await File.pickFileAsync({});
-  if (selection.canceled) return null;
-  const file = selection.result;
-  const bytes = await atBackupStage("read file", () => file.bytes());
+export function isSqliteFile(bytes: Uint8Array): boolean {
+  return bytes.length >= 100 && String.fromCharCode(...bytes.slice(0, 16)) === "SQLite format 3\0";
+}
+
+/** Merges the unlocked tiles of a Yonder backup file's contents. */
+export async function importYonderBackupBytes(bytes: Uint8Array) {
   await atBackupStage("check file type", () => {
-    if (bytes.length < 100 || String.fromCharCode(...bytes.slice(0, 16)) !== "SQLite format 3\0") {
+    if (!isSqliteFile(bytes)) {
       throw new Error("This is not a SQLite backup.");
     }
   });

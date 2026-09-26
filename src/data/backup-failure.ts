@@ -1,5 +1,6 @@
 export type BackupStage =
   | "choose folder"
+  | "open folder"
   | "read database"
   | "create file"
   | "write file"
@@ -7,7 +8,9 @@ export type BackupStage =
   | "check file type"
   | "open backup"
   | "open Yonder database"
-  | "check and add tiles";
+  | "check and add tiles"
+  | "read GPS points"
+  | "add GPS points";
 
 const MAX_REASON_LENGTH = 200;
 

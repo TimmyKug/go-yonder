@@ -38,7 +38,7 @@ and release history live in the git history.
 ```text
 Live foreground GPS ─────┐
 Live background GPS ─────┼──> NormalizedLocationSample
-Future import adapter ───┘          │
+GPX import ──────────────┘          │
                           validation / deduplication
                                     │
                                HexGrid (H3)
@@ -62,9 +62,10 @@ and persistence details. UI components never issue SQL.
 app/                    Expo Router routes: map, settings, countries, diagnostics
 src/config/             H3 resolution, accuracy threshold, map styles
 src/domain/             Pure logic: samples, ingestion, H3 grid, veil, map
-                        bounds, country coverage, globe projection, accuracy area
+                        bounds, country coverage, globe projection, accuracy
+                        area, GPX format
 src/data/               SQLite databases, migrations, repositories, backups,
-                        bundled country data
+                        GPX export and import, bundled country data
 src/location/           Permissions, foreground/background tracking, ingestion
 src/countries/          Background country scan
 src/diagnostics/        On-device diagnostics recorder and report
@@ -98,9 +99,10 @@ interface ImportAdapter {
 }
 ```
 
-Live GPS and any future import enter through the same normalized contract. No
-provider-specific adapter exists yet; one is added only after inspecting a real
-export. Never assume an external provider uses H3.
+Live GPS and GPX import enter through the same normalized contract. GPX is a
+published standard; provider-specific formats (for example location-history
+exports) get an adapter only after inspecting a real export. Never assume an
+external provider uses H3.
 
 ## Persistence
 
@@ -119,9 +121,9 @@ the backup schema unchanged:
 
 - `yonder-diagnostics.db`: the diagnostics log.
 - `yonder-country-cache.db`: the rebuildable country summary.
-- Expo SQLite's key-value store: the appearance preference and the live
-  accuracy limit. The limit is read synchronously, so background tasks apply
-  the current choice.
+- Expo SQLite's key-value store: the appearance preference, the live accuracy
+  limit and the folder backup settings. They are read synchronously, so
+  background tasks apply the current choice.
 
 Exclusive transactions on the main database run on a separate Expo connection,
 which gets its own 5 s busy timeout so concurrent background writes wait rather
@@ -258,7 +260,25 @@ countries, their first visit and approximate explored percentage.
   name exists the provider picks a unique one, such as `yonder-backup (1).db`,
   which Settings reports. Provider documents are never overwritten in place,
   because some providers do not truncate. A partly written document is deleted.
-- **Import:** accepts Yonder snapshots at schema version 3 and merges only
+- **Folder backup (Android):** Settings → Automatic backup keeps permission to
+  a folder the user picks and replaces `yonder-backup.db` there, and optionally
+  `yonder-points.gpx`, every hour, 6 hours, day (default) or week. It runs after
+  ingestion that stored new samples (including in the background location task)
+  and when the app goes to the background, once the interval has passed since
+  the last success; a failure is retried at most hourly. Replacing deletes the
+  previous document and creates a new one, because provider documents are
+  never overwritten in place. The last success, or the last failure's step and
+  reason, is shown in Settings and recorded as a `folder-backup` diagnostics
+  event. A folder that syncs to a cloud service copies the history there, which
+  Settings states; the app itself never uploads.
+- **GPX export:** Settings saves every stored sample, oldest first, as one GPX
+  1.1 track (`yonder-points.gpx`): seven decimal places, UTC times, the
+  accuracy in a `yonder:accuracy` extension, and a new segment after gaps of
+  more than an hour. Cells merged from backups have no samples, so GPX is not a
+  complete backup.
+- **Import:** Settings → Import recognises a file by its contents. A SQLite file
+  is imported as a backup; a GPX file as points.
+- **Backup import** accepts Yonder snapshots at schema version 3 and merges only
   unlocked cells. The snapshot is opened separately in memory, checked for
   integrity, and every cell is validated against H3 resolution 11 before one
   atomic merge. Merges run in batches of 500: one lookup, then one multi-row
@@ -266,9 +286,19 @@ countries, their first visit and approximate explored percentage.
   derive their center. Overlaps keep the earliest first visit and latest last
   visit. Re-importing is idempotent and an unchanged backup writes nothing.
   Invalid backups leave local data unchanged.
-- **Failures** report their step (export: choose folder, read database, create
-  file, write file; import: read file, check file type, open backup, open Yonder
-  database, check and add tiles) and a reason made of the native error code and
+- **GPX import** reads track, route and waypoint points from any app with a
+  tolerant scanner (namespace prefixes, either attribute order or quote style,
+  self-closing points; times without a zone are UTC). Points without a time are
+  skipped, because a visit needs one. Points become `external-import` samples,
+  which the live accuracy limit does not filter, ingested in chunks of 1,000
+  with progress shown. A point already stored at the same second within about
+  10 cm, from any source, is skipped, so re-importing a file or Yonder's own
+  export adds nothing. The country cache is rebuilt afterwards. An interrupted
+  import keeps the chunks already committed.
+- **Failures** report their step (export: choose folder, read database, read
+  GPS points, create file, write file; folder backup: open folder, read
+  database, write file, read GPS points; import: read file, check file type,
+  open backup, open Yonder database, check and add tiles, add GPS points) and a reason made of the native error code and
   message with URIs, paths and decimal numbers removed. Each failure is recorded
   as a `backup-error` diagnostics event.
 
@@ -315,7 +345,8 @@ Signed APKs are published as GitHub releases for installers such as Obtainium.
 
 - `npm run typecheck`, `npm run lint` and `npm test` (Vitest) cover domain and
   data logic, including real in-memory SQLite transactions, migrations,
-  ingestion, viewport queries, backup import, country scanning and the H3 patch.
+  ingestion, viewport queries, backup and GPX import, GPX export, folder
+  backups, country scanning and the H3 patch.
 - `npm run qa:ios` drives an iOS Simulator with Maestro and a synthetic route
   through the operating system's location service, checks the app's actual
   database, and relaunches to verify persistence.
@@ -323,7 +354,9 @@ Signed APKs are published as GitHub releases for installers such as Obtainium.
 
 ## Open decisions
 
-- User-facing import of third-party location history, pending a real export.
+- Import of provider location-history formats other than GPX, pending a real
+  export.
+- Folder backups on iOS, which need security-scoped bookmarks.
 - Offline basemap tiles (for example a zoom 0–6 world pack of roughly 120 MB).
 - Encryption at rest and user-facing data reset.
 - Manual editing of country visits.

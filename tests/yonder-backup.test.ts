@@ -24,9 +24,9 @@ vi.mock("@/src/data/database", () => ({
   getNativeDatabase: vi.fn(),
 }));
 
+import { documentDisplayName as documentName } from "@/src/data/document-files";
 import {
   defaultYonderBackupDependencies,
-  documentDisplayName,
   exportYonderBackup,
   YONDER_BACKUP_FILE_NAME,
 } from "@/src/data/yonder-backup";
@@ -132,6 +132,8 @@ describe("Yonder backup export", () => {
     expect(result.fileName).toBe(YONDER_BACKUP_FILE_NAME);
   });
 });
+
+const documentDisplayName = (uri: string) => documentName(uri, YONDER_BACKUP_FILE_NAME);
 
 describe("documentDisplayName", () => {
   it("decodes the file name from path-like document IDs", () => {
