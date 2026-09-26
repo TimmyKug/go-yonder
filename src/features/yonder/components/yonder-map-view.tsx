@@ -8,11 +8,10 @@ import {
   type ViewStateChangeEvent,
 } from "@maplibre/maplibre-react-native";
 import { router } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
-  Linking,
   type LayoutChangeEvent,
   type NativeSyntheticEvent,
   Platform,
@@ -30,8 +29,6 @@ import {
   INITIAL_MAP_VIEW,
   loadMapStyle,
   OFFLINE_MAP_COLORS,
-  OPENMAPTILES_URL,
-  OPENSTREETMAP_COPYRIGHT_URL,
 } from "@/src/config/map-config";
 import { MAX_LIVE_HORIZONTAL_ACCURACY_M } from "@/src/config/yonder-config";
 import { getCountries } from "@/src/data/countries";
@@ -39,6 +36,7 @@ import { accuracyAreaCollection, formatAccuracy } from "@/src/domain/accuracy-ar
 import { COUNTRY_OVERVIEW_ZOOM, type CountryCollection } from "@/src/domain/country-coverage";
 import { cellIdsAtDisplayResolution, displayResolutionForZoom, isValidMapZoom, MAX_MAP_ZOOM, MIN_MAP_ZOOM } from "@/src/domain/hex-display";
 import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
+import { AboutSheet, type AboutSheetColors } from "@/src/features/about/about-sheet";
 import { useAppearance } from "@/src/features/appearance/appearance-provider";
 
 export type MapCoordinate = {
@@ -112,6 +110,28 @@ const MAP_THEME = {
   },
 } as const;
 
+// The map's controls are dark in both themes, and so is the about sheet.
+const ABOUT_SHEET_COLORS: Record<"dark" | "light", AboutSheetColors> = {
+  dark: {
+    accent: "#29D8B5",
+    accentText: "#03171A",
+    border: "rgba(196, 207, 210, 0.2)",
+    muted: "#7F9591",
+    secondaryText: "#B7CEC9",
+    surface: "#03090D",
+    text: "#F2FCF9",
+  },
+  light: {
+    accent: "#087CFF",
+    accentText: "#FFFFFF",
+    border: "rgba(234, 247, 255, 0.18)",
+    muted: "#8FA3AF",
+    secondaryText: "#BFD2DD",
+    surface: "#071520",
+    text: "#F6FCFF",
+  },
+};
+
 export function YonderMapView({
   currentCoordinate,
   countryRefreshToken,
@@ -139,7 +159,8 @@ export function YonderMapView({
   // Set when the online style cannot load, e.g. offline with nothing cached.
   const [usingOfflineMap, setUsingOfflineMap] = useState(false);
   const [mapSize, setMapSize] = useState({ height: 0, width: 0 });
-  const [isAttributionVisible, setIsAttributionVisible] = useState(false);
+  const [isAboutVisible, setIsAboutVisible] = useState(false);
+  const closeAbout = useCallback(() => setIsAboutVisible(false), []);
   const [countryOverview, setCountryOverview] = useState(
     () => INITIAL_MAP_VIEW.zoom <= COUNTRY_OVERVIEW_ZOOM,
   );
@@ -672,16 +693,11 @@ export function YonderMapView({
         }}
       >
         <Pressable
-          accessibilityLabel={
-            isAttributionVisible
-              ? "Hide map attribution"
-              : "Show map attribution"
-          }
+          accessibilityLabel="About Yonder and map credits"
           accessibilityRole="button"
-          accessibilityState={{ expanded: isAttributionVisible }}
           hitSlop={4}
-          onPress={() => setIsAttributionVisible((visible) => !visible)}
-          testID="map-attribution-toggle"
+          onPress={() => setIsAboutVisible(true)}
+          testID="about-button"
           style={({ pressed }) => ({
             alignItems: "center",
             backgroundColor: pressed ? colors.pressedSurface : colors.surface,
@@ -705,72 +721,14 @@ export function YonderMapView({
             ⓘ
           </Text>
         </Pressable>
-
-        {isAttributionVisible ? (
-          <View
-            accessibilityLabel="Map attribution"
-            style={{
-              alignItems: "center",
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              borderCurve: "continuous",
-              borderRadius: 9,
-              borderWidth: 1,
-              flexDirection: "row",
-              gap: 5,
-              minHeight: 32,
-              paddingHorizontal: 9,
-              paddingVertical: 5,
-            }}
-            testID="map-attribution"
-          >
-            {usesOpenFreeMap ? (
-              <>
-                <Pressable
-                  accessibilityLabel="Open OpenMapTiles attribution"
-                  accessibilityRole="link"
-                  hitSlop={8}
-                  onPress={() => void Linking.openURL(OPENMAPTILES_URL)}
-                >
-                  <Text
-                    selectable
-                    style={{
-                      color: colors.secondaryText,
-                      fontSize: 10,
-                      fontWeight: "600",
-                    }}
-                  >
-                    © OpenMapTiles
-                  </Text>
-                </Pressable>
-                <Text
-                  selectable
-                  style={{ color: colors.secondaryText, fontSize: 10 }}
-                >
-                  ·
-                </Text>
-              </>
-            ) : null}
-            <Pressable
-              accessibilityLabel="Open OpenStreetMap copyright information"
-              accessibilityRole="link"
-              hitSlop={8}
-              onPress={() => void Linking.openURL(OPENSTREETMAP_COPYRIGHT_URL)}
-            >
-              <Text
-                selectable
-                style={{
-                  color: colors.secondaryText,
-                  fontSize: 10,
-                  fontWeight: "600",
-                }}
-              >
-                © OpenStreetMap contributors
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
       </View>
+
+      <AboutSheet
+        colors={ABOUT_SHEET_COLORS[themeName]}
+        onClose={closeAbout}
+        showOpenMapTiles={usesOpenFreeMap}
+        visible={isAboutVisible}
+      />
 
       {tracking.kind !== "active" ? (
         <View

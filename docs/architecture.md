@@ -1,298 +1,82 @@
-# Architecture and implementation plan
+# Architecture
 
-- Status: Accepted and implemented for the core phase
-- Date: 2026-08-12
-- Last verified: 2026-08-18
-- Scope: Core Yonder functionality
+This document describes how Yonder works today. Earlier decisions, alternatives,
+and release history live in the git history.
 
-## Product scope
+## Product
 
-The product name is **Yonder**, with the tagline **Unveil your world.** Its
-Android package and iOS bundle identifier are `com.timothykugler.yonder`.
-Operating systems treat this
-identity as a separate app from earlier development builds, and pre-release
-on-device data is not migrated automatically. The considered alternatives and naming rationale are recorded in
-[`docs/branding/README.md`](branding/README.md).
+**Yonder — Unveil your world.** Android package and iOS bundle identifier:
+`com.timothykugler.yonder` (changing it would stop in-place Android updates).
 
-The application will provide:
+- A full-screen native map on iOS and Android.
+- Foreground and background location collection, within operating-system
+  permission and lifecycle limits.
+- Deterministic unlocking of H3 hexagons as valid locations are observed.
+- Durable, device-local persistence with backup export and import.
+- Visited countries with approximate explored percentages, and a globe view.
+- No accounts, backend, analytics, cloud sync, or location uploads.
 
-- A full-screen, interactive map on iOS and Android.
-- Foreground and background location collection, subject to operating-system permissions and lifecycle limits.
-- Deterministic unlocking of geographic hexagonal cells as valid locations are observed.
-- Durable, device-local persistence across app restarts.
-- A source-neutral ingestion boundary so future location-history exports can be imported without rewriting the map or persistence layers.
+## Stack
 
-This phase deliberately excludes animations, explored percentages, recaps, nights, leaderboards, accounts, backend synchronization, and third-party import formats.
+- **Expo, React Native, strict TypeScript, Expo Router.** Routes and layouts
+  live in `app/`; everything else in `src/`. MapLibre and background location
+  need native modules, so development builds are the supported runtime, not
+  Expo Go.
+- **MapLibre React Native** renders the basemap and overlays natively. Coverage
+  is supplied as batched GeoJSON sources rendered by fill and line layers, never
+  as one React component per hexagon.
+- **H3 (`h3-js` 4.5.0, pinned).** `h3-js` eagerly builds a UTF-16LE
+  `TextDecoder` that Expo's native decoder rejects; `patches/h3-js+4.5.0.patch`
+  removes only that unused initializer, and a regression test guards it.
+  Re-evaluate the patch before upgrading H3 or Expo.
+- **Expo SQLite** is the local source of truth.
+- **Expo Location and Task Manager** deliver readings; the background task is
+  defined at module scope.
 
-## Technology decisions
-
-### Application framework: Expo, React Native, and TypeScript
-
-The project will use Expo with React Native, strict TypeScript, and Expo Router.
-
-Reasons:
-
-- Expo provides a cohesive location, background-task, SQLite, document-picker, and build toolchain.
-- The relevant native capabilities can be configured through Expo config plugins.
-- TypeScript has direct access to the official H3 JavaScript implementation.
-- This project is greenfield, so no existing Dart or native platform investment needs to be preserved.
-
-MapLibre and background location require native modules. Expo Go may be useful for pieces of the app, but development builds are the supported end-to-end test target.
-
-Flutter remains a viable alternative, but it does not offer a material benefit for this scope. The map renderer is native in both approaches, while Expo offers a lower integration risk for the chosen H3 and location stack.
-
-### Map renderer: MapLibre React Native
-
-MapLibre Native will render the base map and unlocked-cell overlay.
-
-- Unlocked cells are supplied as a batched GeoJSON source.
-- Native fill and line layers render that source.
-- The app will not mount one React component per hexagon.
-- The official OpenStreetMap standard raster style remains a fallback rather
-  than the default basemap.
-- The map keeps a persistent attribution info control at the bottom-left edge,
-  just above the system safe area. One tap expands the required linked
-  `© OpenMapTiles` and `© OpenStreetMap contributors` credits inline over the
-  map. Optional provider credit does not occupy permanent map space.
-- Persistent controls use a stable map hierarchy: on-device saving status at
-  top-left; in-app Settings at top-right; recenter at
-  bottom-right; attribution at bottom-left. Actionable tracking warnings may
-  temporarily occupy the lower map above those controls.
-- The default basemap provider is OpenFreeMap using its subdued Positron light
-  style and Dark style. Its public instance requires no registration or API
-  key and explicitly supports MapLibre Native mobile apps.
-- The app follows the operating-system light/dark preference and changes the
-  complete map style plus its UI and reveal-overlay palette.
-- Theme-specific style URL environment variables can replace either complete
-  style without changing domain or map-overlay code.
-- OpenFreeMap's dark style paints place labels in mid grey, which disappears
-  under Yonder's undiscovered-area veil. In dark mode the app fetches the style
-  document and repaints its `place_*` symbol layers pure white before handing it
-  to MapLibre, falling back to the unmodified style URL when the fetch fails.
-- The same patch thins those labels, because a reveal map is read as coverage
-  rather than as an atlas. Place labels drop their stacked non-Latin second
-  line, and sub-country regions and cities stay hidden until a country fills the
-  viewport. World and continent zoom therefore carry country names only, in
-  place of the few top-rank world cities that MapLibre's collision placement
-  happened to leave room for. Countries below the style's top rank label from
-  zoom 1.5, so the world view names most of its countries; only dependencies and
-  disputed territories wait for zoom 2.5.
-- OpenFreeMap provides no uptime SLA. Because its production stack and styles
-  are open source, self-hosting the same data/style architecture is the fallback
-  if public-instance reliability becomes insufficient.
-
-This keeps map interaction native and leaves the project independent of a proprietary map SDK. The installed MapLibre React Native 11 API, config plugin, and generated iOS/Android projects have been verified against Expo SDK 57's new architecture. iOS native builds have been exercised on both a simulator and a physical development device; Android native and cross-platform distribution checks remain required before distribution.
-
-### Spatial index: H3
-
-H3 is the canonical internal grid.
-
-- `latLngToCell` maps an observation to a deterministic identifier.
-- `cellToBoundary` produces the polygon rendered by MapLibre.
-- The initial canonical resolution is **11**, whose average hexagon edge is approximately 28.7 metres and average area is approximately 2,150 square metres.
-- Resolution is stored with persisted data and treated as a schema-level decision.
-
-Resolution 11 is an initial balance between visible detail, ordinary GPS accuracy, storage growth, and background sampling frequency. A visual/device spike will validate it before real history is relied upon. Changing it later requires regenerating derived cells from retained normalized observations.
-
-The exact Expo 57/Hermes compatibility spike found that `h3-js` 4.5.0 eagerly constructs an unused UTF-16LE `TextDecoder`, while Expo's native decoder accepts UTF-8 only. The app therefore pins 4.5.0 and applies a checked-in `patch-package` patch that removes only that unused initializer from the executable bundles. A regression test guards the patch and known H3 output. This keeps the official H3 implementation and does not change its grid behavior; the patch must be re-evaluated before upgrading H3 or Expo.
-
-### Persistence: Expo SQLite
-
-SQLite is the local source of truth. No backend is required.
-
-- Enable write-ahead logging.
-- Apply ordered, transactional schema migrations.
-- Use prepared/parameterized statements and transactional batch upserts.
-- Keep SQL inside the data layer.
-- Store normalized observations as well as derived cells so grid rules can be replayed later.
-
-Location data remains on the device unless the user explicitly requests a future export or synchronization feature.
-
-Backups use SQLite's online serialization API to produce one consistent
-`yonder-backup.db` snapshot. An app-private snapshot is refreshed at most
-every 15 minutes after successful ingestion and whenever the foreground app
-moves to the background. A user can also force a fresh export: the system
-directory picker saves the snapshot in any writable Files provider on iOS or
-Android, including a provider-managed synchronized folder. iOS replaces an
-existing `yonder-backup.db` there. Android's Storage Access Framework returns
-`content://` URIs, where a child file must be created through the provider
-(`Directory.createFile`) rather than by path. If a backup of the same name
-already exists, the provider picks a unique name such as
-`yonder-backup (1).db`, and Settings shows that name. The app never overwrites a
-provider document in place, because some providers do not truncate on write. The live
-WAL database is never exposed or copied directly, and the app does not upload
-location data or retain access to the selected provider after export finishes.
-
-### Location: Expo Location and Task Manager
-
-`expo-location` supplies location readings and `expo-task-manager` hosts the background callback.
-
-- Request foreground permission before explaining and requesting background permission.
-- Define the background task at module scope.
-- Use an Android foreground-service notification while background tracking is active.
-- Prefer distance-driven updates around the size of the selected cells, with conservative deferred batching in the background.
-- Route foreground and background samples through the same ingestion service.
-- On Android, when the app becomes active with background tracking already registered, register the task again. Android restores registered tasks when the process restarts, before any activity is visible, so the location foreground service is skipped. Registering again restarts the service without creating a second registration.
-- When an already-authorized app becomes active with background tracking registered, request one foreground fix to seed the current-position UI and camera; failure to obtain that convenience fix must not stop background collection.
-
-The current tuning baseline is high location accuracy with a 20-metre distance
-interval. Foreground tracking requests updates at most once per second;
-background tracking requests them at most once every three seconds. These are
-runtime configuration values, not persistence semantics, and will be adjusted
-after device testing for accuracy and battery use.
-
-Platform constraints will be communicated honestly:
-
-- Users may deny precise or background permission.
-- The operating system may defer or pause updates.
-- Force-quitting the app can prevent continued collection, with behavior differing by platform and Android vendor.
-- Background behavior must be tested with development/release builds on physical devices.
-
-### Diagnostics log
-
-Background location failures are otherwise invisible: the only symptom is
-missing hexes. The app therefore keeps an always-on diagnostics log of tracking
-lifecycle events on the device:
-
-- Process starts and app foreground/background transitions.
-- Permission, service, and tracking state when tracking is initialized or
-  started, and the outcome of starting or re-registering the background task.
-- Each background location batch: how many readings arrived, how old the oldest
-  one was, their accuracy range, how many were accepted, and how many cells
-  were unlocked.
-- Task, update, and ingestion errors.
-
-Events never contain coordinates, place names, cell IDs, or raw location
-records. Event details are limited to scalar values, and keys naming
-coordinates are rejected before anything is written.
-
-The log lives in its own SQLite file, `yonder-diagnostics.db`, rather than the
-main database. Backups serialize the whole main database and import expects its
-exact schema version, so keeping the log separate leaves the backup format
-unchanged and keeps diagnostics out of backups. Writes are queued, never throw,
-and never block location ingestion; the background task waits for queued
-writes before it finishes. When the log opens, events older than seven days
-are deleted and at most the newest 5,000 are kept.
-
-Settings shows the log on a Diagnostics screen, where the user can clear it or
-share it as text through the system share sheet. Nothing leaves the device
-unless the user shares it.
-
-### Android distribution: signed GitHub releases
-
-Android updates are distributed as APK assets on tagged GitHub releases so an
-installer such as Obtainium can discover and install them. Release tags use the
-form `vMAJOR.MINOR.PATCH`; CI embeds that semantic version and a monotonically
-increasing Android `versionCode` into the APK before building it.
-
-Releases are cut by merging. A release-preparation change sets the new
-version in `app.json` (and `package.json`), and when it lands on `main`, CI
-creates the matching `v<version>` tag on the merged commit and builds that
-release. A push to `main` whose version already has a tag releases nothing.
-Every release is therefore built from reviewed code on `main`. Pushing a tag
-by hand still builds a release, as a fallback.
-
-Test builds use the same channel as prereleases. A tag of the form
-`vMAJOR.MINOR.PATCH-beta.N` publishes a GitHub release marked as a prerelease,
-which Obtainium installs only when its "Include prereleases" setting is on.
-Prereleases keep the production package name and signing key, so they update
-the installed app in place and test the real upgrade path with real data. A
-separate beta package was rejected because it would start with no data and
-run a second background tracker.
-
-The Android `versionCode` is
-`(MAJOR * 1,000,000 + MINOR * 1,000 + PATCH) * 100 + SUFFIX`, where `SUFFIX`
-is `N` (1–98) for `beta.N` and 99 for the stable release. Every beta therefore
-sorts above the previous stable release and below its own stable release.
-Android never accepts a lower `versionCode` over an installed app, so this
-scheme cannot be reverted once a release built with it has been installed.
-
-Every Yonder update must be signed by the same dedicated production key.
-Signing material is supplied to CI through encrypted repository secrets and is
-never committed. Because this repository is private, Obtainium must use a
-fine-grained GitHub token restricted to read-only access to this repository.
-Publishing an APK does not change the local-first data architecture: releases
-contain application code and assets only, never the on-device database or an
-export.
-
-## System boundaries
+## Data flow
 
 ```text
 Live foreground GPS ─────┐
-Live background GPS ─────┼──> LocationSource
+Live background GPS ─────┼──> NormalizedLocationSample
 Future import adapter ───┘          │
-                                    ▼
-                         NormalizedLocationSample
-                                    │
                           validation / deduplication
                                     │
-                                    ▼
                                HexGrid (H3)
                                     │
-                                    ▼
-                           CoverageRepository
+                            YonderRepository
                          ┌──────────┴──────────┐
-                         ▼                     ▼
                  location_samples       unlocked_cells
-                         │                     │
-                         └──────────┬──────────┘
-                                    ▼
+                                    │
                          viewport-aware query
                                     │
-                                    ▼
-                        GeoJSON source + layers
+                        GeoJSON sources + layers
 ```
 
-Dependency direction is inward: route/UI code composes interfaces; domain logic knows neither Expo nor SQLite; adapters implement platform and persistence details.
+Dependencies point inward: UI composes interfaces; domain code knows neither
+Expo nor SQLite; adapters in `src/data` and `src/location` implement platform
+and persistence details. UI components never issue SQL.
 
-## Repository structure
+## Repository layout
 
 ```text
-app/
-  _layout.tsx                    Router composition and providers
-  index.tsx                      Thin map route
-src/
-  features/yonder/
-    components/                  Map and permission UI
-    hooks/                       Viewport and persisted-cell coordination
-  domain/
-    hex-grid.ts                  HexGrid contract and H3 implementation
-    location-sample.ts           Normalized model and validation
-    ingest-location.ts           Validation-to-persistence orchestration
-    yonder.ts                    Shared geographic records
-    yonder-repository.ts         Persistence contract
-  data/
-    database.ts                  Configured SQLite singleton
-    migrations/                  Ordered schema migrations
-    yonder-repository.ts         Transactional samples/cells access
-    yonder-backup.ts             Consistent local backup snapshots
-  location/
-    background-location-task.ts  Module-scope task definition
-    background-location-task.web.ts  Informational web no-op
-    location-ingestion.ts        Expo-to-domain normalization
-    location-service.ts          Permission and lifecycle orchestration
-    location-state.ts            External state store for the UI
-  diagnostics/
-    diagnostics.ts               Queued, failure-tolerant event recorder
-    install-diagnostics.ts       Entry-module hook for process starts
-    diagnostics-report.ts        Plain-text report for sharing
-  import/
-    import-adapter.ts            Future source-adapter contract
-  config/
-    yonder-config.ts             Persistence and H3 configuration
-tests/
-  support/                       Node SQLite adapter for real DB tests
-docs/
-  architecture.md                This decision record
-patches/
-  h3-js+4.5.0.patch              Expo native runtime compatibility patch
+app/                    Expo Router routes: map, settings, countries, diagnostics
+src/config/             H3 resolution, accuracy threshold, map styles
+src/domain/             Pure logic: samples, ingestion, H3 grid, veil, map
+                        bounds, country coverage, globe projection, accuracy area
+src/data/               SQLite databases, migrations, repositories, backups,
+                        bundled country data
+src/location/           Permissions, foreground/background tracking, ingestion
+src/countries/          Background country scan
+src/diagnostics/        On-device diagnostics recorder and report
+src/features/           Screens, map view, hooks, appearance, globe
+src/import/             Source-neutral import adapter contract
+src/map/                Native map network configuration
+tests/                  Vitest suite; tests/support has a Node SQLite adapter
+patches/                h3-js and MapLibre patches applied on postinstall
+scripts/                Country/globe data preparation and iOS QA
 ```
 
-Expo Router's `app/` directory will contain routes and layouts only.
-
 ## Domain contracts
-
-The normalized observation is independent of Expo and any import provider:
 
 ```ts
 type LocationSource = "live-foreground" | "live-background" | "external-import";
@@ -306,11 +90,7 @@ type NormalizedLocationSample = {
   horizontalAccuracyM?: number;
   importBatchId?: string;
 };
-```
 
-The future import contract yields normalized samples rather than touching the database:
-
-```ts
 interface ImportAdapter {
   readonly sourceType: string;
   canRead(file: ImportFile): Promise<boolean>;
@@ -318,399 +98,227 @@ interface ImportAdapter {
 }
 ```
 
-Any provider-specific adapter is deferred until a real export is available.
+Live GPS and any future import enter through the same normalized contract. No
+provider-specific adapter exists yet; one is added only after inspecting a real
+export. Never assume an external provider uses H3.
 
-## Persistence model
+## Persistence
 
-### `location_samples`
+The main database `yonder.db` runs in WAL mode with a 5 s busy timeout and
+ordered, transactional migrations. Its schema version is 3. Backups depend on
+that version, so any change needs a documented migration and import strategy.
 
-Stores validated observations for auditability and deterministic re-indexing.
-
-| Column | Purpose |
+| Table | Purpose |
 | --- | --- |
-| `id` | Internal integer primary key |
-| `source` | Foreground, background, or import source |
-| `source_record_id` | Optional stable external identifier |
-| `recorded_at_ms` | UTC Unix epoch milliseconds |
-| `latitude` / `longitude` | Normalized WGS84 coordinate |
-| `horizontal_accuracy_m` | Accuracy when supplied |
-| `import_batch_id` | Optional owning import batch |
-| `fingerprint` | Deterministic deduplication key |
+| `location_samples` | Validated observations: source, optional source record ID, `recorded_at_ms`, WGS84 coordinate, accuracy, optional import batch, and a unique `fingerprint` that makes replays and re-imports idempotent. |
+| `unlocked_cells` | Materialized coverage. Primary key `(cell_id, resolution)`; stores the cell center for viewport filtering and `first_seen_at_ms` / `last_seen_at_ms`. Revisits widen the time range. |
+| `import_batches` | Reserved for future import traceability: source type, display file name, file hash, parser version, status, timestamps. Original import files are never retained. |
 
-The fingerprint is unique. It is derived from stable normalized fields so replaying a background batch or re-importing an external record is idempotent.
+Separate SQLite files keep derived and diagnostic data out of backups and leave
+the backup schema unchanged:
 
-### `unlocked_cells`
+- `yonder-diagnostics.db`: the diagnostics log.
+- `yonder-country-cache.db`: the rebuildable country summary.
+- Expo SQLite's key-value store: the appearance preference.
 
-Stores the materialized coverage map.
+Exclusive transactions on the main database run on a separate Expo connection,
+which gets its own 5 s busy timeout so concurrent background writes wait rather
+than fail.
 
-| Column | Purpose |
-| --- | --- |
-| `cell_id` | H3 identifier |
-| `resolution` | H3 resolution used to derive it |
-| `center_latitude` / `center_longitude` | Fast viewport filtering |
-| `first_seen_at_ms` | Earliest contributing observation |
-| `last_seen_at_ms` | Latest contributing observation |
+## Location and ingestion
 
-`(cell_id, resolution)` is the primary key. Revisits update the time range rather than create another cell.
+- Foreground permission is requested before background permission is explained
+  and requested; Android's settings transition is explained first.
+- High accuracy, 20 m distance interval; at most one update per second in the
+  foreground and one per three seconds in the background, with deferred
+  batching in the background. Android runs a foreground-service notification
+  while background tracking is active.
+- On Android, when the app becomes active with background tracking registered,
+  the task is registered again: Android restores tasks after a process restart
+  without starting the foreground service, and re-registering restarts it.
+- An already-authorized app requests one foreground fix on activation to seed
+  the map; failing to get it never stops background collection.
 
-### `import_batches`
+For each sample:
 
-Reserved for future import traceability and safe retries.
+1. Validate finite WGS84 coordinates and a valid timestamp.
+2. Reject live readings less accurate than **50 m**. They never unlock cells and
+   are not stored.
+3. Compute the fingerprint and the resolution-11 H3 cell.
+4. In one transaction, insert the sample if new and upsert the cell's
+   first/last-seen range.
+5. Refresh the map after commit.
 
-| Column | Purpose |
-| --- | --- |
-| `id` | Stable batch identifier |
-| `source_type` | Adapter/provider name |
-| `file_name` | Display name only, not an absolute path |
-| `file_hash` | Prevents accidental duplicate imports |
-| `parser_version` | Records the transformation rules used |
-| `status` | Pending, running, completed, or failed |
-| `created_at_ms` / `completed_at_ms` | Lifecycle timestamps |
+Only the cell containing each accepted observation is unlocked. The app never
+interpolates between fixes.
 
-The original import file will not be retained automatically because it may contain highly sensitive data.
+The newest valid fix of any accuracy is kept in memory only as `latestFix` and
+drawn on the map with a circle at its accuracy radius. Above 50 m the dot and
+circle turn amber, the circle is dashed, and the status pill reads "Weak GPS
+signal · ±N m". This fix never unlocks cells, never replaces the saved
+coordinate that triggers tile and country refreshes, and is never stored or
+logged.
 
-## Ingestion and unlocking rules
+## Map
 
-For every candidate sample:
+- **Basemap:** OpenFreeMap Positron (light) and Dark, with no API key.
+  `EXPO_PUBLIC_MAP_STYLE_LIGHT_URL` and `EXPO_PUBLIC_MAP_STYLE_DARK_URL` can
+  replace either complete style. In dark mode the style is fetched and its
+  `place_*` labels are repainted white so they stay readable under the veil.
+  Labels are thinned: no second non-Latin line, and no regions or cities until a
+  country fills the viewport; countries label from zoom 1.5 (dependencies and
+  disputed territories from 2.5).
+- **Offline fallback:** if the online style fails to load, a bundled style draws
+  water, land and every country border from the bundled Natural Earth data. The
+  status pill shows "Offline map", the online style is retried on each return to
+  the foreground, and the error screen appears only if the offline style also
+  fails. It makes no network requests.
+- **Controls:** status pill top-left, Settings top-right, recenter bottom-right,
+  and an ⓘ button bottom-left. Actionable tracking warnings appear as a bottom
+  card; normal tracking shows none.
+- **About sheet:** ⓘ opens a bottom sheet with the app icon and version, a short
+  note on why Yonder exists, a "Buy me a coffee" button that opens the page in
+  the browser (nothing is embedded), and the tappable map credits
+  (`© OpenStreetMap contributors`, and `© OpenMapTiles` via OpenFreeMap unless a
+  custom style is set), Natural Earth, and a source-code link. It closes by
+  swiping down, tapping outside, Close, or Android back.
+- **Theme:** System, Light or Dark in Settings; the style, UI and veil follow it.
+- **Android gestures:** MapLibre's zoom rate is set to 1.6 through a patch,
+  because the React Native wrapper does not expose it.
 
-1. Validate finite WGS84 latitude/longitude values and a valid timestamp.
-2. Apply source-specific accuracy policy. Live readings that are too imprecise are rejected rather than unlocking arbitrary nearby cells.
-3. Calculate the deterministic sample fingerprint.
-4. Convert the accepted coordinate to the canonical H3 cell.
-5. Within one SQLite transaction, insert the sample if new and upsert the cell's first/last-seen range.
-6. Notify the active map query after the transaction commits.
+Coverage rendering:
 
-The initial live maximum horizontal-accuracy threshold is 50 metres. Rejected samples are not persisted as valid history.
+- Unlocked cells within one extra viewport on each side are loaded; the query
+  recenters when a half-viewport margin no longer fits, keeping the old geometry
+  while loading. Antimeridian bounds are handled explicitly.
+- The union of unlocked cells is cut out of an unvisited-area veil (a charcoal
+  veil in light mode, translucent grey fog in dark mode). Internal cell edges
+  are hidden; a subtle line marks the frontier. Enclosed unvisited areas stay
+  veiled. Veil geometry is derived at render time and never persisted.
+- Zoomed out, coverage is aggregated to H3 parents for display only: resolution
+  11 at zoom 14 and above, one resolution coarser every two zoom levels, down to
+  resolution 5 at zoom 2–4, with 0.15-zoom hysteresis. A coarse cell means at
+  least one visited child.
+- The visible query refreshes after ingestion and on app activation, so cells
+  written in the background appear immediately.
+- If tiles cannot be loaded, "Saved map unavailable" shows the failing step
+  (open database, read tiles, draw tiles) and a scrubbed reason, and a
+  `map-load-error` diagnostics event is recorded.
 
-To avoid fabricating travel, the first implementation will unlock the cell containing each accepted observation. Sampling is configured near the cell scale to produce natural continuity. It will not blindly draw a line between sparse points. If physical-device testing reveals small holes, a later rule may bridge only adjacent, tightly timed samples; that rule must be versioned and tested before it affects persisted cells.
+## Countries and globe
 
-## Map query and rendering
+At zoom 7 and below the map fades in country borders and a tint for visited
+countries. A country count opens a sheet with a rotatable globe and the visited
+countries, their first visit and approximate explored percentage.
 
-- The camera/viewport is converted to a geographic bounding box.
-- SQLite preloads unlocked cells within one extra viewport width/height on each
-  side. The query is recentered when a half-viewport margin no longer fits in
-  the loaded bounds, retaining the previous geometry while loading. This buffer
-  stays bounded to the current area and refreshes after ingestion or activation.
-- Antimeridian-crossing bounds are handled explicitly.
-- H3 boundaries are converted to GeoJSON longitude/latitude order.
-- H3 cells remain the canonical persisted and queried coverage geometry. At
-  render time, their union is cut out of the unvisited-area veil.
-- Internal cell boundaries are visually suppressed. A subtle line around the
-  union emphasizes the expanding explored frontier without making the H3
-  implementation the product's visual identity.
-- The union and veil geometry are derived in pure domain code and never
-  persisted.
-- Enclosed unvisited regions remain covered by the veil, including regions
-  containing disconnected visited islands; surrounding a cell never unlocks it.
-- Zoomed-out coverage is a display-only H3 parent aggregation. At zoom 14 and
-  above show canonical resolution 11, and every two zoom levels below that
-  selects the next coarser resolution, down to resolution 5, which spans zoom 2
-  to 4. Every band is two zoom levels wide, and each is reached one zoom level
-  earlier than a ladder anchored at resolution 4 would reach it, which keeps
-  hexes smaller at the zoom levels where coverage is actually read. A coarse
-  cell indicates
-  at least one visited child, not complete exploration of that larger area.
-  Zooming back in restores exact coverage, including unvisited holes. Persisted
-  cells, statistics, and ingestion stay at resolution 11. A 0.15-zoom
-  hysteresis prevents scale flicker near thresholds. Aggregation uses already loaded cell
-  IDs and runs only when coverage or the display resolution changes.
-- Map updates are batched after committed ingestion rather than issued for every render.
-- On app activation, the visible query refreshes so cells written by a background task appear immediately.
-- A successfully persisted live sample clears a prior transient location-update or ingestion error; permission and tracking-start failures remain explicit until their own conditions change.
+- **Data:** Natural Earth v5.1.2 1:10m countries (public domain), simplified to
+  0.05°; countries under 5,000 km² keep full geometry. Grouped by sovereign
+  state; Antarctica is excluded. Areas come from the unsimplified source. See
+  `src/data/countries/README.md`.
+- **Assignment:** by the center of each resolution-11 cell.
+- **Coverage:** the unique resolution-4 parents of a country's cells, clipped to
+  its borders, summed and divided by its area, capped at 100%. This is an
+  estimate of broad explored regions, not precise ground coverage.
+- **Background scan:** results are kept in `yonder-country-cache.db`: each
+  country's first visit and each explored resolution-4 parent with its clipped
+  area. The scan resumes from the last processed `rowid` of `unlocked_cells`
+  (new cells always get a larger one), so after the first pass only new cells
+  are processed. It works in slices of about 8 ms regardless of zoom, pauses
+  while the app is in the background, and commits each 128-cell page
+  atomically. Countries appear as soon as they are found; a percentage shows as
+  calculating until all its parents have an area.
+- **Cache transactions** run one at a time as `BEGIN IMMEDIATE` / `COMMIT` on
+  the cache's own connection. Do not use Expo's exclusive transactions here:
+  opening a connection per page broke reads on the main database connection
+  with "file is not a database".
+- **Rebuilds:** the cache starts over when the bundled boundaries change (a
+  fingerprint of every country's ID and area), when the unlocked cells were
+  replaced, and after every backup import. A generation number discards a page
+  scanned across a reset.
+- **Globe:** a separate orthographic view, because MapLibre Native has no globe
+  projection. `scripts/prepare-globe.mjs` derives about 5,000 outline points
+  from the bundled countries, plus Antarctica. Dragging rotates it; latitude is
+  clamped at the poles. It reuses the country summary and makes no requests.
 
-The light map uses a charcoal veil over unvisited areas. The dark map instead
-uses a cool gray, translucent fog that lifts and softens unvisited ground while
-leaving explored ground crisp and genuinely dark. In both themes, the union of
-unlocked H3 cells is cut out of the veil. The explored map remains effectively
-untinted; only its subtle frontier distinguishes it from the hidden-area veil.
+## Backups
 
-## Country overview
+- **Automatic:** a consistent `yonder-backup.db` snapshot made with SQLite's
+  serialization API, saved in app storage at most every 15 minutes after
+  ingestion and whenever the app goes to the background.
+- **Export:** Settings saves a fresh snapshot to a folder chosen with the system
+  picker. On Android the folder is a Storage Access Framework `content://` URI,
+  so the file is created through the provider (`Directory.createFile`). If the
+  name exists the provider picks a unique one, such as `yonder-backup (1).db`,
+  which Settings reports. Provider documents are never overwritten in place,
+  because some providers do not truncate. A partly written document is deleted.
+- **Import:** accepts Yonder snapshots at schema version 3 and merges only
+  unlocked cells. The snapshot is opened separately in memory, checked for
+  integrity, and every cell is validated against H3 resolution 11 before one
+  atomic merge. Merges run in batches of 500: one lookup, then one multi-row
+  upsert of only new cells and cells whose visit window widens; only new cells
+  derive their center. Overlaps keep the earliest first visit and latest last
+  visit. Re-importing is idempotent and an unchanged backup writes nothing.
+  Invalid backups leave local data unchanged.
+- **Failures** report their step (export: choose folder, read database, create
+  file, write file; import: read file, check file type, open backup, open Yonder
+  database, check and add tiles) and a reason made of the native error code and
+  message with URIs, paths and decimal numbers removed. Each failure is recorded
+  as a `backup-error` diagnostics event.
 
-At zoom 7 and below, the same map fades in neutral silver country boundaries
-for every country, drawn from the bundled dataset below rather than from the
-basemap tiles, and a subtle visited-country tint. The explored hex veil remains visible above
-the country fill. No mode switch, tab, or visited/unvisited legend is added.
-A compact country count opens a native sheet listing visited countries, first
-visit dates, and approximate uncovered percentages. The count includes all
-saved coverage, independent of the viewport, and refreshes after location
-ingestion, import, and app activation.
+## Diagnostics
 
-Natural Earth v5.1.2 1:10m country polygons are prepared into a single compact
-offline dataset simplified to 0.05 degrees, which is roughly one screen pixel
-at the country overview's closest zoom. The same geometry is reused for map
-drawing, point assignment, and boundary clipping so opening the overview does
-not parse a second high-detail world dataset. Countries under 5,000 square
-kilometres retain their source geometry so microstates and small islands remain
-discoverable; smaller countries take precedence where simplification closes an
-enclave in a larger neighbour.
-Countries are grouped by Natural Earth's sovereign identifier, so dependencies
-count toward their sovereign country; Antarctica is excluded. Natural Earth's
-boundary definitions apply. Country area denominators are calculated from the
-unsimplified source during data preparation and retained in the compact data.
-Visits are assigned from canonical resolution-11 cell centers. Country coverage
-uses unique resolution-4 parent hexes, one step coarser than the coarsest
-display size, regardless of the current zoom. Each visited country's parent hexes are clipped to its
-boundaries before summing area. The denominator is the spherical area of the
-bundled country's polygons. Percentages are cartographic estimates and are
-capped at 100%. This intentionally summarizes broad explored regions rather
-than precise ground coverage, as requested. This is a derived local summary with no
-schema change to the main database, network reverse geocoding, or uploaded history.
+An always-on log in `yonder-diagnostics.db` records process starts, app state
+changes, permission and tracking state, background-task (re)registration, each
+background batch (count, age, accuracy range, accepted and unlocked counts),
+and task, update, ingestion, backup and map-load errors.
 
-The summary is built by one background scan, independent of zoom, and kept in
-a separate on-device cache database (`yonder-country-cache.db`), like the
-diagnostics log, so backups keep their schema version and never include it. The
-cache holds each visited country's first visit and each explored resolution-4
-parent hex with its clipped area. It can always be rebuilt from the unlocked
-cells. The scan resumes from the last processed cell rowid; new cells always get
-a larger rowid, so after the first pass only newly unlocked cells are scanned.
-It runs in slices of about 8 ms, pauses while the app is in the background,
-and saves each page of 128 cells atomically, so zooming, closing the app, or
-new location fixes never lose progress. Cache transactions run one at a time on
-the cache's own connection. Expo's exclusive transactions open and close a new
-connection each time; at one commit per page that churn coincided with "file
-is not a database" errors on the main database in 0.4.6-beta.3, so the scan
-does not use them. Countries appear as soon as they are
-found; a percentage shows as calculating until every parent hex of that country
-has its clipped area. The cache starts over when the bundled boundaries change
-(a fingerprint of every country's identifier and area), when the unlocked cells
-were replaced, and after every backup import, because an import can make an
-existing cell's first visit earlier. A generation number discards a page
-scanned across a reset. Measured on a 144,765-cell history, assignment and
-coverage take about 2 s of JIT-compiled compute; the previous design recomputed
-everything from scratch on each refresh, cancelled on zooming in, and yielded
-every 16 cells, so it rarely finished on a device.
+Events never contain coordinates, place names, cell IDs or raw records; details
+are scalar values and coordinate-like keys are rejected. Writes are queued,
+never throw and never block ingestion. Events older than seven days are pruned
+and at most 5,000 are kept. Settings → Diagnostics shows the log and can clear
+it or share it as text; nothing leaves the device unless the user shares it.
 
-Manual visit editing is deferred; this iteration derives visits from saved
-coverage only. Country list and map use the same summary snapshot.
+## Android releases
 
-On Android, Yonder sets MapLibre Native's zoom rate to 1.6 so the one-finger
-double-tap-and-drag gesture traverses the map faster. The React Native wrapper
-does not expose the native setting, so the pinned package is patched during
-postinstall. iOS keeps MapLibre's platform gesture rate because its native SDK
-does not expose an equivalent setting.
+Signed APKs are published as GitHub releases for installers such as Obtainium.
 
-Settings offers System, Light, and Dark appearance choices. System remains the
-default and follows the device; explicit choices override it across map chrome,
-navigation headers, settings, and country details. The preference is stored in
-Expo SQLite's separate key-value database through a small repository, keeping
-it out of location backups and avoiding a location-database schema change.
-
-## Globe overview
-
-A rotatable globe heads the countries sheet, showing visited countries filled in
-the accent colour against the rest of the world.
-
-- The globe is a separate view, reached by tapping the country count, not a zoom
-  level on the map. MapLibre Native ignores the style specification's
-  `projection` property, so globe projection is unavailable in the renderer this
-  app embeds; it exists only in MapLibre GL JS. Reaching it through a web view
-  would mean a second rendering stack for the veil, country overlay, and
-  location dot, which the native-map decision rules out.
-- Handing the zoomed-out map over to the globe was tried and removed. MapLibre
-  Native refuses to shrink the world below its viewport, so the map bottoms out
-  around zoom 2.3 and the handoff had to hang off a stalled pinch, which is a
-  guess about intent rather than a gesture. Opening the globe from the country
-  count says the same thing without the guesswork.
-- `scripts/prepare-globe.mjs` derives coarse outlines from the already bundled
-  country geometry rather than from a second source download. Outlines are
-  simplified to 0.35 degrees and islands under 12,000 square kilometres are
-  dropped, except where that would leave a country unrepresented, giving about
-  5,000 points that can be reprojected on every frame of a drag. Antarctica is
-  added from a Natural Earth source, because the coverage data excludes it from
-  visits and it would otherwise be missing from the world.
-- Projection is pure domain code: an orthographic projection of the hemisphere
-  facing the viewer. Points on the far side are dropped, and an outline broken
-  by the horizon is closed along the chord between the ends of each visible run,
-  which reads as a clean limb at country scale.
-- The sphere is drawn into a canvas it is given rather than one its own size, so
-  a sphere wider than its canvas is clipped instead of asking the GPU for a
-  surface it cannot allocate.
-- Dragging rotates the globe. Latitude is clamped at the poles so it never
-  flips; longitude wraps.
-- The globe reuses the country summary already loaded for the sheet, so it adds
-  no query, no persisted state, and no network access.
-
-## Permission and error states
-
-The map remains usable when tracking is unavailable. Normal active tracking
-does not show a persistent status card: the live location dot and compact
-on-device indicator provide sufficient confirmation. A bottom overlay appears
-only for actionable or unavailable tracking states:
-
-- Location permission not requested.
-- Foreground permission granted, background permission not granted.
-- Approximate location only.
-- System location services disabled.
-- Tracking active.
-- Recoverable location or persistence error.
-
-Permission requests are initiated by a clear user action and accompanied by concise privacy copy. Android's background settings transition is explained before opening system settings.
-
-A weak signal is shown rather than hidden. The map draws the newest valid fix
-of any accuracy, with a circle at the fix's reported accuracy radius. When that
-radius is above the 50 m unlock threshold, the dot and circle turn amber, the
-circle is dashed, and the compact indicator reads "Weak GPS signal · ±N m".
-Such a fix still never unlocks tiles, never replaces the last saved coordinate
-that refreshes tiles and countries, and is held only in memory; it is never
-stored or logged. Estimating the path between fixes (interpolation) was
-considered and rejected.
-
-## External-data portability strategy
-
-Yonder does not assume that any external provider publishes raw GPS records,
-reusable coverage cells, or a stable export schema. When requesting portable
-data, ask for observed location-history records in a structured,
-machine-readable format, including latitude, longitude, timestamp, horizontal
-accuracy, and source where retained. Also request any cell identifiers,
-grid/resolution metadata, boundaries, unlock timestamps, and a schema/data
-dictionary.
-
-Once a real archive exists:
-
-1. Inspect it locally without committing or uploading it.
-2. Document its schema and limitations with synthetic examples.
-3. Implement a streaming adapter for the observed format.
-4. Validate and fingerprint normalized samples.
-5. Feed them through the same repository/H3 pipeline used by live GPS.
-6. Record parser version and batch results for deterministic retries.
-
-If a provider supplies coordinates and timestamps, import is straightforward.
-If it supplies only proprietary cell identifiers, screenshots, or PDFs without
-geographic/grid metadata, exact reconstruction may not be possible. The
-application must never assume an external provider uses H3.
+- Merging a change to `main` that sets a new version in `app.json` and
+  `package.json` makes CI tag the merge commit `v<version>` and build it. A
+  version that is already tagged releases nothing. Pushing a tag by hand also
+  builds a release.
+- `vMAJOR.MINOR.PATCH-beta.N` builds a prerelease with the production package
+  and key, so betas update the installed app in place and keep its data.
+- `versionCode = (MAJOR * 1,000,000 + MINOR * 1,000 + PATCH) * 100 + SUFFIX`,
+  where `SUFFIX` is N for `beta.N` (1–98) and 99 for stable. Android never
+  installs a lower `versionCode`, so this scheme cannot be reverted.
+- Every update must be signed by the same production key, supplied to CI through
+  repository secrets and never committed. Releases contain code and assets only,
+  never user data.
 
 ## Privacy and security
 
-- Store location history locally by default.
-- Do not add telemetry or analytics in the core implementation.
-- Do not log location payloads in development or production.
-- The on-device diagnostics log records tracking lifecycle metadata only, never coordinates, and is shared only when the user chooses to.
-- Never commit real coordinates, databases, exports, signing credentials, or provider tokens.
-- Use parameterized SQL and validate imported fields before persistence.
-- Use synthetic routes in fixtures.
-- A future data deletion/export UI should be designed before wider distribution, but is outside this core phase.
+- Location history stays on the device. No telemetry or analytics.
+- Never log coordinates, raw records, secrets or map-provider tokens.
+- Never commit real coordinates, databases, exports or signing material; use
+  synthetic routes in fixtures.
+- Parameterized SQL only; imported fields are validated before persistence.
+- `EXPO_PUBLIC_` variables are bundled into the app and must not hold secrets.
 
-## Verification strategy
+## Verification
 
-### Automated checks
+- `npm run typecheck`, `npm run lint` and `npm test` (Vitest) cover domain and
+  data logic, including real in-memory SQLite transactions, migrations,
+  ingestion, viewport queries, backup import, country scanning and the H3 patch.
+- `npm run qa:ios` drives an iOS Simulator with Maestro and a synthetic route
+  through the operating system's location service, checks the app's actual
+  database, and relaunches to verify persistence.
+- Background collection can only be verified meaningfully on physical devices.
 
-- Coordinate validation and normalization.
-- Known coordinate-to-H3 fixtures at resolution 11.
-- H3 boundary-to-GeoJSON ordering and polygon closure.
-- Fingerprint stability and duplicate ingestion.
-- Migration application and repeatability.
-- Cell upsert first/last timestamp behavior.
-- Viewport queries, including antimeridian bounds.
-- Import-adapter contract using synthetic fixtures.
-- Guard against regression of the H3/Expo native-runtime compatibility patch.
-- Static TypeScript and lint checks.
+## Open decisions
 
-Vitest owns the fast domain and data-layer suite. Native end-to-end coverage stays intentionally small: Maestro drives accessibility-visible journeys while `simctl` supplies synthetic GPS at the operating-system boundary. The harness queries the app's actual Expo SQLite database, captures screenshots, and relaunches the app to prove persisted cells are not lost. It does not add a test-only ingestion path.
-
-### Native smoke tests
-
-- Fresh install and foreground permission flow.
-- Denied and approximate-only permission states.
-- First location unlocks and persists a cell.
-- Revisit does not duplicate the cell.
-- Restart restores the same map.
-- Walking route unlocks cells while open.
-- Background/locked-screen route writes cells.
-- Returning to foreground refreshes the overlay.
-- Force-quit behavior is documented on both platforms.
-- Map remains responsive with a generated large local cell set.
-
-Physical-device tests are required for meaningful background-location verification.
-
-### Current verification status
-
-- TypeScript, lint, and 41 automated tests pass. The tests include real in-memory SQLite transactions rather than repository mocks.
-- An iPhone 17 Pro simulator on iOS 26.4 passes the deterministic native foreground smoke test: a synthetic route unlocks at least three cells through Expo Location, MapLibre renders the overlay, and SQLite retains the cells across a terminate/relaunch cycle.
-- A physical iPhone development build has launched and rendered the native map successfully. Background and locked-screen collection still need a dedicated physical-device route test.
-- Production JS/Hermes bundles export successfully for iOS and Android; the informational web fallback also bundles successfully.
-- An Android 16 emulator passes foreground and background location delivery with the persisted-job permission declared; a physical GrapheneOS device has also launched the standalone APK and recorded location samples.
-- Expo Doctor passes 20 of 21 checks. Its only failure is host tooling: CocoaPods is not installed.
-- Local iOS and Android native toolchains are configured on the host.
-- `npm audit --omit=dev` reports 23 transitive Expo/React Native build-tool advisories (8 moderate, 15 high, 0 critical). npm's proposed forced fixes downgrade the compatible Expo/React Native stack, so they were not applied. Reassess these advisories with future SDK patches rather than overriding native-tool dependencies blindly.
-
-## Delivery sequence
-
-1. [x] Commit and push this architecture record before product implementation.
-2. [x] Scaffold Expo with strict TypeScript, Router, linting, and tests.
-3. [x] Run MapLibre configuration and exact H3/Hermes compatibility spikes.
-4. [x] Implement domain contracts, migrations, repository, and ingestion tests.
-5. [x] Implement permission handling and foreground/background location sources.
-6. [x] Implement the full-screen map and viewport-aware GeoJSON overlay.
-7. [ ] Complete native builds and physical-device smoke tests on both platforms.
-8. [x] Commit and push the verified core implementation.
-
-## Deferred decisions
-
-- A hosted or self-hosted tile source for wider distribution or offline-region support; direct OpenStreetMap community tiles remain a deliberately small-scale choice.
-- User-facing import flows and formats, pending a real export.
-- Encryption-at-rest requirements for wider distribution.
-- User-facing data export/reset controls.
-- Animations, progress metrics, recaps, and social features.
-
-## References
-
-- [Expo Location](https://docs.expo.dev/versions/latest/sdk/location/)
-- [Expo Task Manager](https://docs.expo.dev/versions/latest/sdk/task-manager/)
-- [Expo SQLite](https://docs.expo.dev/versions/latest/sdk/sqlite/)
-- [MapLibre React Native](https://maplibre.org/maplibre-react-native/docs/setup/getting-started/)
-- [OpenStreetMap tile usage policy](https://operations.osmfoundation.org/policies/tiles/)
-- [H3 indexing functions](https://h3geo.org/docs/api/indexing/)
-- [H3 resolution statistics](https://h3geo.org/docs/core-library/restable/)
-
-## Backup import (0.2.2)
-
-In-app Settings contains backup export, backup import, and a link to system
-location permissions. Import accepts Yonder SQLite snapshots at schema version 3
-and merges only unlocked cells, leaving local samples and import batches intact.
-The snapshot is opened separately, checked for integrity, and all cells are
-validated against H3 resolution 11 before a single atomic merge. Cell centers
-are derived from H3 identifiers; overlapping cells retain the earliest first
-visit and latest last visit. Reimporting is idempotent. The merge runs in
-batches of 500 cells: one query finds which cells already exist, and one
-multi-row upsert writes only new cells and cells whose visit window widens.
-Only new cells derive their H3 center, so a reimport of an unchanged backup
-reads and writes nothing else. Each SQLite statement costs several native
-round trips on a device, so per-cell statements made a large import take minutes. Unsupported or invalid
-backups leave local data unchanged. Returning to the map refreshes its coverage.
-No backup data leaves the device through the import flow.
-
-### Backup failure reporting (0.4.5)
-
-Export and import run as named stages: choose folder, read database, create
-file, write file; and read file, check file type, open backup, open Yonder
-database, check and add tiles. A failure reports its stage and a short reason in
-the Settings alert and records a `backup-error` event in the on-device
-diagnostics log. The reason is the native error code plus its message, with
-URIs, file paths, and decimal numbers removed so the report cannot carry a file
-location, a folder name, or a coordinate. Backup contents and cell identifiers
-are never included.
-
-A map that cannot load its tiles reports the step that failed (open database,
-read tiles, draw tiles) and the same scrubbed reason under "Saved map
-unavailable", and records a `map-load-error` diagnostics event with the tile
-count. The event never carries cell identifiers or coordinates.
-
-## Offline map fallback (0.4.6)
-
-The online basemap needs the network for its style and tiles, and MapLibre's
-ambient cache is not guaranteed to hold either. When the online style fails to
-load, the map switches to a bundled offline style instead of showing an error:
-a themed water background, land filled from the bundled Natural Earth country
-polygons, and every country's border drawn from the same geometry at all zoom
-levels. Unlocked hexes, the veil, and the location dot draw on top as usual.
-The on-device status pill shows "Offline map" while the fallback is active,
-and the app retries the online style each time it returns to the foreground.
-The error screen remains only for the case where the offline style itself
-cannot load.
-
-The fallback adds no data: it reuses the roughly 0.5 MB (compressed) country
-dataset already bundled for the country overview, and it makes no network
-requests, so it reveals nothing about where the user is looking. Street-level
-detail, place labels, and cities are not available offline. Downloading
-basemap tiles for offline use (for example a zoom 0–6 world pack of roughly
-120 MB) remains a deferred decision.
+- User-facing import of third-party location history, pending a real export.
+- Offline basemap tiles (for example a zoom 0–6 world pack of roughly 120 MB).
+- Encryption at rest and user-facing data reset.
+- Manual editing of country visits.
+- Self-hosting map tiles if OpenFreeMap's public instance (no SLA) becomes
+  unreliable.

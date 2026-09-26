@@ -4,7 +4,7 @@
 
 This repository contains a local-first Expo application that records accepted device-location samples, converts them into H3 cells, persists them, and renders the unlocked cells over a native map.
 
-The accepted product and architecture decisions live in `docs/architecture.md`. Update that document when a material decision changes.
+`docs/architecture.md` describes how the app works today. Update it in the same change when behavior or a decision changes. Documentation records the current state only; history and rejected alternatives belong in git history, not in the docs.
 
 ## Architecture guardrails
 
