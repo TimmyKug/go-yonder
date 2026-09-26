@@ -32,7 +32,7 @@ describe("backup failure reasons", () => {
     await expect(atBackupStage("write file", () => { throw new Error("disk full"); }))
       .rejects.toMatchObject({ stage: "write file", reason: "disk full" });
     const inner = atBackupStage("open backup", async () => { throw new Error("no memory"); });
-    await expect(atBackupStage("check and add data", () => inner))
+    await expect(atBackupStage("add GPS points", () => inner))
       .rejects.toMatchObject({ stage: "open backup" });
     await expect(atBackupStage("read file", async () => 7)).resolves.toBe(7);
   });

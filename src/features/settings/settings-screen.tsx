@@ -29,19 +29,15 @@ function plural(count: number, word: string): string {
 }
 
 function describeImport(result: LocationFileImportResult): [string, string] {
-  if (result.kind === "backup") {
-    const lines = [
-      `${plural(result.addedCount, "new tile")} and ${plural(result.addedSampleCount, "GPS point")} added. Everything already on this device is preserved.`,
-    ];
-    if (result.skippedSampleCount > 0) {
-      lines.push(`${plural(result.skippedSampleCount, "GPS point")} could not be read and were skipped.`);
-    }
-    return ["Backup imported", lines.join("\n")];
+  const lines = [
+    `${plural(result.addedTileCount, "new tile")} and ${plural(result.addedPointCount, "GPS point")} added. Everything already on this device is preserved.`,
+  ];
+  const skipped = result.kind === "backup" ? result.skippedPointCount : result.skippedCount;
+  if (result.kind === "gpx" && result.alreadyStoredCount > 0) {
+    lines.push(`${plural(result.alreadyStoredCount, "point")} were already saved.`);
   }
-  const lines = [`${plural(result.addedTileCount, "new tile")} and ${plural(result.addedPointCount, "GPS point")} added.`];
-  if (result.alreadyStoredCount > 0) lines.push(`${plural(result.alreadyStoredCount, "point")} were already saved.`);
-  if (result.skippedCount > 0) lines.push(`${plural(result.skippedCount, "point")} without a valid time or position were skipped.`);
-  return ["GPX imported", lines.join("\n")];
+  if (skipped > 0) lines.push(`${plural(skipped, "point")} without a valid time or position were skipped.`);
+  return [result.kind === "backup" ? "Backup imported" : "GPX imported", lines.join("\n")];
 }
 
 export function SettingsScreen() {

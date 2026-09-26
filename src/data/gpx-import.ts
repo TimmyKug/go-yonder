@@ -1,9 +1,14 @@
 import { parseGpx } from "../domain/gpx";
-import type { IngestionResult } from "../domain/ingest-location";
-import type { NormalizedLocationSample } from "../domain/location-sample";
 
 import { createStoredPointMatcher } from "./location-sample-repository";
-import type { SqlExecutor } from "./sql-database";
+import {
+  cellsForSamples,
+  insertNewSamples,
+  mergeDerivedCells,
+  type PreparedSampleRow,
+  prepareImportedSample,
+} from "./sample-merge-repository";
+import type { SqlDatabase } from "./sql-database";
 
 export type GpxImportResult = {
   /** Points with a time and coordinate found in the file. */
@@ -17,11 +22,12 @@ export type GpxImportResult = {
 };
 
 type GpxImportDependencies = {
-  database: SqlExecutor;
-  ingest: (samples: readonly NormalizedLocationSample[]) => Promise<IngestionResult>;
+  database: SqlDatabase;
   onProgress?: (processedCount: number, totalCount: number) => void;
 };
 
+// Each chunk commits on its own, so a very large file never holds the
+// database for long and an interrupted import keeps what it finished.
 const IMPORT_CHUNK_SIZE = 1_000;
 
 /** Stored sample times have whole-second precision. */
@@ -30,12 +36,13 @@ function wholeSecondMs(recordedAt: string): number {
 }
 
 /**
- * Adds a GPX file's points as imported history. Re-importing a file, or
- * importing Yonder's own export on the same phone, adds nothing.
+ * Adds a GPX file's points as imported history and derives their tiles.
+ * Re-importing a file, or importing Yonder's own export on the same phone,
+ * adds nothing.
  */
 export async function importGpxText(
   text: string,
-  { database, ingest, onProgress }: GpxImportDependencies,
+  { database, onProgress }: GpxImportDependencies,
 ): Promise<GpxImportResult> {
   const parsed = parseGpx(text);
   const points = parsed.points
@@ -55,26 +62,30 @@ export async function importGpxText(
     const isStored = times.length > 0
       ? await createStoredPointMatcher(database, Math.min(...times), Math.max(...times))
       : () => false;
-    const samples: NormalizedLocationSample[] = [];
+    const rows: PreparedSampleRow[] = [];
     for (const point of chunk) {
       if (Number.isFinite(point.recordedAtMs) && isStored(point)) {
         result.alreadyStoredCount += 1;
         continue;
       }
-      samples.push({
+      const row = prepareImportedSample({
         source: "external-import",
         recordedAt: point.recordedAt,
         latitude: point.latitude,
         longitude: point.longitude,
         ...(point.horizontalAccuracyM === undefined ? {} : { horizontalAccuracyM: point.horizontalAccuracyM }),
       });
+      if (row) rows.push(row);
+      else result.skippedCount += 1;
     }
-    if (samples.length > 0) {
-      const ingested = await ingest(samples);
-      result.addedPointCount += ingested.insertedSampleCount;
-      result.alreadyStoredCount += ingested.duplicateSampleCount;
-      result.addedTileCount += ingested.insertedCellCount;
-      result.skippedCount += ingested.rejectedCount;
+    if (rows.length > 0) {
+      const { added, tiles } = await database.withExclusiveTransaction(async (transaction) => {
+        const inserted = await insertNewSamples(transaction, rows);
+        return { added: inserted, tiles: await mergeDerivedCells(transaction, cellsForSamples(inserted)) };
+      });
+      result.addedPointCount += added.length;
+      result.alreadyStoredCount += rows.length - added.length;
+      result.addedTileCount += tiles;
     }
     onProgress?.(Math.min(start + IMPORT_CHUNK_SIZE, points.length), points.length);
   }

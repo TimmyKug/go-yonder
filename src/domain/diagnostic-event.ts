@@ -3,6 +3,7 @@ export type DiagnosticEventKind =
   | "background-batch"
   | "backup-error"
   | "folder-backup"
+  | "import-finished"
   | "background-start"
   | "background-task-error"
   | "foreground-watch-start"

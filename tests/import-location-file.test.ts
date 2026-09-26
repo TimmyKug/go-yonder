@@ -6,10 +6,10 @@ const mocks = vi.hoisted(() => ({ pick: vi.fn(), deserialize: vi.fn(), merge: vi
 vi.mock("expo-file-system", () => ({ File: { pickFileAsync: mocks.pick } }));
 vi.mock("expo-sqlite", () => ({ deserializeDatabaseAsync: mocks.deserialize }));
 vi.mock("@/src/data/database", () => ({ getDatabase: mocks.getDatabase }));
-vi.mock("@/src/data/backup-import-repository", () => ({ mergeBackupUnlocks: mocks.merge }));
+vi.mock("@/src/data/backup-import-repository", () => ({ importBackupSamples: mocks.merge }));
 vi.mock("@/src/data/country-cache-database", () => ({ getCountryCache: async () => ({}) }));
 vi.mock("@/src/data/country-cache-repository", () => ({ resetCountryCache: mocks.resetCountries }));
-vi.mock("@/src/data/app-repository", () => ({ ingestNormalizedSamples: vi.fn() }));
+vi.mock("@/src/diagnostics/diagnostics", () => ({ recordDiagnostic: vi.fn() }));
 vi.mock("@/src/data/gpx-import", () => ({ importGpxText: mocks.importGpx }));
 
 function sqliteBytes() {
@@ -76,17 +76,16 @@ it("reports a live database that cannot be opened and still closes the snapshot"
 it("opens serialized WAL snapshots in rollback mode and closes them on merge failure", async () => {
   picked(async () => sqliteBytes());
   mocks.merge.mockRejectedValue(new Error("invalid tiles"));
-  await expect(importYonderBackup()).rejects.toMatchObject({ stage: "check and add data", reason: "invalid tiles" });
+  await expect(importYonderBackup()).rejects.toMatchObject({ stage: "add GPS points", reason: "invalid tiles" });
   expect(mocks.deserialize.mock.calls[0]?.[0][18]).toBe(1);
   expect(mocks.deserialize.mock.calls[0]?.[0][19]).toBe(1);
   expect(mocks.close).toHaveBeenCalledOnce();
 });
 it("rebuilds the country cache after an import, without failing the import if it cannot", async () => {
   picked(async () => sqliteBytes());
-  mocks.merge.mockResolvedValue({ addedCount: 1, totalCount: 1, addedSampleCount: 2, totalSampleCount: 2, skippedSampleCount: 0 });
+  mocks.merge.mockResolvedValue({ addedTileCount: 1, addedPointCount: 2, totalPointCount: 2, skippedPointCount: 0 });
   mocks.resetCountries.mockRejectedValue(new Error("cache unavailable"));
-  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedCount: 1, totalCount: 1,
-    addedSampleCount: 2, totalSampleCount: 2, skippedSampleCount: 0 });
+  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedTileCount: 1, addedPointCount: 2, totalPointCount: 2, skippedPointCount: 0 });
   expect(mocks.resetCountries).toHaveBeenCalledOnce();
 });
 it("leaves the country cache alone when an import fails", async () => {
@@ -97,8 +96,7 @@ it("leaves the country cache alone when an import fails", async () => {
 });
 it("returns the merge result even if closing the snapshot fails", async () => {
   picked(async () => sqliteBytes());
-  mocks.merge.mockResolvedValue({ addedCount: 2, totalCount: 3, addedSampleCount: 0, totalSampleCount: 0, skippedSampleCount: 0 });
+  mocks.merge.mockResolvedValue({ addedTileCount: 0, addedPointCount: 0, totalPointCount: 3, skippedPointCount: 0 });
   mocks.close.mockRejectedValue(new Error("already closed"));
-  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedCount: 2, totalCount: 3,
-    addedSampleCount: 0, totalSampleCount: 0, skippedSampleCount: 0 });
+  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedTileCount: 0, addedPointCount: 0, totalPointCount: 3, skippedPointCount: 0 });
 });
