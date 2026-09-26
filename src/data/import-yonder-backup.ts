@@ -1,21 +1,20 @@
-import { File } from "expo-file-system";
 import { deserializeDatabaseAsync } from "expo-sqlite";
 
 import { atBackupStage } from "@/src/data/backup-failure";
-import { mergeBackupUnlocks } from "@/src/data/backup-import-repository";
+import { importBackupSamples } from "@/src/data/backup-import-repository";
 import { getCountryCache } from "@/src/data/country-cache-database";
 import { resetCountryCache } from "@/src/data/country-cache-repository";
 import { getDatabase } from "@/src/data/database";
 import { ExpoSqliteDatabase } from "@/src/data/expo-sqlite-database";
 
-export async function importYonderBackup() {
-  // The picker reports every failure, not only a cancellation, as canceled.
-  const selection = await File.pickFileAsync({});
-  if (selection.canceled) return null;
-  const file = selection.result;
-  const bytes = await atBackupStage("read file", () => file.bytes());
+export function isSqliteFile(bytes: Uint8Array): boolean {
+  return bytes.length >= 100 && String.fromCharCode(...bytes.slice(0, 16)) === "SQLite format 3\0";
+}
+
+/** Imports the GPS points of a Yonder backup file's contents and derives their tiles. */
+export async function importYonderBackupBytes(bytes: Uint8Array) {
   await atBackupStage("check file type", () => {
-    if (bytes.length < 100 || String.fromCharCode(...bytes.slice(0, 16)) !== "SQLite format 3\0") {
+    if (!isSqliteFile(bytes)) {
       throw new Error("This is not a SQLite backup.");
     }
   });
@@ -26,8 +25,8 @@ export async function importYonderBackup() {
   const snapshot = await atBackupStage("open backup", () => deserializeDatabaseAsync(bytes));
   try {
     const target = await atBackupStage("open Yonder database", getDatabase);
-    const result = await atBackupStage("check and add tiles", () =>
-      mergeBackupUnlocks(new ExpoSqliteDatabase(snapshot), target));
+    const result = await atBackupStage("add GPS points", () =>
+      importBackupSamples(new ExpoSqliteDatabase(snapshot), target));
     // An import can make existing visits earlier, which the country cache
     // cannot see; rebuild it. It is derived data, so failure is not an error.
     await getCountryCache().then(resetCountryCache).catch(() => undefined);

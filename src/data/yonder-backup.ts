@@ -2,8 +2,10 @@ import { Directory, File, Paths } from "expo-file-system";
 
 import { atBackupStage } from "./backup-failure";
 import { getNativeDatabase } from "./database";
+import { createDocument, type WrittenDocument } from "./document-files";
 
 export const YONDER_BACKUP_FILE_NAME = "yonder-backup.db";
+export const YONDER_BACKUP_MIME_TYPE = "application/octet-stream";
 const AUTOMATIC_BACKUP_INTERVAL_MS = 15 * 60 * 1000;
 
 export type YonderBackupResult = {
@@ -11,63 +13,23 @@ export type YonderBackupResult = {
   sizeBytes: number;
 };
 
-type BackupFile = {
-  readonly name: string;
-  write: (data: Uint8Array) => void;
-};
-
 type BackupDirectory = Directory;
 
 type YonderBackupDependencies = {
-  createFile: (directory: BackupDirectory) => BackupFile;
+  createFile: (directory: BackupDirectory) => WrittenDocument;
   pickDirectory: () => Promise<BackupDirectory>;
   serializeDatabase: () => Promise<Uint8Array>;
 };
 
 export const defaultYonderBackupDependencies: YonderBackupDependencies = {
-  createFile: (directory) => {
-    // Android folders are Storage Access Framework content:// URIs; a child
-    // document can only be created through the provider, which picks a unique
-    // name when one already exists instead of overwriting it.
-    if (directory.uri.startsWith("content://")) {
-      const file = directory.createFile(YONDER_BACKUP_FILE_NAME, "application/octet-stream");
-      return {
-        name: documentDisplayName(file.uri),
-        write: (data) => {
-          try {
-            file.write(data);
-          } catch (error: unknown) {
-            // Never leave an empty document that looks like a backup.
-            try {
-              file.delete();
-            } catch {
-              // The write error is the one worth reporting.
-            }
-            throw error;
-          }
-        },
-      };
-    }
-    const file = new File(directory, YONDER_BACKUP_FILE_NAME);
-    file.create({ overwrite: true });
-    return file;
-  },
+  createFile: (directory) =>
+    createDocument(directory, YONDER_BACKUP_FILE_NAME, YONDER_BACKUP_MIME_TYPE),
   pickDirectory: () => Directory.pickDirectoryAsync(),
-  serializeDatabase: async () => (await getNativeDatabase()).serializeAsync(),
+  serializeDatabase: serializeYonderDatabase,
 };
 
-/** The file name inside an Android document URI such as `.../document/primary%3ADocs%2Fyonder-backup%20(1).db`. */
-export function documentDisplayName(uri: string): string {
-  const lastSegment = uri.split("/").pop() ?? "";
-  let decoded = lastSegment;
-  try {
-    decoded = decodeURIComponent(lastSegment);
-  } catch {
-    // Keep the encoded segment; it still names the file.
-  }
-  // Some providers use opaque IDs such as `msf:1234` instead of a path.
-  const name = decoded.split(/[/:]/).pop() ?? "";
-  return name.toLowerCase().endsWith(".db") ? name : YONDER_BACKUP_FILE_NAME;
+export async function serializeYonderDatabase(): Promise<Uint8Array> {
+  return (await getNativeDatabase()).serializeAsync();
 }
 
 let automaticBackupPromise: Promise<void> | undefined;
