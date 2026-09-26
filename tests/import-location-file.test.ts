@@ -40,15 +40,15 @@ it("rejects files that are neither a backup nor GPX before opening anything", as
   expect(mocks.deserialize).not.toHaveBeenCalled();
   expect(mocks.importGpx).not.toHaveBeenCalled();
 });
-it("imports GPX files as GPS points and rebuilds the country cache", async () => {
+it("imports GPX files as GPS points, leaving tiles and countries to the background deriver", async () => {
   const gpx = '<?xml version="1.0"?><gpx version="1.1"><trk><trkseg></trkseg></trk></gpx>';
   picked(async () => new TextEncoder().encode(gpx), async () => gpx);
-  const summary = { pointCount: 0, addedPointCount: 0, alreadyStoredCount: 0, addedTileCount: 0, skippedCount: 0 };
+  const summary = { pointCount: 0, addedPointCount: 0, alreadyStoredCount: 0, skippedCount: 0 };
   mocks.importGpx.mockResolvedValue(summary);
   await expect(importYonderBackup()).resolves.toEqual({ kind: "gpx", ...summary });
   expect(mocks.importGpx.mock.calls[0]?.[0]).toBe(gpx);
   expect(mocks.deserialize).not.toHaveBeenCalled();
-  expect(mocks.resetCountries).toHaveBeenCalledOnce();
+  expect(mocks.resetCountries).not.toHaveBeenCalled();
 });
 it("reports the step when adding GPX points fails", async () => {
   const gpx = "<gpx></gpx>";
@@ -81,22 +81,15 @@ it("opens serialized WAL snapshots in rollback mode and closes them on merge fai
   expect(mocks.deserialize.mock.calls[0]?.[0][19]).toBe(1);
   expect(mocks.close).toHaveBeenCalledOnce();
 });
-it("rebuilds the country cache after an import, without failing the import if it cannot", async () => {
+it("returns a backup's point counts and leaves countries to the background deriver", async () => {
   picked(async () => sqliteBytes());
-  mocks.merge.mockResolvedValue({ addedTileCount: 1, addedPointCount: 2, totalPointCount: 2, skippedPointCount: 0 });
-  mocks.resetCountries.mockRejectedValue(new Error("cache unavailable"));
-  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedTileCount: 1, addedPointCount: 2, totalPointCount: 2, skippedPointCount: 0 });
-  expect(mocks.resetCountries).toHaveBeenCalledOnce();
-});
-it("leaves the country cache alone when an import fails", async () => {
-  picked(async () => sqliteBytes());
-  mocks.merge.mockRejectedValue(new Error("invalid tiles"));
-  await expect(importYonderBackup()).rejects.toThrow();
+  mocks.merge.mockResolvedValue({ addedPointCount: 2, totalPointCount: 2, skippedPointCount: 0 });
+  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedPointCount: 2, totalPointCount: 2, skippedPointCount: 0 });
   expect(mocks.resetCountries).not.toHaveBeenCalled();
 });
 it("returns the merge result even if closing the snapshot fails", async () => {
   picked(async () => sqliteBytes());
-  mocks.merge.mockResolvedValue({ addedTileCount: 0, addedPointCount: 0, totalPointCount: 3, skippedPointCount: 0 });
+  mocks.merge.mockResolvedValue({ addedPointCount: 0, totalPointCount: 3, skippedPointCount: 0 });
   mocks.close.mockRejectedValue(new Error("already closed"));
-  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedTileCount: 0, addedPointCount: 0, totalPointCount: 3, skippedPointCount: 0 });
+  await expect(importYonderBackup()).resolves.toEqual({ kind: "backup", addedPointCount: 0, totalPointCount: 3, skippedPointCount: 0 });
 });

@@ -1,11 +1,12 @@
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
 
 import { getYonderRepository } from "@/src/data/app-repository";
 import { describeBackupCause } from "@/src/data/backup-failure";
 import { recordDiagnostic } from "@/src/diagnostics/diagnostics";
 import { type MapBounds, nextCoverageBounds, padMapBounds } from "@/src/domain/map-bounds";
+import { getTileDerivationSnapshot, subscribeToTileDerivation } from "@/src/tiles/tile-deriver";
 
 const NO_CELLS: readonly string[] = [];
 
@@ -26,6 +27,11 @@ export function useVisibleCells(refreshToken?: number): VisibleCellsState {
   const [error, setError] = useState<string>();
   const [activationRevision, setActivationRevision] = useState(0);
   const requestRevision = useRef(0);
+  // Tiles derived in the background from imported points.
+  const tileRevision = useSyncExternalStore(
+    subscribeToTileDerivation,
+    () => getTileDerivationSnapshot().revision,
+  );
 
   useFocusEffect(useCallback(() => {
     setActivationRevision((revision) => revision + 1);
@@ -86,7 +92,7 @@ export function useVisibleCells(refreshToken?: number): VisibleCellsState {
     return () => {
       cancelled = true;
     };
-  }, [activationRevision, bounds, refreshToken]);
+  }, [activationRevision, bounds, refreshToken, tileRevision]);
 
   const updateBounds = useCallback((nextBounds: MapBounds) => {
     setBounds((currentBounds) => nextCoverageBounds(currentBounds, nextBounds));

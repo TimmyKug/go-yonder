@@ -8,7 +8,7 @@ import {
   type ViewStateChangeEvent,
 } from "@maplibre/maplibre-react-native";
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -39,6 +39,7 @@ import { unlockedCellIdsToVeilMask } from "@/src/domain/hex-grid";
 import { AboutSheet, type AboutSheetColors } from "@/src/features/about/about-sheet";
 import { useAppearance } from "@/src/features/appearance/appearance-provider";
 import { useMaxLiveAccuracyM } from "@/src/features/settings/use-max-live-accuracy";
+import { getTileDerivationSnapshot, subscribeToTileDerivation } from "@/src/tiles/tile-deriver";
 
 export type MapCoordinate = {
   latitude: number;
@@ -170,6 +171,7 @@ export function YonderMapView({
   const { resolvedAppearance: themeName } = useAppearance();
   const colors = MAP_THEME[themeName];
   const maxAccuracyM = useMaxLiveAccuracyM();
+  const tileDerivation = useSyncExternalStore(subscribeToTileDerivation, getTileDerivationSnapshot);
   const styleSource = useMemo(() => getMapStyle(themeName), [themeName]);
   const offlineStyle = useMemo(() => getOfflineMapStyle(themeName), [themeName]);
   const [mapStyle, setMapStyle] = useState<StyleSpecification | string | null>(
@@ -589,7 +591,17 @@ export function YonderMapView({
               · Offline map
             </Text>
           ) : null}
-          {isLoadingHexagons ? (
+          {tileDerivation.running && tileDerivation.totalCount > 0 ? (
+            <Text
+              accessibilityLabel="Unlocking tiles for imported GPS points"
+              selectable
+              style={{ color: colors.secondaryText, fontSize: 13, fontVariant: ["tabular-nums"] }}
+              testID="tile-derivation-progress"
+            >
+              · Unlocking tiles {Math.floor((tileDerivation.processedCount / tileDerivation.totalCount) * 100)}%
+            </Text>
+          ) : null}
+          {isLoadingHexagons || tileDerivation.running ? (
             <ActivityIndicator color={colors.secondaryText} size="small" />
           ) : null}
         </View>

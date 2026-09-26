@@ -2,8 +2,6 @@ import { File } from "expo-file-system";
 
 import { atBackupStage } from "@/src/data/backup-failure";
 import type { BackupImportResult } from "@/src/data/backup-import-repository";
-import { getCountryCache } from "@/src/data/country-cache-database";
-import { resetCountryCache } from "@/src/data/country-cache-repository";
 import { getDatabase } from "@/src/data/database";
 import { type GpxImportResult, importGpxText } from "@/src/data/gpx-import";
 import { importYonderBackupBytes, isSqliteFile } from "@/src/data/import-yonder-backup";
@@ -14,7 +12,10 @@ export type LocationFileImportResult =
   | ({ kind: "backup" } & BackupImportResult)
   | ({ kind: "gpx" } & GpxImportResult);
 
-/** Imports a Yonder backup or a GPX file, recognised by its contents. */
+/**
+ * Imports the GPS points of a Yonder backup or a GPX file, recognised by its
+ * contents. Their tiles are derived afterwards by the background deriver.
+ */
 export async function importLocationFile(
   onProgress?: (processedCount: number, totalCount: number) => void,
 ): Promise<LocationFileImportResult | null> {
@@ -31,7 +32,6 @@ export async function importLocationFile(
       durationMs: Date.now() - startedAtMs,
       pointCount: result.totalPointCount,
       addedPointCount: result.addedPointCount,
-      addedTileCount: result.addedTileCount,
     });
     return { kind: "backup", ...result };
   }
@@ -45,14 +45,11 @@ export async function importLocationFile(
   const database = await atBackupStage("open Yonder database", getDatabase);
   const result = await atBackupStage("add GPS points", () =>
     importGpxText(text, { database, onProgress }));
-  // Imported points can make existing visits earlier; rebuild the derived cache.
-  await getCountryCache().then(resetCountryCache).catch(() => undefined);
   recordDiagnostic("import-finished", {
     kind: "gpx",
     durationMs: Date.now() - startedAtMs,
     pointCount: result.pointCount,
     addedPointCount: result.addedPointCount,
-    addedTileCount: result.addedTileCount,
   });
   return { kind: "gpx", ...result };
 }

@@ -1,11 +1,10 @@
-import type { SqlDatabase, SqlExecutor } from "@/src/data/sql-database";
 import {
-  cellsForSamples,
   insertNewSamples,
-  mergeDerivedCells,
   type PreparedSampleRow,
   prepareImportedSample,
 } from "@/src/data/sample-merge-repository";
+import type { SqlDatabase, SqlExecutor } from "@/src/data/sql-database";
+import { ensureTileCursor } from "@/src/data/tile-cursor";
 
 // Reading the snapshot in pages keeps memory bounded for large histories.
 const READ_PAGE_SIZE = 1_000;
@@ -21,7 +20,6 @@ type BackupSample = {
 };
 
 export type BackupImportResult = {
-  addedTileCount: number;
   addedPointCount: number;
   totalPointCount: number;
   /** Points that could not be read; the rest of the backup is still imported. */
@@ -43,9 +41,10 @@ function toSampleRow(row: BackupSample): PreparedSampleRow | null {
 }
 
 /**
- * Imports a backup's GPS points and derives their tiles. GPS points are the
- * source of truth: the backup's stored tiles are ignored. Reads a separate
- * snapshot and never replaces the live database.
+ * Imports a backup's GPS points. GPS points are the source of truth: the
+ * backup's stored tiles are ignored, and the background tile deriver unlocks
+ * tiles for the new points. Reads a separate snapshot and never replaces the
+ * live database.
  */
 export async function importBackupSamples(
   source: SqlExecutor,
@@ -67,8 +66,9 @@ export async function importBackupSamples(
     throw new Error("This backup has no GPS points. Import the GPS data it was made from instead.");
   }
 
+  await ensureTileCursor(target);
   return target.withExclusiveTransaction(async (transaction) => {
-    const inserted: PreparedSampleRow[] = [];
+    let addedPointCount = 0;
     let totalPointCount = 0;
     let skippedPointCount = 0;
     let cursor = -Number.MAX_SAFE_INTEGER;
@@ -87,10 +87,8 @@ export async function importBackupSamples(
 
       const rows = page.map(toSampleRow).filter((row): row is PreparedSampleRow => row !== null);
       skippedPointCount += page.length - rows.length;
-      inserted.push(...(await insertNewSamples(transaction, rows)));
+      addedPointCount += (await insertNewSamples(transaction, rows)).length;
     }
-
-    const addedTileCount = await mergeDerivedCells(transaction, cellsForSamples(inserted));
-    return { addedTileCount, addedPointCount: inserted.length, totalPointCount, skippedPointCount };
+    return { addedPointCount, totalPointCount, skippedPointCount };
   });
 }

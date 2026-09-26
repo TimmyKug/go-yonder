@@ -1,4 +1,4 @@
-import { cellToLatLng, latLngToCell } from "h3-js";
+import { cellToLatLng } from "h3-js";
 
 import { YONDER_H3_RESOLUTION } from "@/src/config/yonder-config";
 import type { SqlExecutor, SqlValue } from "@/src/data/sql-database";
@@ -24,7 +24,7 @@ type ExistingCell = {
   last_seen_at_ms: number;
 };
 
-type DerivedCell = { cellId: string; firstSeenAtMs: number; lastSeenAtMs: number };
+export type DerivedCell = { cellId: string; firstSeenAtMs: number; lastSeenAtMs: number };
 
 function placeholders(count: number): string {
   return Array.from({ length: count }, () => "?").join(", ");
@@ -73,32 +73,16 @@ export async function insertNewSamples(
   return inserted;
 }
 
-/** Tiles are derived from points: one per resolution-11 cell with its visit window. */
-export function cellsForSamples(rows: readonly PreparedSampleRow[]): DerivedCell[] {
-  const cells = new Map<string, DerivedCell>();
-  for (const row of rows) {
-    const recordedAtMs = row[2];
-    const cellId = latLngToCell(row[3], row[4], YONDER_H3_RESOLUTION);
-    const cell = cells.get(cellId);
-    if (cell) {
-      cell.firstSeenAtMs = Math.min(cell.firstSeenAtMs, recordedAtMs);
-      cell.lastSeenAtMs = Math.max(cell.lastSeenAtMs, recordedAtMs);
-    } else {
-      cells.set(cellId, { cellId, firstSeenAtMs: recordedAtMs, lastSeenAtMs: recordedAtMs });
-    }
-  }
-  return [...cells.values()];
-}
-
 /**
  * Unlocks derived cells, widening the visit window of cells already unlocked.
- * Returns how many cells are new.
+ * Returns how many cells are new and how many were written at all.
  */
 export async function mergeDerivedCells(
   transaction: SqlExecutor,
   cells: readonly DerivedCell[],
-): Promise<number> {
+): Promise<{ addedCount: number; changedCount: number }> {
   let addedCount = 0;
+  let changedCount = 0;
   for (let start = 0; start < cells.length; start += CELL_BATCH_SIZE) {
     const batch = cells.slice(start, start + CELL_BATCH_SIZE);
     const existing = new Map((await transaction.all<ExistingCell>(
@@ -122,6 +106,7 @@ export async function mergeDerivedCells(
       }
     }
     if (rows.length === 0) continue;
+    changedCount += rows.length;
 
     await transaction.run(`
       INSERT INTO unlocked_cells (cell_id, resolution, center_latitude,
@@ -132,5 +117,5 @@ export async function mergeDerivedCells(
         last_seen_at_ms = MAX(last_seen_at_ms, excluded.last_seen_at_ms)
     `, rows.flat());
   }
-  return addedCount;
+  return { addedCount, changedCount };
 }

@@ -2,13 +2,12 @@ import { parseGpx } from "../domain/gpx";
 
 import { createStoredPointMatcher } from "./location-sample-repository";
 import {
-  cellsForSamples,
   insertNewSamples,
-  mergeDerivedCells,
   type PreparedSampleRow,
   prepareImportedSample,
 } from "./sample-merge-repository";
 import type { SqlDatabase } from "./sql-database";
+import { ensureTileCursor } from "./tile-cursor";
 
 export type GpxImportResult = {
   /** Points with a time and coordinate found in the file. */
@@ -16,7 +15,6 @@ export type GpxImportResult = {
   addedPointCount: number;
   /** Points already stored, e.g. from importing Yonder's own export. */
   alreadyStoredCount: number;
-  addedTileCount: number;
   /** Points without a time, or with an invalid time or coordinate. */
   skippedCount: number;
 };
@@ -28,7 +26,7 @@ type GpxImportDependencies = {
 
 // Each chunk commits on its own, so a very large file never holds the
 // database for long and an interrupted import keeps what it finished.
-const IMPORT_CHUNK_SIZE = 1_000;
+const IMPORT_CHUNK_SIZE = 5_000;
 
 /** Stored sample times have whole-second precision. */
 function wholeSecondMs(recordedAt: string): number {
@@ -36,9 +34,9 @@ function wholeSecondMs(recordedAt: string): number {
 }
 
 /**
- * Adds a GPX file's points as imported history and derives their tiles.
- * Re-importing a file, or importing Yonder's own export on the same phone,
- * adds nothing.
+ * Adds a GPX file's points as imported history; the background tile deriver
+ * unlocks their tiles. Re-importing a file, or importing Yonder's own export
+ * on the same phone, adds nothing.
  */
 export async function importGpxText(
   text: string,
@@ -52,10 +50,10 @@ export async function importGpxText(
     pointCount: points.length,
     addedPointCount: 0,
     alreadyStoredCount: 0,
-    addedTileCount: 0,
     skippedCount: parsed.skippedWithoutTimeCount + parsed.skippedInvalidCount,
   };
 
+  await ensureTileCursor(database);
   for (let start = 0; start < points.length; start += IMPORT_CHUNK_SIZE) {
     const chunk = points.slice(start, start + IMPORT_CHUNK_SIZE);
     const times = chunk.map(({ recordedAtMs }) => recordedAtMs).filter(Number.isFinite);
@@ -79,13 +77,9 @@ export async function importGpxText(
       else result.skippedCount += 1;
     }
     if (rows.length > 0) {
-      const { added, tiles } = await database.withExclusiveTransaction(async (transaction) => {
-        const inserted = await insertNewSamples(transaction, rows);
-        return { added: inserted, tiles: await mergeDerivedCells(transaction, cellsForSamples(inserted)) };
-      });
+      const added = await database.withExclusiveTransaction((transaction) => insertNewSamples(transaction, rows));
       result.addedPointCount += added.length;
       result.alreadyStoredCount += rows.length - added.length;
-      result.addedTileCount += tiles;
     }
     onProgress?.(Math.min(start + IMPORT_CHUNK_SIZE, points.length), points.length);
   }

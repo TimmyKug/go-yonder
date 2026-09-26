@@ -61,16 +61,16 @@ function formatNumber(value: number, digits: number): string {
   return String(Number(value.toFixed(digits)));
 }
 
-// Track, route and waypoint elements, with or without a namespace prefix,
-// either self-closing or with child elements.
-const POINT_PATTERN =
-  /<((?:[\w.-]+:)?(?:trkpt|rtept|wpt))\b([^>]*?)(?:\/>|>([\s\S]*?)<\/\1\s*>)/g;
+const POINT_ELEMENTS = new Set(["trkpt", "rtept", "wpt"]);
+const LAT_PATTERN = /(?:^|\s)lat\s*=\s*(?:"([^"]*)"|'([^']*)')/;
+const LON_PATTERN = /(?:^|\s)lon\s*=\s*(?:"([^"]*)"|'([^']*)')/;
 const TIME_PATTERN = /<(?:[\w.-]+:)?time\s*>\s*([^<]*?)\s*<\/(?:[\w.-]+:)?time\s*>/;
 const ACCURACY_PATTERN = /<(?:[\w.-]+:)?accuracy\s*>\s*([^<]*?)\s*<\/(?:[\w.-]+:)?accuracy\s*>/;
 const LOCAL_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/;
+const NAME_END = /[\s/>]/;
 
-function attribute(attributes: string, name: string): string | undefined {
-  const match = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`).exec(attributes);
+function attribute(attributes: string, pattern: RegExp): string | undefined {
+  const match = pattern.exec(attributes);
   return match ? (match[1] ?? match[2]) : undefined;
 }
 
@@ -82,19 +82,45 @@ function parseCoordinate(value: string | undefined): number | undefined {
 
 /**
  * Reads the points of a GPX file from any app. It is a tolerant scanner rather
- * than a validating XML parser: unknown elements and extensions are ignored.
+ * than a validating XML parser: track, route and waypoint elements are found
+ * with or without a namespace prefix, self-closing or with children, and
+ * unknown elements and extensions are ignored. It walks the text with
+ * indexOf, so large files cost little more than one pass.
  */
 export function parseGpx(text: string): ParsedGpx {
   const points: ParsedGpxPoint[] = [];
   let skippedWithoutTimeCount = 0;
   let skippedInvalidCount = 0;
 
-  const pattern = new RegExp(POINT_PATTERN.source, "g");
-  for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
-    const attributes = match[2] ?? "";
-    const body = match[3] ?? "";
-    const latitude = parseCoordinate(attribute(attributes, "lat"));
-    const longitude = parseCoordinate(attribute(attributes, "lon"));
+  let position = text.indexOf("<");
+  while (position !== -1) {
+    // The element name ends at whitespace, "/" or ">".
+    let nameEnd = position + 1;
+    while (nameEnd < text.length && !NAME_END.test(text[nameEnd]!)) nameEnd += 1;
+    const name = text.slice(position + 1, nameEnd);
+    const localName = name.slice(name.indexOf(":") + 1);
+    if (!POINT_ELEMENTS.has(localName)) {
+      position = text.indexOf("<", position + 1);
+      continue;
+    }
+
+    const tagEnd = text.indexOf(">", nameEnd);
+    if (tagEnd === -1) break;
+    const selfClosing = text[tagEnd - 1] === "/";
+    const attributes = text.slice(nameEnd, selfClosing ? tagEnd - 1 : tagEnd);
+    let body = "";
+    let next = tagEnd + 1;
+    if (!selfClosing) {
+      const close = text.indexOf(`</${name}`, next);
+      if (close === -1) break;
+      body = text.slice(next, close);
+      next = text.indexOf(">", close) + 1;
+      if (next === 0) break;
+    }
+    position = text.indexOf("<", next);
+
+    const latitude = parseCoordinate(attribute(attributes, LAT_PATTERN));
+    const longitude = parseCoordinate(attribute(attributes, LON_PATTERN));
     if (latitude === undefined || longitude === undefined) {
       skippedInvalidCount += 1;
       continue;

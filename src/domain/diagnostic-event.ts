@@ -11,6 +11,7 @@ export type DiagnosticEventKind =
   | "map-load-error"
   | "process-start"
   | "task-reregister"
+  | "tiles-derived"
   | "tracking-state";
 
 export type DiagnosticDetailValue = string | number | boolean | null;

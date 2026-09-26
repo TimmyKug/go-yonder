@@ -26,6 +26,7 @@ import {
   startLocationTracking,
   subscribeToLocationState,
 } from "@/src/location";
+import { requestTileDerivation } from "@/src/tiles/tile-deriver";
 
 export function YonderScreen() {
   const location = useSyncExternalStore(
@@ -39,6 +40,8 @@ export function YonderScreen() {
 
   useEffect(() => {
     void initializeLocationTracking();
+    // Finish tiles for imported points left over from an earlier session.
+    requestTileDerivation();
 
     const subscription = AppState.addEventListener("change", (nextState) => {
       if (nextState === "active") {
