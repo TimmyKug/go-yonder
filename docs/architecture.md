@@ -145,7 +145,7 @@ For each sample:
 
 1. Validate finite WGS84 coordinates and a valid timestamp.
 2. Reject live readings less accurate than the chosen limit: **25, 50 or
-   100 m** (default 100 m), set in Settings. They never unlock cells and are not
+   100 m** (default 50 m), set in Settings. They never unlock cells and are not
    stored. Imported history is not filtered by it.
 3. Compute the fingerprint and the resolution-11 H3 cell.
 4. In one transaction, insert the sample if new and upsert the cell's

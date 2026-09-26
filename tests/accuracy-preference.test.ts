@@ -16,16 +16,16 @@ describe("accuracy preference", () => {
     vi.resetModules();
   });
 
-  it("defaults to 100 m and ignores values that are not offered", async () => {
+  it("defaults to 50 m and ignores values that are not offered", async () => {
     const { parseAccuracyPreference, readMaxLiveAccuracyM } = await import(
       "@/src/data/accuracy-preference"
     );
 
-    expect(readMaxLiveAccuracyM()).toBe(100);
-    expect(parseAccuracyPreference("50")).toBe(50);
-    expect(parseAccuracyPreference("75")).toBe(100);
-    expect(parseAccuracyPreference("garbage")).toBe(100);
-    expect(parseAccuracyPreference(null)).toBe(100);
+    expect(readMaxLiveAccuracyM()).toBe(50);
+    expect(parseAccuracyPreference("100")).toBe(100);
+    expect(parseAccuracyPreference("75")).toBe(50);
+    expect(parseAccuracyPreference("garbage")).toBe(50);
+    expect(parseAccuracyPreference(null)).toBe(50);
   });
 
   it("persists a choice and notifies subscribers", async () => {

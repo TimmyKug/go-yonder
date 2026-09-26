@@ -4,7 +4,7 @@ export const YONDER_H3_RESOLUTION = 11;
 export const LIVE_ACCURACY_OPTIONS_M = [25, 50, 100] as const;
 export type LiveAccuracyOptionM = (typeof LIVE_ACCURACY_OPTIONS_M)[number];
 
-export const DEFAULT_MAX_LIVE_HORIZONTAL_ACCURACY_M: LiveAccuracyOptionM = 100;
+export const DEFAULT_MAX_LIVE_HORIZONTAL_ACCURACY_M: LiveAccuracyOptionM = 50;
 
 export const YONDER_DATABASE_NAME = "yonder.db";
 
