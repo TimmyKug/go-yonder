@@ -14,6 +14,7 @@ import {
   type TrackingPresentation,
 } from "./yonder-map-view";
 
+import { runFolderBackupIfDue } from "@/src/data/folder-backup";
 import {
   refreshAutomaticYonderBackup,
 } from "@/src/data/yonder-backup";
@@ -43,7 +44,9 @@ export function YonderScreen() {
       if (nextState === "active") {
         void initializeLocationTracking();
       } else if (nextState === "background") {
-        void refreshAutomaticYonderBackup().catch(() => undefined);
+        void refreshAutomaticYonderBackup()
+          .catch(() => undefined)
+          .then(() => runFolderBackupIfDue());
       }
     });
 
