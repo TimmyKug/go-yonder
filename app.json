@@ -2,7 +2,7 @@
   "expo": {
     "name": "Yonder",
     "slug": "yonder",
-    "version": "0.4.6",
+    "version": "0.4.7-beta.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "yonder",
@@ -26,7 +26,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 400699
+      "versionCode": 400701
     },
     "web": {
       "favicon": "./assets/favicon.png"
