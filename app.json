@@ -10,7 +10,7 @@
     "ios": {
       "icon": {
         "light": "./assets/icon-light.png",
-        "dark": "./assets/icon-dark.png"
+        "dark": "./assets/icon.png"
       },
       "supportsTablet": true,
       "bundleIdentifier": "com.timothykugler.yonder"
@@ -22,7 +22,7 @@
       ],
       "adaptiveIcon": {
         "backgroundColor": "#020D2A",
-        "foregroundImage": "./assets/android-icon-foreground.png",
+        "foregroundImage": "./assets/icon.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,

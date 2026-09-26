@@ -2,130 +2,84 @@
 
 **Unveil your world.**
 
-A private, local-first coverage map. The app records where the device has been, maps accepted location samples to stable H3 cells, persists those cells on-device, and displays them over a native vector map.
+A private, local-first coverage map for iOS and Android. Yonder records where
+the device has been, unlocks the H3 hexagons it passes through, and reveals them
+on a native map. Everything stays on the device: no accounts, backend,
+analytics, or cloud sync.
 
-Everything stays on the device. There are no accounts, no backend, no analytics, and no cloud sync.
+> Location history is sensitive. Never commit real exports, databases, or
+> personal coordinates to this repository.
 
-See [Architecture and implementation plan](docs/architecture.md) for the accepted technical decisions, boundaries, schema, and delivery phases.
+## Features
 
-> Location history is sensitive. Real exports and personal coordinates must never be committed to this repository.
+- Foreground and background tracking; readings less accurate than 50 m never
+  unlock tiles.
+- Resolution-11 H3 coverage revealed through a veil over unvisited areas, with
+  coarser hexes when zoomed out.
+- A weak-GPS indicator that shows an inaccurate fix and its accuracy radius.
+- Visited countries with approximate explored percentages, and a globe view.
+- An offline fallback map with bundled country borders.
+- Backup export and idempotent backup import in Settings.
+- An on-device diagnostics log that never contains locations.
 
-## What works
+How it works is described in [docs/architecture.md](docs/architecture.md).
 
-- Foreground and background location permission flows.
-- High-accuracy readings normalized through one source-neutral ingestion service.
-- Resolution-11 H3 unlocking with a 50-metre live-accuracy threshold.
-- Durable, idempotent SQLite storage of normalized observations and unlocked cells.
-- A viewport-aware GeoJSON overlay on a native MapLibre map, with an offline fallback map and bundled country borders.
-- A weak-GPS indicator that shows an inaccurate fix with its accuracy radius without unlocking tiles.
-- Visited countries and approximate explored percentages, built by a resumable on-device background scan.
-- Backup export and additive, idempotent backup import in Settings.
-- An on-device diagnostics log of tracking, backup, and map errors that never contains locations.
-- A format-neutral adapter seam for future location-history imports.
+## Development
 
-## Local development
-
-Requirements:
-
-- Node.js 22.13 or newer and npm.
-- Xcode/CocoaPods for iOS, or Android Studio/SDK for Android.
-- A native development build. MapLibre and background location do not run in Expo Go.
-
-Install and verify:
+Requirements: Node.js 22.13 or newer, and Xcode for iOS or the Android SDK for
+Android. MapLibre and background location need a native development build; Expo
+Go is not supported.
 
 ```sh
-npm install
+npm install        # also applies the h3-js and MapLibre patches
 npm run typecheck
 npm run lint
 npm test
+npm run ios        # or: npm run android
 ```
 
-Run a native build:
+The basemap is OpenFreeMap (Positron and Dark), which needs no API key.
+`EXPO_PUBLIC_MAP_STYLE_LIGHT_URL` and `EXPO_PUBLIC_MAP_STYLE_DARK_URL` replace
+either style. `EXPO_PUBLIC_` values are bundled into the app, so never put
+secrets in them.
 
-```sh
-npm run ios
-npm run android
-```
+The web target is an informational page only.
 
-`npm install` applies the checked-in `h3-js` compatibility patch required by Expo 57's native runtime. Do not remove the postinstall step or loosen the exact H3 version without rerunning the Hermes compatibility test.
+### iOS simulator QA
 
-Yonder uses OpenFreeMap's Positron and Dark vector styles. Settings lets you use
-the system appearance or keep the app in light or dark mode. The public service
-requires no registration or API key. `EXPO_PUBLIC_MAP_STYLE_LIGHT_URL` and
-`EXPO_PUBLIC_MAP_STYLE_DARK_URL` can override either complete MapLibre style.
-Yonder does not preload or offer offline downloads from the hosted service.
-
-The web route is an informational fallback only. Yonder itself targets iOS and Android.
-
-## Android updates with Obtainium
-
-Android release APKs are published on GitHub releases tagged `vMAJOR.MINOR.PATCH`
-(or `vMAJOR.MINOR.PATCH-beta.N` for prereleases). Add
-`https://github.com/TimmyKug/go-yonder` to Obtainium as a GitHub source.
-
-Maintainers must configure the `RELEASE_KEYSTORE_BASE64`,
-`RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, and `RELEASE_KEY_PASSWORD`
-GitHub Actions secrets for Yonder's dedicated production signing key.
-
-To publish an update, merge a release-preparation change into `main` that sets
-the new version in `app.json` (`expo.version` and `expo.android.versionCode`)
-and in `package.json`. The **Release on merge** workflow then tags the merged
-commit `v<version>` and builds the release. Merges that leave the version
-unchanged release nothing. Pushing a tag by hand still works as a fallback:
-
-```sh
-git tag v0.4.5
-git push origin v0.4.5
-```
-
-### Test builds (prereleases)
-
-To try a change on your phone before a real release, merge a version such as
-`0.4.5-beta.1`. The workflow publishes it as a GitHub prerelease. In Obtainium,
-open Yonder's settings and turn on **Include prereleases** to receive it. Betas
-update the installed app in place and keep its data. Obtainium also offers the
-later stable release, such as `0.4.5`, as an update over a beta. Turn the
-setting off again to follow stable releases only.
-
-The Android `versionCode` is `(MAJOR * 1,000,000 + MINOR * 1,000 + PATCH) * 100`
-plus the beta number, or plus 99 for a stable release. For example,
-`0.4.5-beta.1` is `400501` and `0.4.5` is `400599`.
-
-Android only accepts an in-place update when its version code is higher and its
-signing certificate matches the installed app. The release workflow enforces
-the former and uses the repository secret for the latter.
-
-## Native iOS QA
-
-The repository includes a local iOS Simulator smoke test built around Maestro and CoreSimulator. It deliberately sends a synthetic route through the operating system's location service; it does not bypass the production ingestion pipeline.
-
-Prerequisites:
-
-- A bootable iOS Simulator and Xcode command-line tools.
-- Maestro installed from its official Homebrew tap.
-- Metro already running with `npx expo start --dev-client`.
-
-```sh
-brew tap mobile-dev-inc/tap
-brew install mobile-dev-inc/tap/maestro
-```
-
-Run the complete native check with:
+With Metro running (`npx expo start --dev-client`), Xcode command-line tools and
+[Maestro](https://maestro.mobile.dev/) installed:
 
 ```sh
 npm run qa:ios
 ```
 
-The script resets only Yonder's simulator installation, builds the current native app, grants simulator location access, drives a synthetic central-Berlin route, verifies that at least three H3 cells reach SQLite, relaunches the app, and confirms no cells were lost. Screenshots and diagnostic logs are written under the ignored `.artifacts/ios-qa/` directory.
+It reinstalls Yonder on a simulator (`IOS_QA_DEVICE_NAME`, default
+`iPhone 17 Pro`), drives a synthetic route through the OS location service,
+checks that at least three cells reach SQLite, relaunches, and confirms they
+persist. Output goes to the ignored `.artifacts/ios-qa/`. Background tracking
+still needs a physical device.
 
-Set `IOS_QA_DEVICE_NAME` to select a different installed simulator. This loop validates foreground native integration and persistence; background/locked-screen behavior still requires a physical device.
+## Android releases and Obtainium
 
-## Data model
+Add `https://github.com/TimmyKug/go-yonder` to Obtainium as a GitHub source.
+Turn on **Include prereleases** to also receive beta builds; betas update the
+installed app in place and keep its data.
 
-SQLite is the only source of truth. It stores accepted normalized observations, derived unlocked cells, and bookkeeping for future imports. Live readings and future import adapters enter through the same validation, H3, and transactional upsert path. Re-importing or replaying an identical observation is safe.
+To release, merge a change to `main` that sets the new version in `app.json`
+(`expo.version` and `expo.android.versionCode`) and `package.json`:
+
+- `X.Y.Z` publishes a release, `X.Y.Z-beta.N` a prerelease.
+- `versionCode = (X * 1,000,000 + Y * 1,000 + Z) * 100 + N`, with `N = 99` for
+  a stable release. Android only installs a higher `versionCode` signed with the
+  same key.
+
+The **Release on merge** workflow tags the merge commit and builds a signed
+APK. It needs the `RELEASE_KEYSTORE_BASE64`, `RELEASE_STORE_PASSWORD`,
+`RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD` repository secrets.
 
 ## License
 
-Yonder is released under the [MIT License](LICENSE). The bundled country
-boundaries come from [Natural Earth](https://www.naturalearthdata.com/), which is
-in the public domain.
+[MIT](LICENSE). Country boundaries come from
+[Natural Earth](https://www.naturalearthdata.com/), which is in the public
+domain.
