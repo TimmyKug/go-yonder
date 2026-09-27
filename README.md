@@ -19,7 +19,8 @@ analytics, or cloud sync.
 - Resolution-11 H3 coverage revealed through a veil over unvisited areas, with
   coarser hexes when zoomed out.
 - A weak-GPS indicator that shows an inaccurate fix and its accuracy radius.
-- Visited countries with approximate explored percentages, and a globe view.
+- Visited countries and regions with approximate explored percentages, and a
+  globe view.
 - An offline fallback map with bundled country borders.
 - GPX export of every recorded GPS point as a complete backup, and idempotent
   GPX import from Yonder or any other app, plus an automatic GPX backup to a
@@ -86,6 +87,6 @@ APK. It needs the `RELEASE_KEYSTORE_BASE64`, `RELEASE_STORE_PASSWORD`,
 
 ## License
 
-[MIT](LICENSE). Country boundaries come from
+[MIT](LICENSE). Country and region boundaries come from
 [Natural Earth](https://www.naturalearthdata.com/), which is in the public
 domain.

@@ -234,7 +234,7 @@ export function AboutSheet({ colors, onClose, showOpenMapTiles, visible }: About
               </Text>
             </>
           ) : null}
-          {" · Country borders: Natural Earth\n"}
+          {" · Country and region borders: Natural Earth\n"}
           <Text accessibilityRole="link" onPress={() => open(SOURCE_CODE_URL)} style={link}>
             Source code on GitHub
           </Text>

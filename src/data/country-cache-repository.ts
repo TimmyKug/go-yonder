@@ -1,4 +1,11 @@
-import { type CountryCollection, type CountryProperties, type CountryVisit } from "../domain/country-coverage";
+import {
+  type CountryCollection,
+  type CountryProperties,
+  type CountryVisit,
+  type RegionCollection,
+  type RegionProperties,
+  type RegionVisit,
+} from "../domain/country-coverage";
 
 import type { DatabaseMigration } from "./migrations";
 import type { SqlDatabase, SqlExecutor, SqlValue } from "./sql-database";
@@ -31,6 +38,24 @@ export const COUNTRY_CACHE_MIGRATIONS: readonly DatabaseMigration[] = Object.fre
         parent_id TEXT NOT NULL,
         covered_km2 REAL,
         PRIMARY KEY (country_id, parent_id)
+      );
+    `,
+  },
+  {
+    version: 2,
+    name: "create-region-cache",
+    sql: `
+      CREATE TABLE region_visits (
+        region_id TEXT PRIMARY KEY,
+        first_seen_at_ms INTEGER NOT NULL
+      );
+
+      -- Finer hexes than countries; covered_km2 is NULL until computed.
+      CREATE TABLE region_parents (
+        region_id TEXT NOT NULL,
+        parent_id TEXT NOT NULL,
+        covered_km2 REAL,
+        PRIMARY KEY (region_id, parent_id)
       );
     `,
   },
@@ -73,19 +98,27 @@ export type ScannedCell = Readonly<{
   countryId: string;
   parentId: string;
   firstSeenAtMs: number;
+  /** The cell's region and its finer coverage hex, when it lies in one. */
+  region?: Readonly<{ regionId: string; parentId: string }>;
 }>;
 
+export type CoverageKind = "country" | "region";
+
 /** Changes whenever the bundled boundaries change, which invalidates the cache. */
-export function countryBoundariesFingerprint(collection: CountryCollection): string {
-  // FNV-1a over every country's identifier and area.
+export function countryBoundariesFingerprint(
+  collection: CountryCollection,
+  regions?: RegionCollection,
+): string {
+  // FNV-1a over every country's and region's identifier and area.
   let hash = 0x811c9dc5;
-  for (const { properties } of collection.features) {
+  const features = [...collection.features, ...(regions?.features ?? [])];
+  for (const { properties } of features) {
     const text = `${properties.id}:${properties.areaKm2};`;
     for (let i = 0; i < text.length; i += 1) {
       hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193) >>> 0;
     }
   }
-  return `${collection.features.length}:${hash.toString(16)}`;
+  return `${collection.features.length}:${regions?.features.length ?? 0}:${hash.toString(16)}`;
 }
 
 async function clear(cache: SqlDatabase, boundaries: string): Promise<CountryScanState> {
@@ -94,7 +127,9 @@ async function clear(cache: SqlDatabase, boundaries: string): Promise<CountrySca
       "SELECT generation FROM scan_state WHERE id = 1",
     );
     const generation = (previous?.generation ?? 0) + 1;
-    await transaction.execute("DELETE FROM country_visits; DELETE FROM country_parents");
+    await transaction.execute(
+      "DELETE FROM country_visits; DELETE FROM country_parents; DELETE FROM region_visits; DELETE FROM region_parents",
+    );
     await transaction.run(
       `INSERT INTO scan_state (id, generation, boundaries, last_rowid) VALUES (1, ?, ?, 0)
        ON CONFLICT (id) DO UPDATE SET generation = excluded.generation,
@@ -160,12 +195,23 @@ export async function commitScannedCells(
   const visits = new Map<string, number>();
   const parents = new Set<string>();
   const parentRows: SqlValue[][] = [];
-  for (const { countryId, parentId, firstSeenAtMs } of cells) {
+  const regionVisits = new Map<string, number>();
+  const regionParents = new Set<string>();
+  const regionParentRows: SqlValue[][] = [];
+  for (const { countryId, parentId, firstSeenAtMs, region } of cells) {
     visits.set(countryId, Math.min(visits.get(countryId) ?? firstSeenAtMs, firstSeenAtMs));
     const key = `${countryId}:${parentId}`;
     if (!parents.has(key)) {
       parents.add(key);
       parentRows.push([countryId, parentId]);
+    }
+    if (region) {
+      regionVisits.set(region.regionId, Math.min(regionVisits.get(region.regionId) ?? firstSeenAtMs, firstSeenAtMs));
+      const regionKey = `${region.regionId}:${region.parentId}`;
+      if (!regionParents.has(regionKey)) {
+        regionParents.add(regionKey);
+        regionParentRows.push([region.regionId, region.parentId]);
+      }
     }
   }
   return inCacheTransaction(cache, async (transaction) => {
@@ -187,31 +233,58 @@ export async function commitScannedCells(
         parentRows.flat(),
       );
     }
+    if (regionVisits.size > 0) {
+      await transaction.run(
+        `INSERT INTO region_visits (region_id, first_seen_at_ms)
+         VALUES ${[...regionVisits].map(() => "(?, ?)").join(", ")}
+         ON CONFLICT (region_id) DO UPDATE SET
+           first_seen_at_ms = MIN(first_seen_at_ms, excluded.first_seen_at_ms)`,
+        [...regionVisits].flat(),
+      );
+      await transaction.run(
+        `INSERT OR IGNORE INTO region_parents (region_id, parent_id)
+         VALUES ${regionParentRows.map(() => "(?, ?)").join(", ")}`,
+        regionParentRows.flat(),
+      );
+    }
     await transaction.run("UPDATE scan_state SET last_rowid = ? WHERE id = 1", [lastRowId]);
     return true;
   });
 }
 
-export function readPendingCoverage(
+const COVERAGE_TABLES = {
+  country: { table: "country_parents", id: "country_id" },
+  region: { table: "region_parents", id: "region_id" },
+} as const;
+
+/** Explored hexes still missing their clipped area; countries come first. */
+export async function readPendingCoverage(
   cache: SqlDatabase,
   limit: number,
-): Promise<{ country_id: string; parent_id: string }[]> {
-  return cache.all(
-    "SELECT country_id, parent_id FROM country_parents WHERE covered_km2 IS NULL LIMIT ?",
-    [limit],
-  );
+): Promise<{ kind: CoverageKind; area_id: string; parent_id: string }[]> {
+  for (const kind of ["country", "region"] as const) {
+    const { table, id } = COVERAGE_TABLES[kind];
+    const rows = await cache.all<{ area_id: string; parent_id: string }>(
+      `SELECT ${id} AS area_id, parent_id FROM ${table} WHERE covered_km2 IS NULL LIMIT ?`,
+      [limit],
+    );
+    if (rows.length > 0) return rows.map((row) => ({ kind, ...row }));
+  }
+  return [];
 }
 
 /** A no-op if a reset removed the row while the area was being computed. */
 export async function saveCoverage(
   cache: SqlDatabase,
-  countryId: string,
+  kind: CoverageKind,
+  areaId: string,
   parentId: string,
   coveredKm2: number,
 ): Promise<void> {
+  const { table, id } = COVERAGE_TABLES[kind];
   await cache.run(
-    "UPDATE country_parents SET covered_km2 = ? WHERE country_id = ? AND parent_id = ?",
-    [coveredKm2, countryId, parentId],
+    `UPDATE ${table} SET covered_km2 = ? WHERE ${id} = ? AND parent_id = ?`,
+    [coveredKm2, areaId, parentId],
   );
 }
 
@@ -241,6 +314,37 @@ export async function readCachedCountrySummary(
       firstSeenAtMs: row.first_seen_at_ms,
       exploredAreaKm2: row.covered_km2,
       uncoveredPercent: Math.min(100, country.areaKm2 > 0 ? row.covered_km2 / country.areaKm2 * 100 : 0),
+      coveragePending: row.pending > 0,
+    }];
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Visited regions as far as scanned; a percentage is partial while coverage is pending. */
+export async function readCachedRegionSummary(
+  cache: SqlDatabase,
+  regions: ReadonlyMap<string, RegionProperties>,
+): Promise<RegionVisit[]> {
+  const rows = await cache.all<{
+    region_id: string;
+    first_seen_at_ms: number;
+    covered_km2: number;
+    pending: number;
+  }>(`
+    SELECT v.region_id, v.first_seen_at_ms,
+      COALESCE(SUM(p.covered_km2), 0) AS covered_km2,
+      COALESCE(SUM(p.parent_id IS NOT NULL AND p.covered_km2 IS NULL), 0) AS pending
+    FROM region_visits v
+    LEFT JOIN region_parents p ON p.region_id = v.region_id
+    GROUP BY v.region_id
+  `);
+  return rows.flatMap((row) => {
+    const region = regions.get(row.region_id);
+    if (!region) return [];
+    return [{
+      ...region,
+      firstSeenAtMs: row.first_seen_at_ms,
+      exploredAreaKm2: row.covered_km2,
+      uncoveredPercent: Math.min(100, region.areaKm2 > 0 ? row.covered_km2 / region.areaKm2 * 100 : 0),
       coveragePending: row.pending > 0,
     }];
   }).sort((a, b) => a.name.localeCompare(b.name));

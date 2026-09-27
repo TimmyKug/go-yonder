@@ -9,10 +9,20 @@ import {
   countryBoundariesFingerprint,
   prepareCountryCache,
   readCachedCountrySummary,
+  readCachedRegionSummary,
   resetCountryCache,
 } from "../src/data/country-cache-repository";
 import { runMigrations } from "../src/data/migrations";
-import { CountryIndex, formatUncoveredPercent, type CountryCollection, type CountryFeature } from "../src/domain/country-coverage";
+import {
+  AreaIndex,
+  CountryIndex,
+  formatUncoveredPercent,
+  REGION_COVERAGE_RESOLUTION,
+  type CountryCollection,
+  type CountryFeature,
+  type RegionCollection,
+  type RegionProperties,
+} from "../src/domain/country-coverage";
 
 import { NodeSqliteDatabase } from "./support/node-sqlite-database";
 
@@ -207,6 +217,64 @@ describe("background country scan", () => {
   });
 });
 
+describe("regions", () => {
+  // Testland split into a west and an east region, and a region of another country.
+  const region = (id: string, countryId: string, west: number, east: number) => {
+    const { geometry, properties } = square(id, west, 9, east, 11);
+    return { type: "Feature" as const, id, geometry, properties: { ...properties, countryId } as RegionProperties };
+  };
+  const regions: RegionCollection = {
+    type: "FeatureCollection",
+    features: [region("West", "Testland", 19, 20), region("East", "Testland", 20, 21), region("Elsewhere", "Otherland", 30, 31)],
+  };
+  const regionMap = new Map(regions.features.map(({ properties }) => [properties.id, properties]));
+  const westCell = latLngToCell(10, 19.5, 11);
+
+  it("records the region of each visited cell with its own finer coverage", async () => {
+    const { main, cache } = await databases();
+    await unlock(main, westCell, 500);
+    await unlock(main, latLngToCell(10, 19.51, 11), 400);
+    const countries = collection([country]);
+    const done = await scanCountries(main, cache, new CountryIndex(countries),
+      countryBoundariesFingerprint(countries, regions), { ...noPause, shouldContinue: () => true }, new AreaIndex(regions));
+
+    expect(done).toBe(true);
+    const [west] = await readCachedRegionSummary(cache, regionMap);
+    expect(west).toMatchObject({ id: "West", countryId: "Testland", firstSeenAtMs: 400, coveragePending: false });
+    // One resolution-6 hex, about 36 km², clipped to a region of about 24,000 km².
+    const parents = await cache.all<{ parent_id: string }>("SELECT parent_id FROM region_parents");
+    expect(parents).toEqual([{ parent_id: cellToParent(westCell, REGION_COVERAGE_RESOLUTION) }]);
+    expect(west!.exploredAreaKm2).toBeGreaterThan(20);
+    expect(west!.exploredAreaKm2).toBeLessThan(50);
+    expect(west!.uncoveredPercent).toBeCloseTo(west!.exploredAreaKm2 / west!.areaKm2 * 100);
+    expect(await readCachedRegionSummary(cache, regionMap)).toHaveLength(1);
+  });
+
+  it("ignores a region that belongs to a different country than the cell", async () => {
+    const { main, cache } = await databases();
+    await unlock(main, westCell);
+    const countries = collection([country]);
+    const misplaced: RegionCollection = { type: "FeatureCollection", features: [region("Foreign", "Otherland", 19, 20)] };
+    await scanCountries(main, cache, new CountryIndex(countries),
+      countryBoundariesFingerprint(countries, misplaced), { ...noPause, shouldContinue: () => true }, new AreaIndex(misplaced));
+
+    expect(await cache.all("SELECT * FROM region_visits")).toEqual([]);
+    expect(await cache.all("SELECT country_id FROM country_visits")).toEqual([{ country_id: "Testland" }]);
+  });
+
+  it("forgets regions on reset and rescans when the region borders change", async () => {
+    const { main, cache } = await databases();
+    await unlock(main, westCell);
+    const countries = collection([country]);
+    const fingerprint = countryBoundariesFingerprint(countries, regions);
+    await scanCountries(main, cache, new CountryIndex(countries), fingerprint, { ...noPause, shouldContinue: () => true }, new AreaIndex(regions));
+    await resetCountryCache(cache);
+    expect(await cache.all("SELECT * FROM region_visits")).toEqual([]);
+    expect(await cache.all("SELECT * FROM region_parents")).toEqual([]);
+    expect(countryBoundariesFingerprint(countries)).not.toBe(fingerprint);
+  });
+});
+
 describe("bundled country data", () => {
   const countries = require("../src/data/countries/countries.json") as CountryCollection;
   const index = new CountryIndex(countries);
@@ -222,5 +290,29 @@ describe("bundled country data", () => {
   it("has positive areas and no Antarctic count", () => {
     expect(countries.features.every(({ properties }) => properties.areaKm2 > 0)).toBe(true);
     expect(index.countryForCell(latLngToCell(-85, 0, 11))).toBeNull();
+  });
+});
+
+describe("bundled region data", () => {
+  const countries = require("../src/data/countries/countries.json") as CountryCollection;
+  const regions = require("../src/data/regions/regions.json") as RegionCollection;
+  const countryIndex = new CountryIndex(countries);
+  const regionIndex = new AreaIndex(regions);
+
+  it.each([
+    [52.52, 13.405, "Berlin"], [48.137, 11.575, "Bavaria"], [48.8566, 2.3522, "Paris"],
+    [47.3769, 8.5417, "Zürich"], [40.7128, -74.006, "New York"], [34.05, -118.25, "California"],
+  ])("assigns a synthetic point at %s, %s to %s, inside the same country", (latitude, longitude, name) => {
+    const cellId = latLngToCell(latitude as number, longitude as number, 11);
+    const region = regionIndex.areaForCell(cellId);
+    expect(region?.name).toBe(name);
+    expect(region?.countryId).toBe(countryIndex.countryForCell(cellId)?.id);
+  });
+
+  it("gives every region a bundled country, a unique id and a positive area", () => {
+    const countryIds = new Set(countries.features.map(({ properties }) => properties.id));
+    const ids = new Set(regions.features.map(({ properties }) => properties.id));
+    expect(ids.size).toBe(regions.features.length);
+    expect(regions.features.every(({ properties }) => countryIds.has(properties.countryId) && properties.areaKm2 > 0)).toBe(true);
   });
 });

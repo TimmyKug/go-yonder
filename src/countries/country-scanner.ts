@@ -7,9 +7,18 @@ import { getCountryCache } from "@/src/data/country-cache-database";
 import {
   countryBoundariesFingerprint,
   readCachedCountrySummary,
+  readCachedRegionSummary,
 } from "@/src/data/country-cache-repository";
 import { getDatabase } from "@/src/data/database";
-import { CountryIndex, type CountryProperties, type CountryVisit } from "@/src/domain/country-coverage";
+import { getRegions } from "@/src/data/regions";
+import {
+  AreaIndex,
+  CountryIndex,
+  type CountryProperties,
+  type CountryVisit,
+  type RegionProperties,
+  type RegionVisit,
+} from "@/src/domain/country-coverage";
 
 
 // Work in short slices so the map stays responsive, and publish results at
@@ -19,6 +28,8 @@ const PUBLISH_INTERVAL_MS = 400;
 
 export type CountryScanSnapshot = Readonly<{
   countries?: readonly CountryVisit[];
+  /** Visited regions, grouped by country ID. */
+  regions?: ReadonlyMap<string, readonly RegionVisit[]>;
   scanning: boolean;
   error?: string;
 }>;
@@ -28,7 +39,15 @@ const listeners = new Set<() => void>();
 let running = false;
 let rerun = false;
 let lastPublishMs = 0;
-let index: { countries: Map<string, CountryProperties>; index: CountryIndex; boundaries: string } | undefined;
+let index: {
+  countries: Map<string, CountryProperties>;
+  index: CountryIndex;
+  regions: Map<string, RegionProperties>;
+  regionIndex: AreaIndex<RegionProperties>;
+  /** How many regions each country has, for "3 of 16 regions". */
+  regionCounts: Map<string, number>;
+  boundaries: string;
+} | undefined;
 
 function setSnapshot(next: Partial<CountryScanSnapshot>) {
   snapshot = { ...snapshot, ...next };
@@ -38,10 +57,18 @@ function setSnapshot(next: Partial<CountryScanSnapshot>) {
 function getIndex() {
   if (!index) {
     const collection = getCountries();
+    const regions = getRegions();
+    const regionCounts = new Map<string, number>();
+    for (const { properties } of regions.features) {
+      regionCounts.set(properties.countryId, (regionCounts.get(properties.countryId) ?? 0) + 1);
+    }
     index = {
       countries: new Map(collection.features.map(({ properties }) => [properties.id, properties])),
       index: new CountryIndex(collection),
-      boundaries: countryBoundariesFingerprint(collection),
+      regions: new Map(regions.features.map(({ properties }) => [properties.id, properties])),
+      regionIndex: new AreaIndex(regions),
+      regionCounts,
+      boundaries: countryBoundariesFingerprint(collection, regions),
     };
   }
   return index;
@@ -49,15 +76,23 @@ function getIndex() {
 
 async function publish() {
   lastPublishMs = Date.now();
-  const countries = await readCachedCountrySummary(await getCountryCache(), getIndex().countries);
-  setSnapshot({ countries });
+  const cache = await getCountryCache();
+  const { countries: countryMap, regions: regionMap } = getIndex();
+  const countries = await readCachedCountrySummary(cache, countryMap);
+  const regions = new Map<string, RegionVisit[]>();
+  for (const region of await readCachedRegionSummary(cache, regionMap)) {
+    const list = regions.get(region.countryId);
+    if (list) list.push(region);
+    else regions.set(region.countryId, [region]);
+  }
+  setSnapshot({ countries, regions });
 }
 
 async function run() {
   running = true;
   setSnapshot({ scanning: true, error: undefined });
   try {
-    const { index: countryIndex, boundaries } = getIndex();
+    const { index: countryIndex, regionIndex, boundaries } = getIndex();
     await publish();
     let sliceStartMs = Date.now();
     await scanCountries(await getDatabase(), await getCountryCache(), countryIndex, boundaries, {
@@ -70,7 +105,7 @@ async function run() {
       onProgress: () => {
         if (Date.now() - lastPublishMs >= PUBLISH_INTERVAL_MS) void publish().catch(() => undefined);
       },
-    });
+    }, regionIndex);
     await publish();
   } catch {
     setSnapshot({ error: "Your countries could not be loaded." });
@@ -94,6 +129,11 @@ export function requestCountryScan(): void {
     return;
   }
   void run();
+}
+
+/** How many bundled regions a country has, or 0 when it has none. */
+export function regionCountForCountry(countryId: string): number {
+  return getIndex().regionCounts.get(countryId) ?? 0;
 }
 
 export function getCountryScanSnapshot(): CountryScanSnapshot {
