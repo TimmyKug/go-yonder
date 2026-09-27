@@ -201,11 +201,11 @@ export function YonderMapView({
     () => (countryBordersNeeded ? getCountries() : EMPTY_COUNTRY_COLLECTION),
     [countryBordersNeeded],
   );
-  // Zoomed out, visited regions are filled; a visited country is filled whole
-  // only while none of its regions has been found yet.
+  // Zoomed out, visited countries are tinted whole. Closer in, their visited
+  // regions fade in as a stronger tint on top, with thin region borders.
   const regionOverlay = useMemo(() => {
     if (!countryOverview || !countrySummary.countries?.length) {
-      return { countries: EMPTY_COUNTRY_COLLECTION, regionBorders: EMPTY_REGION_COLLECTION, regions: EMPTY_REGION_COLLECTION };
+      return { regionBorders: EMPTY_REGION_COLLECTION, regions: EMPTY_REGION_COLLECTION };
     }
     const visitedCountries = new Set(countrySummary.countries.map(({ id }) => id));
     const visitedRegions = new Set<string>();
@@ -213,19 +213,15 @@ export function YonderMapView({
       for (const { id } of list) visitedRegions.add(id);
     }
     const allRegions = getRegions().features;
-    const regionFeatures = allRegions.filter(({ properties }) => visitedRegions.has(properties.id));
-    const countriesWithRegions = new Set(regionFeatures.map(({ properties }) => properties.countryId));
     return {
-      countries: {
-        type: "FeatureCollection",
-        features: getCountries().features.filter(({ properties }) =>
-          visitedCountries.has(properties.id) && !countriesWithRegions.has(properties.id)),
-      } satisfies CountryCollection,
       regionBorders: {
         type: "FeatureCollection",
         features: allRegions.filter(({ properties }) => visitedCountries.has(properties.countryId)),
       } satisfies RegionCollection,
-      regions: { type: "FeatureCollection", features: regionFeatures } satisfies RegionCollection,
+      regions: {
+        type: "FeatureCollection",
+        features: allRegions.filter(({ properties }) => visitedRegions.has(properties.id)),
+      } satisfies RegionCollection,
     };
   }, [countryOverview, countrySummary.countries, countrySummary.regions]);
   const countryOverlay = useMemo<CountryCollection>(() => {
@@ -410,7 +406,7 @@ export function YonderMapView({
             />
           </GeoJSONSource>
 
-          <GeoJSONSource data={regionOverlay.countries} id="visited-countries-without-regions">
+          <GeoJSONSource data={countryOverlay} id="visited-country-areas">
             <Layer
               id="visited-country-fill"
               type="fill"
@@ -427,7 +423,7 @@ export function YonderMapView({
               type="fill"
               paint={{
                 "fill-color": themeName === "dark" ? "#AAB6B5" : "#657583",
-                "fill-opacity": ["interpolate", ["linear"], ["zoom"], 6.25, themeName === "dark" ? 0.35 : 0.22, 7.15, 0],
+                "fill-opacity": ["interpolate", ["linear"], ["zoom"], 3.5, 0, 4.5, themeName === "dark" ? 0.3 : 0.22, 6.25, themeName === "dark" ? 0.3 : 0.22, 7.15, 0],
               }}
             />
           </GeoJSONSource>

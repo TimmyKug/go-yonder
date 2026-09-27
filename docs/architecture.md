@@ -218,9 +218,9 @@ Coverage rendering:
 
 ## Countries, regions and globe
 
-At zoom 7 and below the map fades in country borders and a tint for visited
-regions, with thin region borders inside visited countries; a visited country
-none of whose regions is known yet is tinted whole. A country count opens a
+At zoom 7 and below the map fades in country borders and tints visited
+countries whole. From about zoom 4 closer in, thin region borders appear inside
+visited countries and visited regions get a stronger tint on top. A country count opens a
 sheet with a rotatable globe and the visited countries, their first visit,
 approximate explored percentage and "N of M regions". Tapping a country lists
 its visited regions with their own first visit and percentage.
