@@ -1,3 +1,5 @@
+import { LOCATION_SOURCES, type LocationSource } from "./location-sample";
+
 /** A GPS point as written to or read from a GPX file. */
 export type GpxPoint = {
   latitude: number;
@@ -5,6 +7,8 @@ export type GpxPoint = {
   /** Milliseconds since the epoch. */
   recordedAtMs: number;
   horizontalAccuracyM?: number;
+  /** How Yonder obtained the point; written so a round trip keeps it. */
+  source?: LocationSource;
 };
 
 export type ParsedGpxPoint = {
@@ -13,6 +17,8 @@ export type ParsedGpxPoint = {
   /** An ISO 8601 timestamp with a zone, as the sample contract requires. */
   recordedAt: string;
   horizontalAccuracyM?: number;
+  /** Only present in files written by Yonder. */
+  source?: LocationSource;
 };
 
 export type ParsedGpx = {
@@ -43,13 +49,15 @@ export function formatGpx(points: readonly GpxPoint[]): string {
       parts.push("<trkseg>\n");
     }
     previousMs = point.recordedAtMs;
-    const accuracy =
-      point.horizontalAccuracyM === undefined
+    const extensions =
+      (point.horizontalAccuracyM === undefined
         ? ""
-        : `<extensions><yonder:accuracy>${formatNumber(point.horizontalAccuracyM, 1)}</yonder:accuracy></extensions>`;
+        : `<yonder:accuracy>${formatNumber(point.horizontalAccuracyM)}</yonder:accuracy>`) +
+      (point.source === undefined ? "" : `<yonder:source>${point.source}</yonder:source>`);
     parts.push(
-      `<trkpt lat="${formatNumber(point.latitude, 7)}" lon="${formatNumber(point.longitude, 7)}">` +
-        `<time>${new Date(point.recordedAtMs).toISOString()}</time>${accuracy}</trkpt>\n`,
+      `<trkpt lat="${formatNumber(point.latitude)}" lon="${formatNumber(point.longitude)}">` +
+        `<time>${new Date(point.recordedAtMs).toISOString()}</time>` +
+        `${extensions ? `<extensions>${extensions}</extensions>` : ""}</trkpt>\n`,
     );
   }
   if (previousMs !== undefined) parts.push("</trkseg>\n");
@@ -57,8 +65,13 @@ export function formatGpx(points: readonly GpxPoint[]): string {
   return parts.join("");
 }
 
-function formatNumber(value: number, digits: number): string {
-  return String(Number(value.toFixed(digits)));
+/**
+ * The shortest decimal that reads back as exactly the same number, so a GPX
+ * round trip is lossless. GPX decimals cannot use exponent notation.
+ */
+function formatNumber(value: number): string {
+  const text = String(value);
+  return /e/i.test(text) ? value.toFixed(20).replace(/\.?0+$/, "") : text;
 }
 
 const POINT_ELEMENTS = new Set(["trkpt", "rtept", "wpt"]);
@@ -66,6 +79,7 @@ const LAT_PATTERN = /(?:^|\s)lat\s*=\s*(?:"([^"]*)"|'([^']*)')/;
 const LON_PATTERN = /(?:^|\s)lon\s*=\s*(?:"([^"]*)"|'([^']*)')/;
 const TIME_PATTERN = /<(?:[\w.-]+:)?time\s*>\s*([^<]*?)\s*<\/(?:[\w.-]+:)?time\s*>/;
 const ACCURACY_PATTERN = /<(?:[\w.-]+:)?accuracy\s*>\s*([^<]*?)\s*<\/(?:[\w.-]+:)?accuracy\s*>/;
+const SOURCE_PATTERN = /<(?:[\w.-]+:)?source\s*>\s*([^<]*?)\s*<\/(?:[\w.-]+:)?source\s*>/;
 const LOCAL_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/;
 const NAME_END = /[\s/>]/;
 
@@ -133,15 +147,21 @@ export function parseGpx(text: string): ParsedGpx {
     // GPX times are UTC; some apps leave out the zone.
     const recordedAt = LOCAL_TIME_PATTERN.test(time) ? `${time}Z` : time;
     const accuracy = parseCoordinate(ACCURACY_PATTERN.exec(body)?.[1]);
+    const source = SOURCE_PATTERN.exec(body)?.[1];
     points.push({
       latitude,
       longitude,
       recordedAt,
       ...(accuracy !== undefined && accuracy >= 0 ? { horizontalAccuracyM: accuracy } : {}),
+      ...(isLocationSource(source) ? { source } : {}),
     });
   }
 
   return { points, skippedWithoutTimeCount, skippedInvalidCount };
+}
+
+function isLocationSource(value: string | undefined): value is LocationSource {
+  return (LOCATION_SOURCES as readonly string[]).includes(value ?? "");
 }
 
 export function looksLikeGpx(text: string): boolean {

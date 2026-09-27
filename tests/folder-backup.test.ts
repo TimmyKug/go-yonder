@@ -18,11 +18,6 @@ vi.mock("expo-file-system", () => ({ Directory: class {}, File: class {} }));
 vi.mock("@/src/diagnostics/diagnostics", () => ({
   recordDiagnostic: (kind: string, detail: Record<string, unknown>) => diagnostics.push([kind, detail]),
 }));
-vi.mock("@/src/data/yonder-backup", () => ({
-  serializeYonderDatabase: vi.fn(),
-  YONDER_BACKUP_FILE_NAME: "yonder-backup.db",
-  YONDER_BACKUP_MIME_TYPE: "application/octet-stream",
-}));
 vi.mock("@/src/data/gpx-export", () => ({
   readStoredGpxPoints: vi.fn(),
   YONDER_GPX_FILE_NAME: "yonder-points.gpx",
@@ -45,7 +40,6 @@ function dependencies(overrides: Record<string, unknown> = {}) {
     pickFolder: vi.fn(async () => folder as never),
     readPoints: vi.fn(async () => [{ latitude: 1, longitude: 2, recordedAtMs: 0 }]),
     replaceFile: vi.fn(() => "file"),
-    serializeDatabase: vi.fn(async () => new Uint8Array([1, 2, 3])),
     ...overrides,
   };
 }
@@ -63,31 +57,17 @@ describe("folder backup", () => {
 
     await backup.chooseBackupFolder(deps);
 
-    expect(deps.replaceFile).toHaveBeenCalledWith(
-      { uri: FOLDER }, "yonder-backup.db", "application/octet-stream", new Uint8Array([1, 2, 3]),
-    );
-    expect(deps.readPoints).not.toHaveBeenCalled();
+    const [folder, name, mimeType, gpx] = deps.replaceFile.mock.calls[0] as unknown as [unknown, string, string, string];
+    expect([folder, name, mimeType]).toEqual([{ uri: FOLDER }, "yonder-points.gpx", "application/gpx+xml"]);
+    expect(gpx).toContain('<trkpt lat="1" lon="2">');
+    expect(deps.replaceFile).toHaveBeenCalledOnce();
     expect(backup.readFolderBackupSettings()).toEqual({
       folderUri: FOLDER,
-      includeGpx: false,
       intervalHours: 24,
       lastAttemptAtMs: deps.now(),
       lastSuccessAtMs: deps.now(),
     });
-    expect(diagnostics).toEqual([["folder-backup", { result: "saved", sizeBytes: 3, pointCount: null }]]);
-  });
-
-  it("also replaces the GPX file when asked", async () => {
-    const backup = await load();
-    const deps = dependencies();
-    await backup.chooseBackupFolder(deps);
-    await backup.setFolderBackupIncludesGpx(true);
-
-    await backup.runFolderBackup(deps);
-
-    const gpxCall = deps.replaceFile.mock.calls.find((call) => (call as unknown[])[1] === "yonder-points.gpx") as unknown[];
-    expect(gpxCall[2]).toBe("application/gpx+xml");
-    expect(gpxCall[3]).toContain("<trkpt");
+    expect(diagnostics).toEqual([["folder-backup", { result: "saved", sizeBytes: gpx.length, pointCount: 1 }]]);
   });
 
   it("runs again only after the chosen interval", async () => {
@@ -145,7 +125,7 @@ describe("folder backup", () => {
   it("falls back to the default interval for an unknown stored value", async () => {
     store.set("folder-backup", JSON.stringify({ folderUri: FOLDER, includeGpx: true, intervalHours: 5 }));
     const backup = await load();
-    expect(backup.readFolderBackupSettings()).toMatchObject({ intervalHours: 24, includeGpx: true });
+    expect(backup.readFolderBackupSettings()).toEqual({ folderUri: FOLDER, intervalHours: 24 });
   });
 
   it("names the folder without its storage volume", async () => {

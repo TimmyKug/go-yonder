@@ -6,18 +6,22 @@ const HOUR_MS = 60 * 60 * 1000;
 const start = Date.parse("2026-03-01T08:00:00.000Z");
 
 describe("formatGpx", () => {
-  it("round-trips points, times and accuracy through parseGpx", () => {
+  it("round-trips points, times, accuracy and source exactly", () => {
     const points = [
-      { latitude: 10.1234567, longitude: 20.7654321, recordedAtMs: start, horizontalAccuracyM: 8.25 },
+      { latitude: 10.123456789012345, longitude: 20.765432109876543, recordedAtMs: start, horizontalAccuracyM: 8.254, source: "live-background" as const },
       { latitude: -10.5, longitude: -20.25, recordedAtMs: start + 60_000 },
+      { latitude: 0.0000001, longitude: -0.00000025, recordedAtMs: start + 120_000, source: "external-import" as const },
     ];
     const gpx = formatGpx(points);
 
     expect(looksLikeGpx(gpx)).toBe(true);
+    // GPX decimals cannot use exponent notation.
+    expect(gpx).toContain('lat="0.0000001" lon="-0.00000025"');
     expect(parseGpx(gpx)).toEqual({
       points: [
-        { latitude: 10.1234567, longitude: 20.7654321, recordedAt: "2026-03-01T08:00:00.000Z", horizontalAccuracyM: 8.3 },
+        { latitude: 10.123456789012345, longitude: 20.765432109876543, recordedAt: "2026-03-01T08:00:00.000Z", horizontalAccuracyM: 8.254, source: "live-background" },
         { latitude: -10.5, longitude: -20.25, recordedAt: "2026-03-01T08:01:00.000Z" },
+        { latitude: 0.0000001, longitude: -0.00000025, recordedAt: "2026-03-01T08:02:00.000Z", source: "external-import" },
       ],
       skippedWithoutTimeCount: 0,
       skippedInvalidCount: 0,
@@ -89,6 +93,12 @@ describe("parseGpx", () => {
 <trkpt lon="1"><time>2026-03-01T08:00:00Z</time></trkpt>
 </trkseg></trk></gpx>`;
     expect(parseGpx(gpx)).toMatchObject({ points: [], skippedInvalidCount: 3 });
+  });
+
+  it("ignores source values Yonder does not use", () => {
+    const gpx = `<gpx><trk><trkseg><trkpt lat="1" lon="1"><time>2026-03-01T08:00:00Z</time>
+<extensions><other:source>phone</other:source></extensions></trkpt></trkseg></trk></gpx>`;
+    expect(parseGpx(gpx).points[0]).not.toHaveProperty("source");
   });
 
   it("does not mistake other files for GPX", () => {

@@ -21,9 +21,9 @@ analytics, or cloud sync.
 - A weak-GPS indicator that shows an inaccurate fix and its accuracy radius.
 - Visited countries with approximate explored percentages, and a globe view.
 - An offline fallback map with bundled country borders.
-- Backup export and idempotent import in Settings, plus an automatic backup to
-  a folder you choose (Android; hourly to weekly).
-- GPX export of every recorded GPS point, and GPX import from any app.
+- GPX export of every recorded GPS point as a complete backup, and idempotent
+  GPX import from Yonder or any other app, plus an automatic GPX backup to a
+  folder you choose (Android; hourly to weekly).
 - An on-device diagnostics log that never contains locations.
 
 How it works is described in [docs/architecture.md](docs/architecture.md).
