@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  globeOutlines,
+  globeLayers,
   projectToGlobe,
   rotateToward,
   type GlobeFeature,
@@ -61,9 +61,19 @@ describe("orthographic globe projection", () => {
   });
 
   it("emits a closed path only for countries with visible outline", () => {
-    const outlines = globeOutlines([FACING, BEHIND], { latitude: 0, longitude: 0 }, RADIUS, CENTRE);
-    expect(outlines.map(({ id }) => id)).toEqual(["FAC"]);
-    expect(outlines[0]!.path).toMatch(/^M[\d.]+ [\d.]+(L[\d.]+ [\d.]+)+Z$/);
+    const { land, visited } = globeLayers([FACING, BEHIND], new Set(), { latitude: 0, longitude: 0 }, RADIUS, CENTRE);
+    expect(land).toMatch(/^M[\d.]+ [\d.]+(L[\d.]+ [\d.]+)+Z$/);
+    expect(visited).toBe("");
+  });
+
+  it("splits visible land into unvisited and visited layers", () => {
+    const west: GlobeFeature = { id: "WES", name: "West", rings: [[-20, 0, -10, 0, -10, 10, -20, 10, -20, 0]] };
+    const rotation = { latitude: 0, longitude: 0 };
+    const alone = globeLayers([FACING], new Set(), rotation, RADIUS, CENTRE).land;
+    const layers = globeLayers([FACING, west, BEHIND], new Set(["FAC", "BEH"]), rotation, RADIUS, CENTRE);
+    expect(layers.visited).toBe(alone);
+    expect(layers.land.match(/M/g)).toHaveLength(1);
+    expect(layers.land).not.toBe(alone);
   });
 
   it("drops runs too short to fill and keeps the rest of a straddling outline", () => {
@@ -72,8 +82,8 @@ describe("orthographic globe projection", () => {
       name: "Straddling",
       rings: [[0, 0, 20, 0, 20, 20, 0, 20, 0, 0, 179, 0, 179, 1]],
     };
-    const [outline] = globeOutlines([straddling], { latitude: 0, longitude: 0 }, RADIUS, CENTRE);
-    expect(outline!.path.match(/M/g)).toHaveLength(1);
+    const { land } = globeLayers([straddling], new Set(), { latitude: 0, longitude: 0 }, RADIUS, CENTRE);
+    expect(land.match(/M/g)).toHaveLength(1);
   });
 
   it("draws the sphere around any centre, not just its own box", () => {

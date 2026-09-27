@@ -262,6 +262,9 @@ its visited regions with their own first visit and percentage.
   projection. `scripts/prepare-globe.mjs` derives about 5,000 outline points
   from the bundled countries, plus Antarctica. Dragging rotates it; latitude is
   clamped at the poles. It reuses the country summary and makes no requests.
+  Each frame draws all visible land as two SVG paths, unvisited and visited,
+  rather than one per country, and drag steps are coalesced to one redraw per
+  animation frame.
 
 ## Backups
 
