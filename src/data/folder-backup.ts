@@ -6,11 +6,6 @@ import { formatGpx, type GpxPoint } from "../domain/gpx";
 import { atBackupStage, BackupStageError, describeBackupCause } from "./backup-failure";
 import { replaceDocument } from "./document-files";
 import { GPX_MIME_TYPE, readStoredGpxPoints, YONDER_GPX_FILE_NAME } from "./gpx-export";
-import {
-  serializeYonderDatabase,
-  YONDER_BACKUP_FILE_NAME,
-  YONDER_BACKUP_MIME_TYPE,
-} from "./yonder-backup";
 
 import { recordDiagnostic } from "@/src/diagnostics/diagnostics";
 
@@ -22,8 +17,6 @@ export const DEFAULT_BACKUP_INTERVAL_HOURS: BackupIntervalHours = 24;
 export type FolderBackupSettings = {
   /** A folder the user picked; Android keeps the permission to write to it. */
   folderUri: string;
-  /** Also replace a GPX file with every stored GPS point. */
-  includeGpx: boolean;
   intervalHours: BackupIntervalHours;
   lastSuccessAtMs?: number;
   lastAttemptAtMs?: number;
@@ -50,7 +43,13 @@ function parseSettings(value: string | null): FolderBackupSettings | null {
       const intervalHours =
         BACKUP_INTERVAL_OPTIONS_HOURS.find((option) => option === settings.intervalHours) ??
         DEFAULT_BACKUP_INTERVAL_HOURS;
-      return { ...settings, includeGpx: settings.includeGpx === true, intervalHours };
+      return {
+        folderUri: settings.folderUri,
+        intervalHours,
+        ...(typeof settings.lastSuccessAtMs === "number" ? { lastSuccessAtMs: settings.lastSuccessAtMs } : {}),
+        ...(typeof settings.lastAttemptAtMs === "number" ? { lastAttemptAtMs: settings.lastAttemptAtMs } : {}),
+        ...(settings.lastFailure ? { lastFailure: settings.lastFailure } : {}),
+      };
     }
   } catch {
     // Treat unreadable settings as turned off.
@@ -85,7 +84,6 @@ type FolderBackupDependencies = {
   pickFolder: () => Promise<Directory>;
   readPoints: () => Promise<GpxPoint[]>;
   replaceFile: typeof replaceDocument;
-  serializeDatabase: () => Promise<Uint8Array>;
   now: () => number;
 };
 
@@ -94,7 +92,6 @@ export const defaultFolderBackupDependencies: FolderBackupDependencies = {
   pickFolder: () => Directory.pickDirectoryAsync(),
   readPoints: readStoredGpxPoints,
   replaceFile: replaceDocument,
-  serializeDatabase: serializeYonderDatabase,
   now: () => Date.now(),
 };
 
@@ -106,15 +103,9 @@ export async function chooseBackupFolder(
   const previous = readFolderBackupSettings();
   await writeSettings({
     folderUri: folder.uri,
-    includeGpx: previous?.includeGpx ?? false,
     intervalHours: previous?.intervalHours ?? DEFAULT_BACKUP_INTERVAL_HOURS,
   });
   await runFolderBackup(dependencies);
-}
-
-export async function setFolderBackupIncludesGpx(includeGpx: boolean): Promise<void> {
-  const settings = readFolderBackupSettings();
-  if (settings) await writeSettings({ ...settings, includeGpx });
 }
 
 export async function setFolderBackupInterval(intervalHours: BackupIntervalHours): Promise<void> {
@@ -140,7 +131,7 @@ export function isFolderBackupDue(settings: FolderBackupSettings | null, nowMs: 
 let runningBackup: Promise<void> | undefined;
 
 /**
- * Replaces the backup (and optionally the GPX file) in the chosen folder.
+ * Replaces the GPX backup of every stored GPS point in the chosen folder.
  * Failures are recorded for Settings rather than thrown.
  */
 export function runFolderBackup(
@@ -152,16 +143,10 @@ export function runFolderBackup(
     const startedAtMs = dependencies.now();
     try {
       const folder = await atBackupStage("open folder", () => dependencies.openFolder(settings.folderUri));
-      const bytes = await atBackupStage("read database", dependencies.serializeDatabase);
+      const points = await atBackupStage("read GPS points", dependencies.readPoints);
+      const gpx = formatGpx(points);
       await atBackupStage("write file", () =>
-        dependencies.replaceFile(folder, YONDER_BACKUP_FILE_NAME, YONDER_BACKUP_MIME_TYPE, bytes));
-      let pointCount: number | null = null;
-      if (settings.includeGpx) {
-        const points = await atBackupStage("read GPS points", dependencies.readPoints);
-        pointCount = points.length;
-        await atBackupStage("write file", () =>
-          dependencies.replaceFile(folder, YONDER_GPX_FILE_NAME, GPX_MIME_TYPE, formatGpx(points)));
-      }
+        dependencies.replaceFile(folder, YONDER_GPX_FILE_NAME, GPX_MIME_TYPE, gpx));
       // Keep changes the user made meanwhile, unless the folder changed.
       const current = readFolderBackupSettings();
       if (current?.folderUri === settings.folderUri) {
@@ -172,7 +157,7 @@ export function runFolderBackup(
           lastFailure: undefined,
         });
       }
-      recordDiagnostic("folder-backup", { result: "saved", sizeBytes: bytes.byteLength, pointCount });
+      recordDiagnostic("folder-backup", { result: "saved", sizeBytes: gpx.length, pointCount: points.length });
     } catch (error: unknown) {
       const stage = error instanceof BackupStageError ? error.stage : "unknown step";
       const reason = error instanceof BackupStageError ? error.reason : describeBackupCause(error);

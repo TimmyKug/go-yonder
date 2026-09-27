@@ -83,6 +83,25 @@ describe("importGpxText", () => {
     expect(await count("location_samples")).toBe(2);
   });
 
+  it("restores Yonder's own export on a new phone exactly, points and tiles alike", async () => {
+    await service.ingest([
+      { source: "live-foreground", recordedAt: "2026-03-01T08:00:00.000Z", latitude: 10.123456789012345, longitude: 20.987654321098765, horizontalAccuracyM: 6.25 },
+      { source: "live-background", recordedAt: "2026-03-01T08:01:00.000Z", latitude: 10.1241, longitude: 20.9881, horizontalAccuracyM: 12.5 },
+    ]);
+    const exported = formatGpx(await readAllSamplePoints(database));
+    const newPhone = new NodeSqliteDatabase();
+    await runMigrations(newPhone);
+
+    await importGpxText(exported, { database: newPhone });
+    await deriveAllTiles(newPhone);
+
+    const samples = "SELECT source, recorded_at_ms, latitude, longitude, horizontal_accuracy_m, fingerprint FROM location_samples ORDER BY recorded_at_ms";
+    const tiles = "SELECT cell_id, first_seen_at_ms, last_seen_at_ms FROM unlocked_cells ORDER BY cell_id";
+    expect(await newPhone.all(samples)).toEqual(await database.all(samples));
+    expect(await newPhone.all(tiles)).toEqual(await database.all(tiles));
+    newPhone.close();
+  });
+
   it("imports points with any accuracy, unlike live readings", async () => {
     const gpx = `<gpx><trk><trkseg><trkpt lat="10" lon="20"><time>2026-03-01T08:00:00Z</time>
 <extensions><yonder:accuracy>400</yonder:accuracy></extensions></trkpt></trkseg></trk></gpx>`;
@@ -91,7 +110,7 @@ describe("importGpxText", () => {
     expect(result).toMatchObject({ addedPointCount: 1 });
     expect(await deriveAllTiles(database)).toMatchObject({ addedTileCount: 1 });
     expect(await readAllSamplePoints(database)).toEqual([
-      { latitude: 10, longitude: 20, recordedAtMs: Date.parse("2026-03-01T08:00:00Z"), horizontalAccuracyM: 400 },
+      { latitude: 10, longitude: 20, recordedAtMs: Date.parse("2026-03-01T08:00:00Z"), horizontalAccuracyM: 400, source: "external-import" },
     ]);
   });
 

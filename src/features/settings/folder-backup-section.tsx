@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 
 import { isBackupCancellation } from "@/src/data/backup-failure";
 import {
@@ -7,7 +7,6 @@ import {
   chooseBackupFolder,
   folderDisplayName,
   runFolderBackup,
-  setFolderBackupIncludesGpx,
   setFolderBackupInterval,
   turnOffFolderBackup,
 } from "@/src/data/folder-backup";
@@ -70,8 +69,8 @@ export function FolderBackupSection({ colors }: { colors: FolderBackupSectionCol
     <View style={{ backgroundColor: colors.surface, borderRadius: 18, borderCurve: "continuous", padding: 20, gap: 10 }}>
       <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "600" }}>Automatic backup</Text>
       <Text style={{ color: colors.secondary, fontSize: 15, lineHeight: 22 }}>
-        Regularly replace the backup in a folder you choose, after new GPS points are saved. If
-        that folder syncs to a cloud service, your location history is copied there.
+        Regularly replace yonder-points.gpx, with all your GPS points, in a folder you choose.
+        If that folder syncs to a cloud service, your location history is copied there.
       </Text>
 
       {settings ? (
@@ -96,17 +95,6 @@ export function FolderBackupSection({ colors }: { colors: FolderBackupSectionCol
             selected={settings.intervalHours}
             testIDPrefix="backup-interval"
           />
-          <View style={{ alignItems: "center", flexDirection: "row", gap: 12, minHeight: 44 }}>
-            <Text style={{ color: colors.foreground, flex: 1, fontSize: 15 }}>
-              Also save GPS points as GPX
-            </Text>
-            <Switch
-              accessibilityLabel="Also save GPS points as GPX"
-              onValueChange={(value) => void setFolderBackupIncludesGpx(value).catch(() => undefined)}
-              testID="folder-backup-gpx"
-              value={settings.includeGpx}
-            />
-          </View>
           <View style={{ alignItems: "center", flexDirection: "row", flexWrap: "wrap", columnGap: 20 }}>
             {button("Save now", () => void run(() => runFolderBackup(), "Backup not saved"), "folder-backup-now")}
             {button("Change folder", () => void run(() => chooseBackupFolder(), "Folder not changed"), "folder-backup-folder")}

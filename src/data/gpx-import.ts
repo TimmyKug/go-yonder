@@ -66,8 +66,9 @@ export async function importGpxText(
         result.alreadyStoredCount += 1;
         continue;
       }
+      // Yonder's own files keep how each point was recorded.
       const row = prepareImportedSample({
-        source: "external-import",
+        source: point.source ?? "external-import",
         recordedAt: point.recordedAt,
         latitude: point.latitude,
         longitude: point.longitude,

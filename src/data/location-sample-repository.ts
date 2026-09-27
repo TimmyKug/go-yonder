@@ -1,8 +1,10 @@
 import type { GpxPoint } from "../domain/gpx";
+import type { LocationSource } from "../domain/location-sample";
 
 import type { SqlExecutor } from "./sql-database";
 
 type SampleRow = {
+  source: LocationSource;
   recorded_at_ms: number;
   latitude: number;
   longitude: number;
@@ -12,7 +14,7 @@ type SampleRow = {
 /** Every stored GPS point, oldest first. */
 export async function readAllSamplePoints(database: SqlExecutor): Promise<GpxPoint[]> {
   const rows = await database.all<SampleRow>(`
-    SELECT recorded_at_ms, latitude, longitude, horizontal_accuracy_m
+    SELECT source, recorded_at_ms, latitude, longitude, horizontal_accuracy_m
     FROM location_samples
     ORDER BY recorded_at_ms, id
   `);
@@ -21,10 +23,12 @@ export async function readAllSamplePoints(database: SqlExecutor): Promise<GpxPoi
     longitude: row.longitude,
     recordedAtMs: row.recorded_at_ms,
     ...(row.horizontal_accuracy_m === null ? {} : { horizontalAccuracyM: row.horizontal_accuracy_m }),
+    source: row.source,
   }));
 }
 
-// GPX stores seven decimal places, about a centimetre.
+// Yonder writes exact coordinates, but other apps and older Yonder exports
+// round them (seven decimal places is about a centimetre).
 const SAME_PLACE_DEGREES = 1e-6;
 
 /**
@@ -38,7 +42,7 @@ export async function createStoredPointMatcher(
 ): Promise<(point: { recordedAtMs: number; latitude: number; longitude: number }) => boolean> {
   const rows = await database.all<SampleRow>(
     `
-      SELECT recorded_at_ms, latitude, longitude, horizontal_accuracy_m
+      SELECT source, recorded_at_ms, latitude, longitude, horizontal_accuracy_m
       FROM location_samples
       WHERE recorded_at_ms BETWEEN ? AND ?
     `,

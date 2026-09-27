@@ -252,18 +252,27 @@ countries, their first visit and approximate explored percentage.
 
 ## Backups
 
-- **Automatic:** a consistent `yonder-backup.db` snapshot made with SQLite's
-  serialization API, saved in app storage at most every 15 minutes after
-  ingestion and whenever the app goes to the background.
-- **Export:** Settings saves a fresh snapshot to a folder chosen with the system
-  picker. On Android the folder is a Storage Access Framework `content://` URI,
-  so the file is created through the provider (`Directory.createFile`). If the
-  name exists the provider picks a unique one, such as `yonder-backup (1).db`,
-  which Settings reports. Provider documents are never overwritten in place,
-  because some providers do not truncate. A partly written document is deleted.
+GPX is the only user-facing backup format: it holds every sample, which is
+everything tiles are derived from.
+
+- **Internal snapshot:** a consistent `yonder-backup.db` snapshot made with
+  SQLite's serialization API, saved in app storage at most every 15 minutes
+  after ingestion and whenever the app goes to the background. It is not shown
+  to users.
+- **Export:** Settings → Export saves every stored sample, oldest first, as one
+  GPX 1.1 track (`yonder-points.gpx`) to a folder chosen with the system
+  picker. Coordinates and accuracy are written as the shortest decimal that
+  reads back as the same number (never exponent notation), with UTC times, the
+  accuracy in a `yonder:accuracy` extension, the sample source in
+  `yonder:source`, and a new segment after gaps of more than an hour, so a
+  round trip restores identical samples and fingerprints. On Android the folder
+  is a Storage Access Framework `content://` URI, so the file is created
+  through the provider (`Directory.createFile`). If the name exists the
+  provider picks a unique one, such as `yonder-points (1).gpx`, which Settings
+  reports. A partly written document is deleted.
 - **Folder backup (Android):** Settings → Automatic backup keeps permission to
-  a folder the user picks and replaces `yonder-backup.db` there, and optionally
-  `yonder-points.gpx`, every hour, 6 hours, day (default) or week. It runs after
+  a folder the user picks and replaces `yonder-points.gpx` there every hour,
+  6 hours, day (default) or week. It runs after
   ingestion that stored new samples (including in the background location task)
   and when the app goes to the background, once the interval has passed since
   the last success; a failure is retried at most hourly. Replacing deletes the
@@ -272,15 +281,11 @@ countries, their first visit and approximate explored percentage.
   reason, is shown in Settings and recorded as a `folder-backup` diagnostics
   event. A folder that syncs to a cloud service copies the history there, which
   Settings states; the app itself never uploads.
-- **GPX export:** Settings saves every stored sample, oldest first, as one GPX
-  1.1 track (`yonder-points.gpx`): seven decimal places, UTC times, the
-  accuracy in a `yonder:accuracy` extension, and a new segment after gaps of
-  more than an hour.
 - **Import:** GPS points are the source of truth. Settings → Import recognises
-  a file by its contents (a SQLite file is a backup, otherwise GPX) and stores
-  only its points; tiles stored in a backup are ignored. Tiles on a device that
-  have no points behind them (from tile-only imports in earlier versions) stay
-  on that device but are not carried by backups or GPX. Points are validated
+  a file by its contents (GPX, or a `.db` backup from earlier versions) and
+  stores only its points; tiles stored in a backup are ignored. Tiles on a
+  device that have no points behind them (from tile-only imports in earlier
+  versions) stay on that device but are not exported. Points are validated
   without the live accuracy limit (they were accepted when recorded), get a
   freshly computed fingerprint, and are inserted 120 per statement after one
   fingerprint lookup. Points that fail validation are skipped and counted.
@@ -300,7 +305,7 @@ countries, their first visit and approximate explored percentage.
   the background, refreshes the visible tiles at most once a second, shows
   "Mapping N%" in the status pill, then rebuilds the country cache if
   tiles changed and records a `tiles-derived` diagnostics event.
-- **Backup import** accepts Yonder snapshots at schema version 3 that contain a
+- **Backup import** (earlier versions' `.db` exports) accepts Yonder snapshots at schema version 3 that contain a
   `location_samples` table. The snapshot is opened separately in memory,
   checked for integrity and read in pages of 1,000 by row ID. Source, time,
   coordinates, accuracy and external record ID are restored; an import-batch
@@ -311,15 +316,16 @@ countries, their first visit and approximate explored percentage.
 - **GPX import** reads track, route and waypoint points from any app with a
   tolerant scanner (namespace prefixes, either attribute order or quote style,
   self-closing points; times without a zone are UTC). Points without a time are
-  skipped, because a visit needs one. Points become `external-import` samples,
+  skipped, because a visit needs one. Points keep a `yonder:source` when present
+  and otherwise become `external-import` samples,
   written in chunks of 5,000 that each commit on their own, with progress
   shown. A point already stored at the same second within about
   10 cm, from any source, is skipped, so re-importing a file or Yonder's own
   export adds nothing. An interrupted import keeps the chunks already
   committed.
-- **Failures** report their step (export: choose folder, read database, read
-  GPS points, create file, write file; folder backup: open folder, read
-  database, write file, read GPS points; import: read file, check file type,
+- **Failures** report their step (export: choose folder, read GPS points,
+  create file, write file; folder backup: open folder, read GPS points, write
+  file; import: read file, check file type,
   open backup, open Yonder database, add GPS points) and a
   reason made of the native error code and message with URIs, paths and
   decimal numbers removed. Each failure is recorded as a `backup-error`

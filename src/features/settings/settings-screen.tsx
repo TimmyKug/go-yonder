@@ -9,7 +9,6 @@ import type { AppearancePreference } from "@/src/data/appearance-preference";
 import { BackupStageError, describeBackupCause, isBackupCancellation } from "@/src/data/backup-failure";
 import { exportGpx } from "@/src/data/gpx-export";
 import { importLocationFile, type LocationFileImportResult } from "@/src/data/import-location-file";
-import { exportYonderBackup } from "@/src/data/yonder-backup";
 import { recordDiagnostic } from "@/src/diagnostics/diagnostics";
 import { useAppearance } from "@/src/features/appearance/appearance-provider";
 import { ChoiceRow, type ChoiceColors } from "@/src/features/settings/choice-row";
@@ -17,12 +16,11 @@ import { FolderBackupSection } from "@/src/features/settings/folder-backup-secti
 import { useMaxLiveAccuracyM } from "@/src/features/settings/use-max-live-accuracy";
 import { requestTileDerivation } from "@/src/tiles/tile-deriver";
 
-type DataAction = "export" | "gpx" | "import";
+type DataAction = "export" | "import";
 
 const DATA_ACTIONS: readonly (readonly [DataAction, string, string])[] = [
-  ["export", "Save backup", "Save a copy of all your Yonder data to a folder you choose."],
-  ["gpx", "Export GPS points", "Save every recorded GPS point as a GPX track that other map apps can open."],
-  ["import", "Import", "Choose a Yonder backup or a GPX file from any app. Repeated imports never duplicate points. Tiles for imported points are calculated in the background, which can take a few minutes for large files."],
+  ["export", "Export", "Save all your GPS points as a GPX file to a folder you choose. It is a complete backup, and other map apps can open it."],
+  ["import", "Import", "Choose a GPX file from Yonder or any other app, or an older Yonder backup (.db). Repeated imports never duplicate points. Tiles for imported points are calculated in the background, which can take a few minutes for large files."],
 ];
 
 function plural(count: number, word: string): string {
@@ -84,11 +82,8 @@ export function SettingsScreen() {
     setBusy(kind);
     try {
       if (kind === "export") {
-        const result = await exportYonderBackup();
-        Alert.alert("Backup saved", `Your Yonder data was saved as ${result.fileName}.`);
-      } else if (kind === "gpx") {
         const result = await exportGpx();
-        Alert.alert("GPS points exported", `${plural(result.pointCount, "GPS point")} saved as ${result.fileName}.`);
+        Alert.alert("Exported", `${plural(result.pointCount, "GPS point")} saved as ${result.fileName}.`);
       } else {
         const result = await importLocationFile((processed, total) =>
           setImportProgress(`Adding GPS points… ${Math.round((processed / total) * 100)}%`));
@@ -102,7 +97,7 @@ export function SettingsScreen() {
       const stage = error instanceof BackupStageError ? error.stage : "unknown step";
       const reason = error instanceof BackupStageError ? error.reason : describeBackupCause(error);
       recordDiagnostic("backup-error", { operation: kind, stage, reason });
-      Alert.alert(kind === "import" ? "Not imported" : kind === "gpx" ? "GPS points not exported" : "Backup not saved",
+      Alert.alert(kind === "import" ? "Not imported" : "Not exported",
         `${kind === "import" ? "A backup changes nothing when it fails. A GPX import keeps the points added before the error; importing it again continues without duplicates." : "Try choosing a writable folder."}\n\nStep: ${stage}\nReason: ${reason}`);
     } finally {
       pending.current = false;
@@ -113,7 +108,7 @@ export function SettingsScreen() {
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: dark ? "#071520" : "#F3F6F5" }} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24, gap: 20 }}>
-      <Text selectable style={{ color: secondary, fontSize: 16, lineHeight: 24 }}>Keep your exploration with you. Importing a backup or GPX file adds its tiles and GPS points and preserves everything already on this device.</Text>
+      <Text selectable style={{ color: secondary, fontSize: 16, lineHeight: 24 }}>Keep your exploration with you. Your GPS points are your map: export them as GPX, and importing adds points while preserving everything already on this device.</Text>
       <View style={{ gap: 10 }}>
         <Text style={{ color: foreground, fontSize: 18, fontWeight: "600" }}>Appearance</Text>
         <ChoiceRow
