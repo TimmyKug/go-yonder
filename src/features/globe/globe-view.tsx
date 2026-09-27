@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PanResponder, View } from "react-native";
 
 import { GlobeSphere, type GlobeColors } from "./globe-sphere";
@@ -45,7 +45,9 @@ export function GlobeView({
   const features = getGlobeFeatures();
   const [rotation, setRotation] = useState(() => initialRotation(features, visitedIds));
   // Cumulative gesture offsets, kept outside render so each move applies only its own step.
-  const [gesture] = useState(() => ({ dx: 0, dy: 0 }));
+  // Steps accumulate until the next frame, so touch events faster than the display
+  // refresh cost one redraw per frame rather than one each.
+  const [gesture] = useState(() => ({ dx: 0, dy: 0, pendingX: 0, pendingY: 0, frame: 0 }));
   const [panResponder] = useState(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -55,16 +57,25 @@ export function GlobeView({
         gesture.dy = 0;
       },
       onPanResponderMove: (_event, { dx, dy }) => {
-        const stepX = dx - gesture.dx;
-        const stepY = dy - gesture.dy;
+        gesture.pendingX += dx - gesture.dx;
+        gesture.pendingY += dy - gesture.dy;
         gesture.dx = dx;
         gesture.dy = dy;
-        setRotation((current) =>
-          rotateToward(current, -stepX * DEGREES_PER_PIXEL, stepY * DEGREES_PER_PIXEL),
-        );
+        if (gesture.frame !== 0) return;
+        gesture.frame = requestAnimationFrame(() => {
+          const stepX = gesture.pendingX;
+          const stepY = gesture.pendingY;
+          gesture.pendingX = 0;
+          gesture.pendingY = 0;
+          gesture.frame = 0;
+          setRotation((current) =>
+            rotateToward(current, -stepX * DEGREES_PER_PIXEL, stepY * DEGREES_PER_PIXEL),
+          );
+        });
       },
     }),
   );
+  useEffect(() => () => cancelAnimationFrame(gesture.frame), [gesture]);
   return (
     <View
       accessibilityLabel={`Globe showing ${visitedIds.size} visited countries. Drag to rotate.`}

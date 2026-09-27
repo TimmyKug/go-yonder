@@ -3,7 +3,7 @@
 export type GlobeRotation = { latitude: number; longitude: number };
 export type GlobeRing = readonly number[];
 export type GlobeFeature = { id: string; name: string; rings: readonly GlobeRing[] };
-export type GlobeOutline = { id: string; name: string; path: string };
+export type GlobeLayers = { land: string; visited: string };
 /** Where the centre of the sphere sits on the canvas it is drawn into. */
 export type GlobeCentre = { x: number; y: number };
 
@@ -48,35 +48,58 @@ export function projectToGlobe(
   };
 }
 
+/** Rounds to a tenth of a pixel; cheaper than `toFixed` on Hermes, which runs per point per frame. */
+function coordinate(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
 /**
- * One SVG path per country, covering every visible run of its outline. Runs broken by
- * the horizon are closed along the chord between their end points, which reads as a
- * clean limb at country scale. Paths may fall outside the canvas: the sphere is often
- * wider than the screen, and the canvas clips it.
+ * Every visible run of one country's outline as SVG subpaths, or "" when none is
+ * visible. Runs broken by the horizon are closed along the chord between their end
+ * points, which reads as a clean limb at country scale. Paths may fall outside the
+ * canvas: the sphere is often wider than the screen, and the canvas clips it.
  */
-export function globeOutlines(
-  features: readonly GlobeFeature[],
+function featurePath(
+  rings: readonly GlobeRing[],
   rotation: GlobeRotation,
   radius: number,
   centre: GlobeCentre,
-): GlobeOutline[] {
-  const outlines: GlobeOutline[] = [];
-  for (const { id, name, rings } of features) {
-    let path = "";
-    for (const ring of rings) {
-      let run: string[] = [];
-      for (let index = 0; index < ring.length; index += 2) {
-        const point = projectToGlobe(ring[index]!, ring[index + 1]!, rotation, radius, centre);
-        if (point) {
-          run.push(`${point.x.toFixed(1)} ${point.y.toFixed(1)}`);
-          continue;
-        }
-        if (run.length >= MIN_RUN_POINTS) path += `M${run.join("L")}Z`;
-        run = [];
+): string {
+  let path = "";
+  for (const ring of rings) {
+    let run: string[] = [];
+    for (let index = 0; index < ring.length; index += 2) {
+      const point = projectToGlobe(ring[index]!, ring[index + 1]!, rotation, radius, centre);
+      if (point) {
+        run.push(`${coordinate(point.x)} ${coordinate(point.y)}`);
+        continue;
       }
       if (run.length >= MIN_RUN_POINTS) path += `M${run.join("L")}Z`;
+      run = [];
     }
-    if (path) outlines.push({ id, name, path });
+    if (run.length >= MIN_RUN_POINTS) path += `M${run.join("L")}Z`;
   }
-  return outlines;
+  return path;
+}
+
+/**
+ * All visible land as two SVG paths, unvisited and visited. The outlines are outer
+ * rings that never overlap, so one combined path fills exactly like one path per
+ * country, while the renderer redraws two native shapes per frame instead of ~200.
+ */
+export function globeLayers(
+  features: readonly GlobeFeature[],
+  visitedIds: ReadonlySet<string>,
+  rotation: GlobeRotation,
+  radius: number,
+  centre: GlobeCentre,
+): GlobeLayers {
+  let land = "";
+  let visited = "";
+  for (const { id, rings } of features) {
+    const path = featurePath(rings, rotation, radius, centre);
+    if (visitedIds.has(id)) visited += path;
+    else land += path;
+  }
+  return { land, visited };
 }

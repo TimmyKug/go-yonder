@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import Svg, { Circle, Path } from "react-native-svg";
 
 import { getGlobeFeatures } from "@/src/data/globe";
-import { globeOutlines, type GlobeRotation } from "@/src/domain/globe-projection";
+import { globeLayers, type GlobeRotation } from "@/src/domain/globe-projection";
 
 export type GlobeColors = {
   limb: string;
@@ -36,9 +36,9 @@ export function GlobeSphere({
 }) {
   const features = getGlobeFeatures();
   const centre = useMemo(() => ({ x: width / 2, y: height / 2 }), [height, width]);
-  const outlines = useMemo(
-    () => globeOutlines(features, rotation, radius, centre),
-    [centre, features, radius, rotation],
+  const layers = useMemo(
+    () => globeLayers(features, visitedIds, rotation, radius, centre),
+    [centre, features, radius, rotation, visitedIds],
   );
 
   return (
@@ -51,18 +51,8 @@ export function GlobeSphere({
         stroke={colors.limb}
         strokeWidth={1}
       />
-      {outlines.map(({ id, path }) => {
-        const visited = visitedIds.has(id);
-        return (
-          <Path
-            d={path}
-            fill={visited ? colors.visited : colors.land}
-            key={id}
-            stroke={visited ? colors.visitedEdge : colors.landEdge}
-            strokeWidth={visited ? 0.8 : 0.5}
-          />
-        );
-      })}
+      <Path d={layers.land} fill={colors.land} stroke={colors.landEdge} strokeWidth={0.5} />
+      <Path d={layers.visited} fill={colors.visited} stroke={colors.visitedEdge} strokeWidth={0.8} />
     </Svg>
   );
 }
