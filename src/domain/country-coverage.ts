@@ -5,9 +5,21 @@ import type { Feature, FeatureCollection, MultiPolygon, Polygon, Position } from
 import { cellToBoundary, cellToLatLng, getResolution } from "h3-js";
 
 export const COUNTRY_COVERAGE_RESOLUTION = 4;
+// Regions are much smaller than countries, so their explored area uses finer
+// hexes (about 36 km² instead of 1,800 km²).
+export const REGION_COVERAGE_RESOLUTION = 6;
 export const COUNTRY_OVERVIEW_ZOOM = 7;
 
-export type CountryProperties = { id: string; name: string; areaKm2: number };
+type AreaProperties = { id: string; name: string; areaKm2: number };
+export type CountryProperties = AreaProperties;
+export type RegionProperties = AreaProperties & { countryId: string };
+export type RegionCollection = FeatureCollection<MultiPolygon, RegionProperties>;
+export type RegionVisit = RegionProperties & {
+  firstSeenAtMs: number;
+  exploredAreaKm2: number;
+  uncoveredPercent: number;
+  coveragePending: boolean;
+};
 export type CountryFeature = Feature<MultiPolygon, CountryProperties>;
 export type CountryCollection = FeatureCollection<MultiPolygon, CountryProperties>;
 export type CountryVisit = CountryProperties & {
@@ -18,7 +30,7 @@ export type CountryVisit = CountryProperties & {
   coveragePending: boolean;
 };
 type Box = [number, number, number, number];
-type Part = { country: CountryProperties; feature: Feature<Polygon>; box: Box };
+type Part<P> = { area: P; feature: Feature<Polygon>; box: Box };
 
 function bounds(ring: Position[]): Box {
   let west = Infinity, south = Infinity, east = -Infinity, north = -Infinity;
@@ -35,25 +47,29 @@ function overlaps(a: Box, b: Box) {
   return a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1];
 }
 
-/** Full boundaries are only used for local assignment and clipped coverage. */
-export class CountryIndex {
-  private readonly parts: Part[];
-  private readonly buckets = new Map<string, Part[]>();
-  private readonly assignments = new Map<string, CountryProperties | null>();
+/**
+ * Assigns cells to areas (countries or regions) and clips coarse hexes to an
+ * area. Full boundaries are only used for local assignment and clipped coverage.
+ */
+export class AreaIndex<P extends AreaProperties> {
+  private readonly parts: Part<P>[];
+  private readonly buckets = new Map<string, Part<P>[]>();
+  private readonly assignments = new Map<string, P | null>();
   private readonly coverageAreas = new Map<string, number>();
 
-  constructor(collection: CountryCollection) {
+  constructor(collection: FeatureCollection<MultiPolygon, P>) {
+    // Smaller areas first, so an enclave wins over the area around it.
     this.parts = collection.features.flatMap(({ properties, geometry }) =>
       geometry.coordinates.map((coordinates) => ({
-        country: properties,
+        area: properties,
         box: bounds(coordinates[0]!),
         feature: { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates } } as Feature<Polygon>,
       })),
-    ).sort((a, b) => a.country.areaKm2 - b.country.areaKm2);
+    ).sort((a, b) => a.area.areaKm2 - b.area.areaKm2);
   }
 
-  countryForCell(cellId: string): CountryProperties | null {
-    if (getResolution(cellId) !== 11) throw new Error("Country visits require resolution-11 cells");
+  areaForCell(cellId: string): P | null {
+    if (getResolution(cellId) !== 11) throw new Error("Visits require resolution-11 cells");
     const cached = this.assignments.get(cellId);
     if (cached !== undefined) return cached;
     const [latitude, longitude] = cellToLatLng(cellId);
@@ -65,17 +81,17 @@ export class CountryIndex {
       if (this.buckets.size >= 4096) this.buckets.clear();
       this.buckets.set(key, candidates);
     }
-    const country = candidates.find(({ feature, box }) =>
+    const area = candidates.find(({ feature, box }) =>
       overlaps(box, [longitude, latitude, longitude, latitude]) &&
       booleanPointInPolygon([longitude, latitude], feature),
-    )?.country ?? null;
+    )?.area ?? null;
     if (this.assignments.size >= 50000) this.assignments.clear();
-    this.assignments.set(cellId, country);
-    return country;
+    this.assignments.set(cellId, area);
+    return area;
   }
 
-  coveredAreaKm2(parentId: string, countryId: string): number {
-    const key = `${countryId}:${parentId}`;
+  coveredAreaKm2(parentId: string, areaId: string): number {
+    const key = `${areaId}:${parentId}`;
     const cached = this.coverageAreas.get(key);
     if (cached !== undefined) return cached;
     const raw = cellToBoundary(parentId, true);
@@ -97,7 +113,7 @@ export class CountryIndex {
       if (box[2] < -180 || box[0] > 180) continue;
       const hex: Feature<Polygon> = { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [shifted] } };
       for (const part of this.parts) {
-        if (part.country.id !== countryId || !overlaps(part.box, box)) continue;
+        if (part.area.id !== areaId || !overlaps(part.box, box)) continue;
         const clipped = intersect({ type: "FeatureCollection", features: [hex, part.feature] });
         if (clipped) covered += area(clipped) / 1e6;
       }
@@ -105,6 +121,12 @@ export class CountryIndex {
     if (this.coverageAreas.size >= 20000) this.coverageAreas.clear();
     this.coverageAreas.set(key, covered);
     return covered;
+  }
+}
+
+export class CountryIndex extends AreaIndex<CountryProperties> {
+  countryForCell(cellId: string): CountryProperties | null {
+    return this.areaForCell(cellId);
   }
 }
 

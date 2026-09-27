@@ -10,7 +10,13 @@ import {
   type ScannedCell,
 } from "@/src/data/country-cache-repository";
 import type { SqlDatabase } from "@/src/data/sql-database";
-import { COUNTRY_COVERAGE_RESOLUTION, type CountryIndex } from "@/src/domain/country-coverage";
+import {
+  type AreaIndex,
+  COUNTRY_COVERAGE_RESOLUTION,
+  type CountryIndex,
+  REGION_COVERAGE_RESOLUTION,
+  type RegionProperties,
+} from "@/src/domain/country-coverage";
 
 const PAGE_SIZE = 128;
 
@@ -24,9 +30,10 @@ export type CountryScanStep = {
 };
 
 /**
- * Scans unlocked cells not yet in the cache, then computes the clipped area
- * of every explored coarse hex still missing one. Every step is saved, so a
- * stopped scan resumes where it left off. Returns true when it is complete.
+ * Scans unlocked cells not yet in the cache for their country and region,
+ * then computes the clipped area of every explored coarse hex still missing
+ * one. Every step is saved, so a stopped scan resumes where it left off.
+ * Returns true when it is complete.
  */
 export async function scanCountries(
   main: SqlDatabase,
@@ -34,6 +41,7 @@ export async function scanCountries(
   index: CountryIndex,
   boundaries: string,
   { shouldContinue, pause, onProgress }: CountryScanStep,
+  regionIndex?: AreaIndex<RegionProperties>,
 ): Promise<boolean> {
   let state = await prepareCountryCache(cache, main, boundaries);
 
@@ -45,10 +53,16 @@ export async function scanCountries(
       await pause();
       const country = index.countryForCell(row.cell_id);
       if (country) {
+        const region = regionIndex?.areaForCell(row.cell_id);
         scanned.push({
           countryId: country.id,
           parentId: cellToParent(row.cell_id, COUNTRY_COVERAGE_RESOLUTION),
           firstSeenAtMs: row.first_seen_at_ms,
+          // Borders are simplified independently, so a cell near a border can
+          // fall in a neighbouring country's region; it counts for neither.
+          ...(region && region.countryId === country.id
+            ? { region: { regionId: region.id, parentId: cellToParent(row.cell_id, REGION_COVERAGE_RESOLUTION) } }
+            : {}),
         });
       }
     }
@@ -66,8 +80,9 @@ export async function scanCountries(
     const [pending] = await readPendingCoverage(cache, 1);
     if (!pending) return true;
     await pause();
-    const coveredKm2 = index.coveredAreaKm2(pending.parent_id, pending.country_id);
-    await saveCoverage(cache, pending.country_id, pending.parent_id, coveredKm2);
+    const areaIndex = pending.kind === "country" ? index : regionIndex;
+    const coveredKm2 = areaIndex?.coveredAreaKm2(pending.parent_id, pending.area_id) ?? 0;
+    await saveCoverage(cache, pending.kind, pending.area_id, pending.parent_id, coveredKm2);
     onProgress();
   }
   return false;

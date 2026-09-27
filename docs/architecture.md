@@ -13,7 +13,8 @@ and release history live in the git history.
   permission and lifecycle limits.
 - Deterministic unlocking of H3 hexagons as valid locations are observed.
 - Durable, device-local persistence with backup export and import.
-- Visited countries with approximate explored percentages, and a globe view.
+- Visited countries and their regions with approximate explored percentages,
+  and a globe view.
 - No accounts, backend, analytics, cloud sync, or location uploads.
 
 ## Stack
@@ -65,9 +66,9 @@ src/domain/             Pure logic: samples, ingestion, H3 grid, veil, map
                         bounds, country coverage, globe projection, accuracy
                         area, GPX format
 src/data/               SQLite databases, migrations, repositories, backups,
-                        GPX export and import, bundled country data
+                        GPX export and import, bundled country and region data
 src/location/           Permissions, foreground/background tracking, ingestion
-src/countries/          Background country scan
+src/countries/          Background country and region scan
 src/tiles/              Background tile derivation for imported points
 src/diagnostics/        On-device diagnostics recorder and report
 src/features/           Screens, map view, hooks, appearance, globe
@@ -75,7 +76,7 @@ src/import/             Source-neutral import adapter contract
 src/map/                Native map network configuration
 tests/                  Vitest suite; tests/support has a Node SQLite adapter
 patches/                h3-js and MapLibre patches applied on postinstall
-scripts/                Country/globe data preparation and iOS QA
+scripts/                Country/region/globe data preparation and iOS QA
 ```
 
 ## Domain contracts
@@ -121,7 +122,7 @@ Separate SQLite files keep derived and diagnostic data out of backups and leave
 the backup schema unchanged:
 
 - `yonder-diagnostics.db`: the diagnostics log.
-- `yonder-country-cache.db`: the rebuildable country summary.
+- `yonder-country-cache.db`: the rebuildable country and region summary.
 - Expo SQLite's key-value store: the appearance preference, the live accuracy
   limit, the folder backup settings and the tile derivation cursor. They are
   read synchronously, so background tasks apply the current choice.
@@ -215,23 +216,35 @@ Coverage rendering:
   (open database, read tiles, draw tiles) and a scrubbed reason, and a
   `map-load-error` diagnostics event is recorded.
 
-## Countries and globe
+## Countries, regions and globe
 
 At zoom 7 and below the map fades in country borders and a tint for visited
-countries. A country count opens a sheet with a rotatable globe and the visited
-countries, their first visit and approximate explored percentage.
+regions, with thin region borders inside visited countries; a visited country
+none of whose regions is known yet is tinted whole. A country count opens a
+sheet with a rotatable globe and the visited countries, their first visit,
+approximate explored percentage and "N of M regions". Tapping a country lists
+its visited regions with their own first visit and percentage.
 
 - **Data:** Natural Earth v5.1.2 1:10m countries (public domain), simplified to
   0.05°; countries under 5,000 km² keep full geometry. Grouped by sovereign
   state; Antarctica is excluded. Areas come from the unsimplified source. See
   `src/data/countries/README.md`.
-- **Assignment:** by the center of each resolution-11 cell.
+- **Region data:** Natural Earth v5.1.2 1:10m admin-1 states and provinces
+  (public domain), bundled (about 5.7 MB, 4,594 regions) so no request reveals
+  where the user is. Simplified to 0.02°; regions under 1,000 km² to 0.002°.
+  Each region belongs to a country by its sovereign code. Natural Earth's
+  first-level divisions differ between countries (German states, French
+  départements, British districts). See `src/data/regions/README.md`.
+- **Assignment:** by the center of each resolution-11 cell. A cell's region
+  counts only if it belongs to the cell's country; the two border sets are
+  simplified separately.
 - **Coverage:** the unique resolution-4 parents of a country's cells, clipped to
-  its borders, summed and divided by its area, capped at 100%. This is an
-  estimate of broad explored regions, not precise ground coverage.
-- **Background scan:** results are kept in `yonder-country-cache.db`: each
-  country's first visit and each explored resolution-4 parent with its clipped
-  area. The scan resumes from the last processed `rowid` of `unlocked_cells`
+  its borders, summed and divided by its area, capped at 100%. Regions use
+  resolution-6 parents (about 36 km²) the same way. This is an estimate of
+  broad explored areas, not precise ground coverage.
+- **Background scan:** results are kept in `yonder-country-cache.db` (schema
+  version 2): each country's and region's first visit and each explored parent
+  with its clipped area. Country areas are computed before region areas. The scan resumes from the last processed `rowid` of `unlocked_cells`
   (new cells always get a larger one), so after the first pass only new cells
   are processed. It works in slices of about 8 ms regardless of zoom, pauses
   while the app is in the background, and commits each 128-cell page
@@ -242,7 +255,7 @@ countries, their first visit and approximate explored percentage.
   opening a connection per page broke reads on the main database connection
   with "file is not a database".
 - **Rebuilds:** the cache starts over when the bundled boundaries change (a
-  fingerprint of every country's ID and area), when the unlocked cells were
+  fingerprint of every country's and region's ID and area), when the unlocked cells were
   replaced, and after every backup import. A generation number discards a page
   scanned across a reset.
 - **Globe:** a separate orthographic view, because MapLibre Native has no globe

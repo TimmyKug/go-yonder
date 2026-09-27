@@ -5,7 +5,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCountrySummary } from "../hooks/use-country-summary";
 
-import { formatUncoveredPercent } from "@/src/domain/country-coverage";
+import { regionCountForCountry } from "@/src/countries/country-scanner";
+import { formatUncoveredPercent, type RegionVisit } from "@/src/domain/country-coverage";
 import { useAppearance } from "@/src/features/appearance/appearance-provider";
 import { GlobeView, type GlobeColors } from "@/src/features/globe/globe-view";
 
@@ -36,8 +37,15 @@ export function CountriesScreen() {
   } : {
     background: "#F3F6F5", border: "#D6DFDC", foreground: "#14252F", secondary: "#536774", muted: "#71808A",
   };
-  const { countries, loading, error, refresh } = useCountrySummary();
+  const { countries, regions, loading, error, refresh } = useCountrySummary();
   const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
+  const toggle = (id: string) => setExpanded((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const globeSize = Math.min(width - 40, 320);
@@ -75,7 +83,7 @@ export function CountriesScreen() {
               {loading ? <ActivityIndicator color={colors.secondary} /> : null}
             </View>
             <Text selectable style={{ color: colors.secondary, fontSize: 13, lineHeight: 20 }}>
-              Uncovered area is estimated from your largest explored hexes, clipped to each country. It stays the same as you zoom.
+              Uncovered area is estimated from your largest explored hexes, clipped to each country or region. It stays the same as you zoom. Tap a country for its regions.
             </Text>
             <TextInput
               accessibilityLabel="Find a visited country"
@@ -91,24 +99,36 @@ export function CountriesScreen() {
             ) : null}
           </View>
         }
-        renderItem={({ item }) => (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-            <View style={{ flex: 1, gap: 5 }}>
-              <Text selectable style={{ color: colors.foreground, fontSize: 18, fontWeight: "500" }}>{item.name}</Text>
-              <Text selectable style={{ color: colors.secondary, fontSize: 13 }}>
-                First visited {new Date(item.firstSeenAtMs).toLocaleDateString(undefined, { month: "short", year: "numeric" })}
-              </Text>
+        renderItem={({ item }) => {
+          const visitedRegions = regions?.get(item.id) ?? [];
+          const regionTotal = regionCountForCountry(item.id);
+          const isExpanded = expanded.has(item.id);
+          return (
+            <View style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: isExpanded, disabled: visitedRegions.length === 0 }}
+                accessibilityHint={visitedRegions.length > 0 ? "Shows the regions you visited" : undefined}
+                disabled={visitedRegions.length === 0}
+                onPress={() => toggle(item.id)}
+                style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 18, opacity: pressed ? 0.6 : 1 })}
+              >
+                <View style={{ flex: 1, gap: 5 }}>
+                  <Text selectable style={{ color: colors.foreground, fontSize: 18, fontWeight: "500" }}>{item.name}</Text>
+                  <Text selectable style={{ color: colors.secondary, fontSize: 13 }}>
+                    First visited {new Date(item.firstSeenAtMs).toLocaleDateString(undefined, { month: "short", year: "numeric" })}
+                    {regionTotal > 0 ? ` · ${visitedRegions.length} of ${regionTotal} ${regionTotal === 1 ? "region" : "regions"}` : ""}
+                    {visitedRegions.length > 0 ? (isExpanded ? " ▴" : " ▾") : ""}
+                  </Text>
+                </View>
+                <CoverageFigure colors={colors} pending={item.coveragePending} percent={item.uncoveredPercent} />
+              </Pressable>
+              {isExpanded ? visitedRegions.map((region) => (
+                <RegionRow colors={colors} key={region.id} region={region} />
+              )) : null}
             </View>
-            <View style={{ alignItems: "flex-end", gap: 5 }}>
-              <Text selectable style={{ color: colors.foreground, fontSize: 19, fontWeight: "600", fontVariant: ["tabular-nums"] }}>
-                {item.coveragePending ? "Calculating…" : `≈ ${formatUncoveredPercent(item.uncoveredPercent)}`}
-              </Text>
-              <Text style={{ color: colors.secondary, fontSize: 12 }}>
-                {item.coveragePending ? `${formatUncoveredPercent(item.uncoveredPercent)} so far` : "uncovered"}
-              </Text>
-            </View>
-          </View>
-        )}
+          );
+        }}
         ListEmptyComponent={!loading && !error ? (
           <Text selectable style={{ color: colors.secondary, fontSize: 16, lineHeight: 24, paddingVertical: 24 }}>
             {search ? "No visited countries match your search." : "Your countries will appear here as you explore. Import a Yonder backup in Settings to include earlier visits."}
@@ -116,10 +136,47 @@ export function CountriesScreen() {
         ) : null}
         ListFooterComponent={
           <Text selectable style={{ color: colors.muted, fontSize: 12, lineHeight: 18, paddingTop: 24 }}>
-            Saved on this device. Boundaries: Natural Earth. Territories count toward their sovereign country; Antarctica is excluded.
+            Saved on this device. Boundaries: Natural Earth; regions are its first-level divisions, which differ in size between countries. Territories count toward their sovereign country; Antarctica is excluded.
           </Text>
         }
       />
     </>
+  );
+}
+
+type ListColors = { border: string; foreground: string; secondary: string; muted: string };
+
+function CoverageFigure({ colors, pending, percent, small = false }: {
+  colors: ListColors;
+  pending: boolean;
+  percent: number;
+  small?: boolean;
+}) {
+  return (
+    <View style={{ alignItems: "flex-end", gap: small ? 3 : 5 }}>
+      <Text selectable style={{ color: colors.foreground, fontSize: small ? 16 : 19, fontWeight: "600", fontVariant: ["tabular-nums"] }}>
+        {pending ? "Calculating…" : `≈ ${formatUncoveredPercent(percent)}`}
+      </Text>
+      <Text style={{ color: colors.secondary, fontSize: 12 }}>
+        {pending ? `${formatUncoveredPercent(percent)} so far` : "uncovered"}
+      </Text>
+    </View>
+  );
+}
+
+function RegionRow({ colors, region }: { colors: ListColors; region: RegionVisit }) {
+  return (
+    <View
+      style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingLeft: 16 }}
+      testID={`region-${region.id}`}
+    >
+      <View style={{ flex: 1, gap: 3 }}>
+        <Text selectable style={{ color: colors.foreground, fontSize: 16 }}>{region.name}</Text>
+        <Text selectable style={{ color: colors.muted, fontSize: 12 }}>
+          First visited {new Date(region.firstSeenAtMs).toLocaleDateString(undefined, { month: "short", year: "numeric" })}
+        </Text>
+      </View>
+      <CoverageFigure colors={colors} pending={region.coveragePending} percent={region.uncoveredPercent} small />
+    </View>
   );
 }

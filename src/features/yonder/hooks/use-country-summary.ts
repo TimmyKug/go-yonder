@@ -29,6 +29,7 @@ export function useCountrySummary(refreshToken?: number) {
   }, [refreshToken]);
   return {
     countries: snapshot.countries,
+    regions: snapshot.regions,
     loading: snapshot.scanning,
     error: snapshot.error,
     refresh: requestCountryScan,
