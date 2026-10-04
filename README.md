@@ -36,7 +36,7 @@ Android. MapLibre and background location need a native development build; Expo
 Go is not supported.
 
 ```sh
-npm install        # also applies the h3-js and MapLibre patches
+npm install        # also applies the h3-js, MapLibre and Expo Location patches
 npm run typecheck
 npm run lint
 npm test

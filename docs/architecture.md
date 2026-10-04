@@ -75,7 +75,7 @@ src/features/           Screens, map view, hooks, appearance, globe
 src/import/             Source-neutral import adapter contract
 src/map/                Native map network configuration
 tests/                  Vitest suite; tests/support has a Node SQLite adapter
-patches/                h3-js and MapLibre patches applied on postinstall
+patches/                h3-js, MapLibre and Expo Location patches applied on postinstall
 scripts/                Country/region/globe data preparation and iOS QA
 ```
 
@@ -139,9 +139,16 @@ than fail.
   foreground and one per three seconds in the background, with deferred
   batching in the background. Android runs a foreground-service notification
   while background tracking is active.
+- On Android, Task Manager restores the registered background task after a
+  reboot or app update. `patches/expo-location+57.0.18.patch` starts the
+  foreground service from that boot or package-replaced broadcast when
+  background location is granted, so tracking resumes without opening the app;
+  a test guards the patch. Devices that block apps from starting at boot, and
+  apps the user force-stopped, still wait for the app to be opened.
 - On Android, when the app becomes active with background tracking registered,
-  the task is registered again: Android restores tasks after a process restart
-  without starting the foreground service, and re-registering restarts it.
+  the task is registered again: Android restores tasks after other process
+  restarts without starting the foreground service, and re-registering
+  restarts it.
 - An already-authorized app requests one foreground fix on activation to seed
   the map; failing to get it never stops background collection.
 
