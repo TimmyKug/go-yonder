@@ -320,7 +320,10 @@ async function startBackgroundUpdates(): Promise<void> {
 // runs before an activity is in the foreground, so the location foreground
 // service is skipped and the task is left with heavily throttled background
 // updates. Re-registering the task while the app is visible starts the service
-// again without replacing the existing registration.
+// again without replacing the existing registration. After a reboot or app
+// update, patches/expo-location+57.0.18.patch already starts the service from
+// the boot broadcast; this covers the other restarts and devices that block
+// boot starts.
 async function reattachAndroidForegroundService(): Promise<void> {
   if (Platform.OS !== "android") {
     return;
