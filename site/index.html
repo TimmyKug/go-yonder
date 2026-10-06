@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yonder — Unveil your world</title>
+<meta name="description" content="A private coverage map for Android. Yonder unlocks the hexagons your phone passes through and reveals them on a map. Your location history never leaves the device.">
+<link rel="canonical" href="https://timothykugler.de/go-yonder/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Yonder — Unveil your world">
+<meta property="og:description" content="A private coverage map for Android: every street you take unlocks the hexagons it passes through. No account, no server, no analytics.">
+<meta property="og:url" content="https://timothykugler.de/go-yonder/">
+<meta property="og:image" content="https://timothykugler.de/go-yonder/img/og.jpg">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="/fonts/fonts.css">
+<style>
+  /* The timothykugler.de palette and type, in both themes. The theme follows the
+     system until the visitor picks one with the header toggle (/nav.js), which
+     sets data-theme on <html>. --dot is Yonder's own teal, used for marks only. */
+  :root {
+    color-scheme: light;
+    --bg: #f8f6f1;
+    --surface: #fffefb;
+    --line: #dcdde2;
+    --ink: #1a2a4a;
+    --ink-2: #48536a;
+    --ink-3: #5f6a7d;
+    --rust: #b84f29;
+    --accent: #1a2a4a;
+    --accent-ink: #ffffff;
+    --dot: #29d8b5;
+    --shadow: 26 42 74;
+    --radius: 6px;
+    --sans: "Source Sans 3", "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --hand: "Kalam", "Segoe Print", "Bradley Hand", cursive;
+    /* The width of the /nav.js header, so the page lines up under it. */
+    --measure: 61rem;
+    --gut: max(clamp(1.25rem, 5vw, 3rem), (100vw - var(--measure)) / 2);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #11161e;
+      --surface: #171e29;
+      --line: #2a3443;
+      --ink: #e8ecf2;
+      --ink-2: #b0b9c7;
+      --ink-3: #939dac;
+      --rust: #e4805a;
+      --accent: #e8ecf2;
+      --accent-ink: #11161e;
+      --shadow: 0 0 0;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #11161e;
+    --surface: #171e29;
+    --line: #2a3443;
+    --ink: #e8ecf2;
+    --ink-2: #b0b9c7;
+    --ink-3: #939dac;
+    --rust: #e4805a;
+    --accent: #e8ecf2;
+    --accent-ink: #11161e;
+    --shadow: 0 0 0;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 18px/1.6 var(--sans);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: clip;
+  }
+
+  img { display: block; max-width: 100%; height: auto; }
+  a { color: var(--accent); text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+  :focus-visible { outline: 2px solid var(--rust); outline-offset: 3px; border-radius: 2px; }
+  h1, h2, h3 { line-height: 1.15; margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+  p { margin: 0; }
+  .wrap { width: 100%; padding-inline: var(--gut); }
+
+  .eyebrow {
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  /* A phone screen: the screenshots have their status bar cropped off, so the
+     frame only rounds them. Shorter list screenshots are padded with their own
+     background colour (--fill) to keep every frame the same shape. */
+  .screen {
+    margin: 0;
+    aspect-ratio: 1080 / 2196;
+    border-radius: 28px;
+    overflow: hidden;
+    background: var(--fill, #0b1620);
+    border: 1px solid var(--line);
+    box-shadow: 0 1px 2px rgb(var(--shadow) / 0.08), 0 18px 40px -18px rgb(var(--shadow) / 0.35);
+  }
+  .screen img { width: 100%; height: 100%; object-fit: contain; object-position: top; }
+
+  /* Hero */
+  .hero {
+    display: grid;
+    gap: clamp(2rem, 5vw, 4.5rem);
+    align-items: center;
+    padding-block: clamp(2.5rem, 7vw, 5.5rem) clamp(3rem, 7vw, 5rem);
+  }
+  @media (min-width: 52rem) {
+    .hero { grid-template-columns: 1fr minmax(15rem, 20rem); }
+  }
+  .hero .icon { width: 64px; height: 64px; border-radius: 15px; margin-bottom: 1.5rem; }
+  .hero h1 { font-size: clamp(2.6rem, 6.5vw, 4.25rem); margin-top: 0.5rem; }
+  .hero h1 .dot {
+    display: inline-block;
+    width: 0.32em;
+    height: 0.32em;
+    margin-left: 0.14em;
+    border-radius: 50%;
+    background: var(--dot);
+    box-shadow: 0 0 0 0.07em rgb(255 255 255 / 0.9), 0 0 0 0.16em rgb(41 216 181 / 0.25);
+  }
+  .lede { font-size: clamp(1.1rem, 2.2vw, 1.3rem); color: var(--ink-2); margin-top: 1.25rem; max-width: 36rem; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
+  .button {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.9rem;
+    padding: 0.55rem 1.25rem;
+    border-radius: 999px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid var(--accent);
+  }
+  .button.primary { background: var(--accent); color: var(--accent-ink); }
+  .button.secondary { color: var(--accent); }
+  .button:hover { opacity: 0.88; }
+  .fine { font-size: 0.95rem; color: var(--ink-3); margin-top: 1rem; }
+  .hero .screen { width: min(100%, 20rem); justify-self: center; }
+
+  /* Sections */
+  section { padding-block: clamp(3rem, 7vw, 5rem); border-top: 1px solid var(--line); }
+  .feature {
+    display: grid;
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: center;
+  }
+  @media (min-width: 52rem) {
+    .feature { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
+    .feature.flip .copy { order: 2; }
+  }
+  .feature h2, .get h2 { font-size: clamp(1.75rem, 3.6vw, 2.4rem); margin-top: 0.4rem; }
+  .copy p, .copy ul { margin-top: 1rem; color: var(--ink-2); max-width: 34rem; }
+  .copy ul { padding-left: 1.2rem; }
+  .copy li + li { margin-top: 0.45rem; }
+  .copy li::marker { color: var(--ink-3); }
+  .copy strong { color: var(--ink); font-weight: 600; }
+  .note { font-family: var(--hand); font-weight: 300; font-size: 1.15rem; color: var(--rust); margin-top: 1.25rem; }
+
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(0.75rem, 2.5vw, 1.5rem); max-width: 34rem; justify-self: center; width: 100%; }
+  .pair .screen:nth-child(2) { margin-top: clamp(1.5rem, 5vw, 3rem); }
+  .single { width: min(100%, 17rem); justify-self: center; }
+
+  /* Get it */
+  .get .cards { display: grid; gap: 1.25rem; margin-top: 2rem; }
+  @media (min-width: 52rem) { .get .cards { grid-template-columns: 1.4fr 1fr; } }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: clamp(1.25rem, 3vw, 2rem);
+  }
+  .card h3 { font-size: 1.3rem; }
+  .card p, .card ol { color: var(--ink-2); margin-top: 0.75rem; }
+  .card ol { padding-left: 1.3rem; }
+  .card li + li { margin-top: 0.5rem; }
+  .card .actions { margin-top: 1.5rem; }
+  code {
+    font: 0.92em/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.08em 0.35em;
+    overflow-wrap: anywhere;
+  }
+
+  footer { border-top: 1px solid var(--line); padding-block: 2.5rem 3rem; color: var(--ink-3); font-size: 0.95rem; }
+  footer p + p { margin-top: 0.5rem; }
+</style>
+<!-- The timothykugler.de header, with this project's name and links in it. It also
+     applies the visitor's saved theme before the first paint; first-party, and it
+     writes to localStorage only when its toggle is clicked. -->
+<script src="/nav.js" data-title="Yonder" data-links="#project-links"></script>
+</head>
+<body>
+<!-- This project's own links. /nav.js moves them into the site header. -->
+<nav id="project-links" aria-label="Yonder">
+  <a href="#get">Get it</a>
+  <a href="https://github.com/TimmyKug/go-yonder">Source</a>
+</nav>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <img class="icon" src="icon-192.png" width="64" height="64" alt="">
+      <p class="eyebrow">A private coverage map for Android</p>
+      <h1>Unveil your world<span class="dot" aria-hidden="true"></span></h1>
+      <p class="lede">
+        Yonder remembers where your phone has been. Every street you take unlocks the
+        hexagons it passes through, and the rest of the map stays veiled until you go
+        there. Your location history never leaves the device.
+      </p>
+      <div class="actions">
+        <a class="button primary" href="#get">Get it for Android</a>
+        <a class="button secondary" href="https://github.com/TimmyKug/go-yonder">Source on GitHub</a>
+      </div>
+      <p class="fine">Free and open source. No account, no server, no analytics.</p>
+    </div>
+    <figure class="screen">
+      <img src="img/map-street-540.webp" srcset="img/map-street-540.webp 540w, img/map-street-1080.webp 1080w" sizes="20rem" width="540" height="1098" alt="Yonder's map at street level: the streets walked and driven are unlocked as dark hexagons, with the current position marked by a teal dot.">
+    </figure>
+  </div>
+
+  <section>
+    <div class="wrap feature">
+      <div class="copy">
+        <p class="eyebrow">Zoom out</p>
+        <h2>Watch it add up</h2>
+        <p>
+          Each hexagon is about 50 metres across. Zoomed out, they merge into larger
+          ones, and the countries and regions you have been to are tinted, so a
+          weekend trip and years of commuting show up on the same map.
+        </p>
+        <p>
+          Only readings accurate enough unlock anything. You choose how accurate:
+          25, 50 or 100 metres.
+        </p>
+      </div>
+      <div class="pair">
+        <figure class="screen">
+          <img src="img/map-europe-540.webp" srcset="img/map-europe-540.webp 540w, img/map-europe-1080.webp 1080w" sizes="(min-width: 52rem) 16rem, 45vw" width="540" height="1098" loading="lazy" alt="The dark map zoomed out over Europe, with visited countries and their regions tinted lighter than the rest.">
+        </figure>
+        <figure class="screen">
+          <img src="img/map-europe-light-540.webp" srcset="img/map-europe-light-540.webp 540w, img/map-europe-light-1080.webp 1080w" sizes="(min-width: 52rem) 16rem, 45vw" width="540" height="1098" loading="lazy" alt="The same view in the light theme, with the routes travelled across Europe showing as pale trails.">
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap feature flip">
+      <div class="copy">
+        <p class="eyebrow">Countries and regions</p>
+        <h2>How much have you actually seen?</h2>
+        <p>
+          A globe and a list of every country you have visited, with the month you
+          first went there and roughly how much of it you have uncovered. Tap a
+          country for its regions.
+        </p>
+        <p class="note">Spoiler: less than you think.</p>
+      </div>
+      <div class="pair">
+        <figure class="screen" style="--fill: #071520">
+          <img src="img/countries-540.webp" srcset="img/countries-540.webp 540w, img/countries-1080.webp 1080w" sizes="(min-width: 52rem) 16rem, 45vw" width="540" height="1024" loading="lazy" alt="A globe with visited countries highlighted in teal, above the count of 19 countries visited and a list of countries with the share of each that has been uncovered.">
+        </figure>
+        <figure class="screen" style="--fill: #f3f6f5">
+          <img src="img/regions-light-540.webp" srcset="img/regions-light-540.webp 540w, img/regions-light-1080.webp 1080w" sizes="(min-width: 52rem) 16rem, 45vw" width="540" height="1011" loading="lazy" alt="The country list in the light theme, with Austria and Bolivia expanded into their regions, each with its own uncovered share.">
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap feature">
+      <div class="copy">
+        <p class="eyebrow">Private by design</p>
+        <h2>Your map stays yours</h2>
+        <ul>
+          <li><strong>Everything stays on the phone.</strong> There is no account, no server and no analytics, and Yonder never uploads a location.</li>
+          <li><strong>The map itself comes from <a href="https://openfreemap.org">OpenFreeMap</a>.</strong> As with any map app, the tiles it loads show which area you are looking at. Without a connection, Yonder falls back to bundled country borders.</li>
+          <li><strong>Your GPS points are your backup.</strong> Export them as GPX, or on Android let Yonder save them to a folder you choose, hourly to weekly. Import GPX from Yonder or any other app; importing twice never duplicates anything.</li>
+          <li><strong>Diagnostics without locations.</strong> An on-device log shows how tracking behaved, and never contains where you were.</li>
+        </ul>
+      </div>
+      <figure class="screen single">
+        <img src="img/settings-540.webp" srcset="img/settings-540.webp 540w, img/settings-1080.webp 1080w" sizes="17rem" width="540" height="1098" loading="lazy" alt="Yonder's settings: appearance, the GPS accuracy needed to unlock tiles, and GPX export and import.">
+      </figure>
+    </div>
+  </section>
+
+  <section class="get" id="get">
+    <div class="wrap">
+      <p class="eyebrow">Get it</p>
+      <h2>Install Yonder</h2>
+      <div class="cards">
+        <div class="card">
+          <h3>Android</h3>
+          <p>
+            Yonder is not in the Play Store. Signed builds are published on GitHub, and
+            <a href="https://obtainium.imranr.dev">Obtainium</a> keeps them up to date:
+          </p>
+          <ol>
+            <li>Install Obtainium.</li>
+            <li>Add the app with the source URL <code>https://github.com/TimmyKug/go-yonder</code>.</li>
+            <li>Turn on <strong>Include prereleases</strong> to get beta builds too. New features land there first, and updates keep your data.</li>
+          </ol>
+          <p>
+            Background tracking needs location access “all the time”. Android shows a
+            notification while Yonder is recording.
+          </p>
+          <div class="actions">
+            <a class="button primary" href="https://github.com/TimmyKug/go-yonder/releases">Download the APK</a>
+          </div>
+        </div>
+        <div class="card">
+          <h3>iPhone</h3>
+          <p>
+            There is no App Store build. Yonder runs on iOS, but for now you need a Mac
+            with Xcode to build and install it yourself.
+          </p>
+          <div class="actions">
+            <a class="button secondary" href="https://github.com/TimmyKug/go-yonder#development">Build from source</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>
+      Yonder is open source under the MIT licence. If it is useful to you,
+      <a href="https://www.buymeacoffee.com/timmykug">buy me a coffee</a>.
+    </p>
+    <p>
+      This page sets no cookies and loads nothing from other sites. See the
+      <a href="/privacy/">privacy policy</a>.
+    </p>
+  </div>
+</footer>
+</body>
+</html>
