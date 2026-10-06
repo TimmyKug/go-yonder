@@ -27,7 +27,9 @@ analytics, or cloud sync.
   folder you choose (Android; hourly to weekly).
 - An on-device diagnostics log that never contains locations.
 
-How it works is described in [docs/architecture.md](docs/architecture.md).
+How it works is described in [docs/architecture.md](docs/architecture.md). The
+landing page at [timothykugler.de/go-yonder](https://timothykugler.de/go-yonder/)
+is built from `site/`.
 
 ## Development
 
