@@ -77,6 +77,7 @@ src/map/                Native map network configuration
 tests/                  Vitest suite; tests/support has a Node SQLite adapter
 patches/                h3-js, MapLibre and Expo Location patches applied on postinstall
 scripts/                Country/region/globe data preparation and iOS QA
+site/                   Landing page published to GitHub Pages
 ```
 
 ## Domain contracts
@@ -391,6 +392,18 @@ Signed APKs are published as GitHub releases for installers such as Obtainium.
 - Every update must be signed by the same production key, supplied to CI through
   repository secrets and never committed. Releases contain code and assets only,
   never user data.
+
+## Landing page
+
+`site/` is a static page published at `https://timothykugler.de/go-yonder/` by
+the `Pages` workflow whenever `site/` changes on `main`; the repository's Pages
+source is "GitHub Actions". The page is served through the owner's user site
+(`timmykug.github.io`), which provides the shared header (`/nav.js`), the fonts
+(`/fonts/`) and the privacy policy it links to. It loads nothing from other
+hosts and stores nothing. Screenshots in `site/img/` are cropped to drop the
+status bar and saved as WebP at 540 and 1080 pixels wide; they come from the
+owner's own device and are published with their consent, so they are the one
+place in the repository that shows real places.
 
 ## Privacy and security
 
