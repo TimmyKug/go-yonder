@@ -231,7 +231,9 @@ countries whole. From about zoom 4 closer in, thin region borders appear inside
 visited countries and visited regions get a stronger tint on top. A country count opens a
 sheet with a rotatable globe and the visited countries, their first visit,
 approximate explored percentage and "N of M regions". Tapping a country lists
-its visited regions with their own first visit and percentage.
+its visited regions with their own first visit and percentage. Countries, and
+the regions within each, are ordered by explored percentage, highest first,
+then by name.
 The list takes part in nested scrolling, so on Android it scrolls back up
 inside the sheet and only drags the sheet once it is at the top.
 
