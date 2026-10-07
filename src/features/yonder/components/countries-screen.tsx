@@ -66,6 +66,9 @@ export function CountriesScreen() {
         data={visible}
         keyExtractor={({ id }) => id}
         keyboardShouldPersistTaps="handled"
+        // Android's bottom sheet only lets a list scroll back up inside it when the
+        // list takes part in nested scrolling; otherwise the drag closes the sheet.
+        nestedScrollEnabled
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24 }}
         style={{ flex: 1, backgroundColor: colors.background }}

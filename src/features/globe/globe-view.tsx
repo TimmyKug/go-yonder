@@ -52,6 +52,9 @@ export function GlobeView({
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      // Keep the drag once it starts, so the list and the sheet around the globe
+      // cannot take it over mid-spin.
+      onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
         gesture.dx = 0;
         gesture.dy = 0;
