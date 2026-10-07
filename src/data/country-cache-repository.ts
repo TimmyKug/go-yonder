@@ -1,5 +1,7 @@
 import {
   compareByDiscovered,
+  COUNTRY_COVERAGE_RESOLUTION,
+  REGION_COVERAGE_RESOLUTION,
   type CountryCollection,
   type CountryProperties,
   type CountryVisit,
@@ -105,7 +107,10 @@ export type ScannedCell = Readonly<{
 
 export type CoverageKind = "country" | "region";
 
-/** Changes whenever the bundled boundaries change, which invalidates the cache. */
+/**
+ * Changes whenever the bundled boundaries or the coverage resolutions change,
+ * which invalidates the cache.
+ */
 export function countryBoundariesFingerprint(
   collection: CountryCollection,
   regions?: RegionCollection,
@@ -119,7 +124,8 @@ export function countryBoundariesFingerprint(
       hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193) >>> 0;
     }
   }
-  return `${collection.features.length}:${regions?.features.length ?? 0}:${hash.toString(16)}`;
+  return `${collection.features.length}:${regions?.features.length ?? 0}:${hash.toString(16)}` +
+    `:r${COUNTRY_COVERAGE_RESOLUTION}/${REGION_COVERAGE_RESOLUTION}`;
 }
 
 async function clear(cache: SqlDatabase, boundaries: string): Promise<CountryScanState> {
