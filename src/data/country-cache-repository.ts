@@ -1,4 +1,5 @@
 import {
+  compareByDiscovered,
   type CountryCollection,
   type CountryProperties,
   type CountryVisit,
@@ -288,7 +289,7 @@ export async function saveCoverage(
   );
 }
 
-/** Visited countries as far as scanned; a percentage is partial while coverage is pending. */
+/** Visited countries as far as scanned, most discovered first; a percentage is partial while coverage is pending. */
 export async function readCachedCountrySummary(
   cache: SqlDatabase,
   countries: ReadonlyMap<string, CountryProperties>,
@@ -316,10 +317,10 @@ export async function readCachedCountrySummary(
       uncoveredPercent: Math.min(100, country.areaKm2 > 0 ? row.covered_km2 / country.areaKm2 * 100 : 0),
       coveragePending: row.pending > 0,
     }];
-  }).sort((a, b) => a.name.localeCompare(b.name));
+  }).sort(compareByDiscovered);
 }
 
-/** Visited regions as far as scanned; a percentage is partial while coverage is pending. */
+/** Visited regions as far as scanned, most discovered first; a percentage is partial while coverage is pending. */
 export async function readCachedRegionSummary(
   cache: SqlDatabase,
   regions: ReadonlyMap<string, RegionProperties>,
@@ -347,5 +348,5 @@ export async function readCachedRegionSummary(
       uncoveredPercent: Math.min(100, region.areaKm2 > 0 ? row.covered_km2 / region.areaKm2 * 100 : 0),
       coveragePending: row.pending > 0,
     }];
-  }).sort((a, b) => a.name.localeCompare(b.name));
+  }).sort(compareByDiscovered);
 }

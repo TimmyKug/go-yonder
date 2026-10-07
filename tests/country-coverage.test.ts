@@ -16,6 +16,7 @@ import { runMigrations } from "../src/data/migrations";
 import {
   AreaIndex,
   CountryIndex,
+  compareByDiscovered,
   formatUncoveredPercent,
   REGION_COVERAGE_RESOLUTION,
   type CountryCollection,
@@ -118,6 +119,16 @@ describe("country coverage", () => {
   it("formats small percentages without pretending they are zero", () => {
     expect([0, 0.001, 0.01, 1.25, 10, 99.999, 100].map(formatUncoveredPercent))
       .toEqual(["0%", "<0.01%", "0.01%", "1.25%", "10%", ">99.99%", "100%"]);
+  });
+
+  it("orders visits by discovered share, then by name", () => {
+    const visits = [
+      { name: "Beta", uncoveredPercent: 2 },
+      { name: "Gamma", uncoveredPercent: 40 },
+      { name: "Alpha", uncoveredPercent: 2 },
+      { name: "Delta", uncoveredPercent: 0 },
+    ];
+    expect(visits.sort(compareByDiscovered).map(({ name }) => name)).toEqual(["Gamma", "Alpha", "Beta", "Delta"]);
   });
 });
 

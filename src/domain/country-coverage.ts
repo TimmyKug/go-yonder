@@ -130,6 +130,14 @@ export class CountryIndex extends AreaIndex<CountryProperties> {
   }
 }
 
+/** Most discovered first; equal shares fall back to the name so the order is stable. */
+export function compareByDiscovered(
+  a: { name: string; uncoveredPercent: number },
+  b: { name: string; uncoveredPercent: number },
+): number {
+  return b.uncoveredPercent - a.uncoveredPercent || a.name.localeCompare(b.name);
+}
+
 export function formatUncoveredPercent(percent: number): string {
   if (percent <= 0) return "0%";
   if (percent < 0.01) return "<0.01%";
