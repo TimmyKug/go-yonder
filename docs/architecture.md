@@ -250,10 +250,11 @@ inside the sheet and only drags the sheet once it is at the top.
 - **Assignment:** by the center of each resolution-11 cell. A cell's region
   counts only if it belongs to the cell's country; the two border sets are
   simplified separately.
-- **Coverage:** the unique resolution-4 parents of a country's cells, clipped to
-  its borders, summed and divided by its area, capped at 100%. Regions use
-  resolution-6 parents (about 36 km²) the same way. This is an estimate of
-  broad explored areas, not precise ground coverage.
+- **Coverage:** the unique resolution-5 parents (about 250 km²) of a country's
+  cells, clipped to its borders, summed and divided by its area, capped at
+  100%. Regions use resolution-7 parents (about 5 km²) the same way. This is an
+  estimate of explored areas, not precise ground coverage. The resolutions are
+  part of the cache fingerprint, so changing them rebuilds the cache.
 - **Background scan:** results are kept in `yonder-country-cache.db` (schema
   version 2): each country's and region's first visit and each explored parent
   with its clipped area. Country areas are computed before region areas. The scan resumes from the last processed `rowid` of `unlocked_cells`
