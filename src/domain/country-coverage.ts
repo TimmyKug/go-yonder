@@ -4,10 +4,10 @@ import { intersect } from "@turf/intersect";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon, Position } from "geojson";
 import { cellToBoundary, cellToLatLng, getResolution } from "h3-js";
 
-export const COUNTRY_COVERAGE_RESOLUTION = 4;
-// Regions are much smaller than countries, so their explored area uses finer
-// hexes (about 36 km² instead of 1,800 km²).
-export const REGION_COVERAGE_RESOLUTION = 6;
+// Each visited cell marks its whole coverage hex as explored: about 250 km² for
+// countries. Regions are much smaller, so they use finer hexes of about 5 km².
+export const COUNTRY_COVERAGE_RESOLUTION = 5;
+export const REGION_COVERAGE_RESOLUTION = 7;
 export const COUNTRY_OVERVIEW_ZOOM = 7;
 
 type AreaProperties = { id: string; name: string; areaKm2: number };
@@ -128,6 +128,14 @@ export class CountryIndex extends AreaIndex<CountryProperties> {
   countryForCell(cellId: string): CountryProperties | null {
     return this.areaForCell(cellId);
   }
+}
+
+/** Most discovered first; equal shares fall back to the name so the order is stable. */
+export function compareByDiscovered(
+  a: { name: string; uncoveredPercent: number },
+  b: { name: string; uncoveredPercent: number },
+): number {
+  return b.uncoveredPercent - a.uncoveredPercent || a.name.localeCompare(b.name);
 }
 
 export function formatUncoveredPercent(percent: number): string {

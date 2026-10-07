@@ -15,7 +15,9 @@ import {
 import { runMigrations } from "../src/data/migrations";
 import {
   AreaIndex,
+  COUNTRY_COVERAGE_RESOLUTION,
   CountryIndex,
+  compareByDiscovered,
   formatUncoveredPercent,
   REGION_COVERAGE_RESOLUTION,
   type CountryCollection,
@@ -35,7 +37,7 @@ function square(id: string, west: number, south: number, east: number, north: nu
   return feature;
 }
 const cell = latLngToCell(10, 20, 11);
-const parent = cellToParent(cell, 4);
+const parent = cellToParent(cell, COUNTRY_COVERAGE_RESOLUTION);
 const country = square("Testland", 19, 9, 21, 11);
 const collection = (features: CountryFeature[]): CountryCollection => ({ type: "FeatureCollection", features });
 
@@ -73,7 +75,9 @@ describe("country coverage", () => {
     expect(visit?.firstSeenAtMs).toBe(100);
     expect(visit?.coveragePending).toBe(false);
     expect(visit?.exploredAreaKm2).toBeCloseTo(index.coveredAreaKm2(parent, country.properties.id), 7);
-    expect(visit?.exploredAreaKm2).toBeGreaterThan(100);
+    // One resolution-5 hex, about 250 km².
+    expect(visit?.exploredAreaKm2).toBeGreaterThan(150);
+    expect(visit?.exploredAreaKm2).toBeLessThan(350);
     expect(visit?.uncoveredPercent).toBeCloseTo(visit!.exploredAreaKm2 / country.properties.areaKm2 * 100);
   });
 
@@ -118,6 +122,21 @@ describe("country coverage", () => {
   it("formats small percentages without pretending they are zero", () => {
     expect([0, 0.001, 0.01, 1.25, 10, 99.999, 100].map(formatUncoveredPercent))
       .toEqual(["0%", "<0.01%", "0.01%", "1.25%", "10%", ">99.99%", "100%"]);
+  });
+
+  it("rebuilds the cache when the coverage resolutions change", () => {
+    expect(countryBoundariesFingerprint(collection([country])))
+      .toMatch(new RegExp(`:r${COUNTRY_COVERAGE_RESOLUTION}/${REGION_COVERAGE_RESOLUTION}$`));
+  });
+
+  it("orders visits by discovered share, then by name", () => {
+    const visits = [
+      { name: "Beta", uncoveredPercent: 2 },
+      { name: "Gamma", uncoveredPercent: 40 },
+      { name: "Alpha", uncoveredPercent: 2 },
+      { name: "Delta", uncoveredPercent: 0 },
+    ];
+    expect(visits.sort(compareByDiscovered).map(({ name }) => name)).toEqual(["Gamma", "Alpha", "Beta", "Delta"]);
   });
 });
 
@@ -241,11 +260,11 @@ describe("regions", () => {
     expect(done).toBe(true);
     const [west] = await readCachedRegionSummary(cache, regionMap);
     expect(west).toMatchObject({ id: "West", countryId: "Testland", firstSeenAtMs: 400, coveragePending: false });
-    // One resolution-6 hex, about 36 km², clipped to a region of about 24,000 km².
+    // One resolution-7 hex, about 5 km², inside a region of about 24,000 km².
     const parents = await cache.all<{ parent_id: string }>("SELECT parent_id FROM region_parents");
     expect(parents).toEqual([{ parent_id: cellToParent(westCell, REGION_COVERAGE_RESOLUTION) }]);
-    expect(west!.exploredAreaKm2).toBeGreaterThan(20);
-    expect(west!.exploredAreaKm2).toBeLessThan(50);
+    expect(west!.exploredAreaKm2).toBeGreaterThan(3);
+    expect(west!.exploredAreaKm2).toBeLessThan(8);
     expect(west!.uncoveredPercent).toBeCloseTo(west!.exploredAreaKm2 / west!.areaKm2 * 100);
     expect(await readCachedRegionSummary(cache, regionMap)).toHaveLength(1);
   });

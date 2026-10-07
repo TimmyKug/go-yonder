@@ -1,4 +1,7 @@
 import {
+  compareByDiscovered,
+  COUNTRY_COVERAGE_RESOLUTION,
+  REGION_COVERAGE_RESOLUTION,
   type CountryCollection,
   type CountryProperties,
   type CountryVisit,
@@ -104,7 +107,10 @@ export type ScannedCell = Readonly<{
 
 export type CoverageKind = "country" | "region";
 
-/** Changes whenever the bundled boundaries change, which invalidates the cache. */
+/**
+ * Changes whenever the bundled boundaries or the coverage resolutions change,
+ * which invalidates the cache.
+ */
 export function countryBoundariesFingerprint(
   collection: CountryCollection,
   regions?: RegionCollection,
@@ -118,7 +124,8 @@ export function countryBoundariesFingerprint(
       hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193) >>> 0;
     }
   }
-  return `${collection.features.length}:${regions?.features.length ?? 0}:${hash.toString(16)}`;
+  return `${collection.features.length}:${regions?.features.length ?? 0}:${hash.toString(16)}` +
+    `:r${COUNTRY_COVERAGE_RESOLUTION}/${REGION_COVERAGE_RESOLUTION}`;
 }
 
 async function clear(cache: SqlDatabase, boundaries: string): Promise<CountryScanState> {
@@ -288,7 +295,7 @@ export async function saveCoverage(
   );
 }
 
-/** Visited countries as far as scanned; a percentage is partial while coverage is pending. */
+/** Visited countries as far as scanned, most discovered first; a percentage is partial while coverage is pending. */
 export async function readCachedCountrySummary(
   cache: SqlDatabase,
   countries: ReadonlyMap<string, CountryProperties>,
@@ -316,10 +323,10 @@ export async function readCachedCountrySummary(
       uncoveredPercent: Math.min(100, country.areaKm2 > 0 ? row.covered_km2 / country.areaKm2 * 100 : 0),
       coveragePending: row.pending > 0,
     }];
-  }).sort((a, b) => a.name.localeCompare(b.name));
+  }).sort(compareByDiscovered);
 }
 
-/** Visited regions as far as scanned; a percentage is partial while coverage is pending. */
+/** Visited regions as far as scanned, most discovered first; a percentage is partial while coverage is pending. */
 export async function readCachedRegionSummary(
   cache: SqlDatabase,
   regions: ReadonlyMap<string, RegionProperties>,
@@ -347,5 +354,5 @@ export async function readCachedRegionSummary(
       uncoveredPercent: Math.min(100, region.areaKm2 > 0 ? row.covered_km2 / region.areaKm2 * 100 : 0),
       coveragePending: row.pending > 0,
     }];
-  }).sort((a, b) => a.name.localeCompare(b.name));
+  }).sort(compareByDiscovered);
 }
