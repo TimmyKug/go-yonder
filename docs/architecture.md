@@ -232,6 +232,8 @@ visited countries and visited regions get a stronger tint on top. A country coun
 sheet with a rotatable globe and the visited countries, their first visit,
 approximate explored percentage and "N of M regions". Tapping a country lists
 its visited regions with their own first visit and percentage.
+The list takes part in nested scrolling, so on Android it scrolls back up
+inside the sheet and only drags the sheet once it is at the top.
 
 - **Data:** Natural Earth v5.1.2 1:10m countries (public domain), simplified to
   0.05°; countries under 5,000 km² keep full geometry. Grouped by sovereign
@@ -272,7 +274,10 @@ its visited regions with their own first visit and percentage.
   clamped at the poles. It reuses the country summary and makes no requests.
   Each frame draws all visible land as two SVG paths, unvisited and visited,
   rather than one per country, and drag steps are coalesced to one redraw per
-  animation frame.
+  animation frame. Outlines are converted to unit vectors once, so a frame
+  projects with multiplications only; countries wholly on the far side are
+  skipped, and consecutive points that round to the same position are drawn
+  once. The globe keeps a drag once it has started.
 
 ## Backups
 
