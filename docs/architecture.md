@@ -31,6 +31,8 @@ and release history live in the git history.
   removes only that unused initializer, and a regression test guards it.
   Re-evaluate the patch before upgrading H3 or Expo.
 - **Expo SQLite** is the local source of truth.
+- **React Native Skia and Reanimated** draw the countries globe with a GPU
+  shader; they are the app's only 2D drawing libraries.
 - **Expo Location and Task Manager** deliver readings; the background task is
   defined at module scope.
 
@@ -281,14 +283,22 @@ inside the sheet and only drags the sheet once it is at the top.
   scanned across a reset.
 - **Globe:** a separate orthographic view, because MapLibre Native has no globe
   projection. `scripts/prepare-globe.mjs` derives about 5,000 outline points
-  from the bundled countries, plus Antarctica. Dragging rotates it; latitude is
-  clamped at the poles. It reuses the country summary and makes no requests.
-  Each frame draws all visible land as two SVG paths, unvisited and visited,
-  rather than one per country, and drag steps are coalesced to one redraw per
-  animation frame. Outlines are converted to unit vectors once, so a frame
-  projects with multiplications only; countries wholly on the far side are
-  skipped, and consecutive points that round to the same position are drawn
-  once. The globe keeps a drag once it has started.
+  from the bundled countries, plus Antarctica. It reuses the country summary
+  and makes no requests. The globe is drawn with React Native Skia in two
+  steps:
+  - **World texture:** when the globe opens, and again when the theme or the
+    visited countries change, the outlines are painted once onto an
+    equirectangular image (ocean, land, visited land and their edges) on a CPU
+    surface. Its width is about the sphere's circumference in device pixels,
+    between 1,024 and 4,096 pixels, and its height is half that.
+  - **Sphere shader:** a runtime shader fills the disc. For each pixel it
+    inverts the orthographic projection to a latitude and longitude and samples
+    the texture, wrapping across the antimeridian. Drawing cost does not depend
+    on how many outlines there are, and the horizon is exact per pixel.
+- **Globe rotation** lives in a Reanimated shared value. A drag updates it
+  without a React render, and Skia redraws on the UI thread. Dragging rotates
+  the globe and latitude is clamped at the poles. The globe keeps a drag once
+  it has started.
 
 ## Backups
 
