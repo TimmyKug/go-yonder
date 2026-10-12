@@ -1,6 +1,6 @@
 import { Directory, File, Paths } from "expo-file-system";
 
-import { getNativeDatabase } from "./database";
+import { serializeDatabase } from "./database";
 
 // A consistent snapshot of the database in app storage, refreshed after
 // ingestion. User-facing export is GPX (see gpx-export.ts).
@@ -16,8 +16,7 @@ export async function refreshAutomaticYonderBackup(): Promise<void> {
   }
 
   automaticBackupPromise = (async () => {
-    const database = await getNativeDatabase();
-    const bytes = await database.serializeAsync();
+    const bytes = await serializeDatabase();
     const backupDirectory = new Directory(Paths.document, "Backups");
     backupDirectory.create({ idempotent: true, intermediates: true });
 

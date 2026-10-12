@@ -203,6 +203,27 @@ describe("diagnostics report", () => {
   });
 });
 
+describe("diagnostics report length", () => {
+  it("keeps the newest events that fit and says how many were left out", () => {
+    const newestFirst = Array.from({ length: 50 }, (_, index) =>
+      createDiagnosticEvent("app-state", { state: `state-${49 - index}` }, NOW + (49 - index) * 1_000, "p1"));
+    const report = formatDiagnosticsReport(
+      newestFirst,
+      { appVersion: "0.4.5-beta.2", platform: "android 35", generatedAtMs: NOW },
+      2_000,
+    );
+    const lines = report.split("\n");
+    const eventLines = lines.filter((line) => line.includes("app-state"));
+
+    expect(report.length).toBeLessThanOrEqual(2_000);
+    expect(eventLines.length).toBeGreaterThan(0);
+    expect(eventLines.length).toBeLessThan(50);
+    expect(lines[3]).toContain(`The newest ${eventLines.length} of 50 events.`);
+    expect(lines.at(-1)).toContain("state=state-49");
+    expect(eventLines[0]).toContain(`state=state-${50 - eventLines.length}`);
+  });
+});
+
 describe("background batch description", () => {
   function reading(timestamp: number, accuracy: number | null) {
     return {

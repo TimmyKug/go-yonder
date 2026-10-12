@@ -2,6 +2,7 @@ export type DiagnosticEventKind =
   | "app-state"
   | "background-batch"
   | "backup-error"
+  | "database-reopen"
   | "folder-backup"
   | "import-finished"
   | "background-start"
