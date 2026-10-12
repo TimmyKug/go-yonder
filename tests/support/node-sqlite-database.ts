@@ -51,32 +51,30 @@ export class NodeSqliteDatabase
   extends NodeSqliteExecutor
   implements SqlDatabase
 {
-  private transactionActive = false;
+  private transactionQueue: Promise<unknown> = Promise.resolve();
 
   constructor() {
     const database = new DatabaseSync(":memory:");
     super(database);
   }
 
-  async withExclusiveTransaction<T>(
+  // Like the app's connection: transactions wait for each other.
+  withExclusiveTransaction<T>(
     task: (transaction: SqlExecutor) => Promise<T>,
   ): Promise<T> {
-    if (this.transactionActive) {
-      throw new Error("nested test transactions are not supported");
-    }
-
-    this.database.exec("BEGIN IMMEDIATE");
-    this.transactionActive = true;
-    try {
-      const result = await task(new NodeSqliteExecutor(this.database));
-      this.database.exec("COMMIT");
-      return result;
-    } catch (error: unknown) {
-      this.database.exec("ROLLBACK");
-      throw error;
-    } finally {
-      this.transactionActive = false;
-    }
+    const run = this.transactionQueue.then(async () => {
+      this.database.exec("BEGIN IMMEDIATE");
+      try {
+        const result = await task(new NodeSqliteExecutor(this.database));
+        this.database.exec("COMMIT");
+        return result;
+      } catch (error: unknown) {
+        this.database.exec("ROLLBACK");
+        throw error;
+      }
+    });
+    this.transactionQueue = run.catch(() => undefined);
+    return run;
   }
 
   close(): void {

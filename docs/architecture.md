@@ -128,9 +128,19 @@ the backup schema unchanged:
   limit, the folder backup settings and the tile derivation cursor. They are
   read synchronously, so background tasks apply the current choice.
 
-Exclusive transactions on the main database run on a separate Expo connection,
-which gets its own 5 s busy timeout so concurrent background writes wait rather
-than fail.
+Each database has one long-lived connection with a 5 s busy timeout.
+Transactions run one at a time on it as `BEGIN IMMEDIATE` / `COMMIT`; reads
+issued meanwhile on the same connection see the open transaction's rows. Do
+not use Expo's exclusive transactions: they open and close a new connection
+each time, and on Android that churn, once per location update or cache page,
+left the long-lived connection failing every read with "file is not a
+database" while new connections still worked. The automatic backup snapshot is
+serialized between transactions.
+
+If the main connection still fails that way (or with a disk I/O error), it is
+closed and reopened, the failed read or transaction is retried once on the new
+connection, and a `database-reopen` diagnostics event is recorded. Writes
+outside a transaction are not retried.
 
 ## Location and ingestion
 
@@ -263,10 +273,8 @@ inside the sheet and only drags the sheet once it is at the top.
   while the app is in the background, and commits each 128-cell page
   atomically. Countries appear as soon as they are found; a percentage shows as
   calculating until all its parents have an area.
-- **Cache transactions** run one at a time as `BEGIN IMMEDIATE` / `COMMIT` on
-  the cache's own connection. Do not use Expo's exclusive transactions here:
-  opening a connection per page broke reads on the main database connection
-  with "file is not a database".
+- **Cache transactions** run on the cache's own connection like every other
+  transaction (see Persistence).
 - **Rebuilds:** the cache starts over when the bundled boundaries change (a
   fingerprint of every country's and region's ID and area), when the unlocked cells were
   replaced, and after every backup import. A generation number discards a page
@@ -368,13 +376,17 @@ everything tiles are derived from.
 An always-on log in `yonder-diagnostics.db` records process starts, app state
 changes, permission and tracking state, background-task (re)registration, each
 background batch (count, age, accuracy range, accepted and unlocked counts),
-and task, update, ingestion, backup and map-load errors.
+and task, update, ingestion, backup and map-load errors, and main database
+reconnections.
 
 Events never contain coordinates, place names, cell IDs or raw records; details
 are scalar values and coordinate-like keys are rejected. Writes are queued,
 never throw and never block ingestion. Events older than seven days are pruned
 and at most 5,000 are kept. Settings → Diagnostics shows the log and can clear
 it or share it as text; nothing leaves the device unless the user shares it.
+The shared text holds the newest events that fit in 60,000 characters and
+says how many were left out: Android's share sheet silently fails on text
+much longer than that.
 
 ## Android releases
 

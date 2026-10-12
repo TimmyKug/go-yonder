@@ -208,19 +208,16 @@ describe("background country scan", () => {
     expect(assign).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps every cache transaction on the cache's own connection, one at a time", async () => {
+  it("runs cache transactions one at a time", async () => {
     const { main, cache } = await databases();
     for (const id of children) await unlock(main, id);
-    const noNewConnections = Object.assign(Object.create(Object.getPrototypeOf(cache)), cache, {
-      withExclusiveTransaction: () => { throw new Error("opened a new connection"); },
-    }) as NodeSqliteDatabase;
-    const { done } = await scan(main, noNewConnections, [country]);
+    const { done } = await scan(main, cache, [country]);
     expect(done).toBe(true);
 
-    const state = await prepareCountryCache(noNewConnections, main, "b");
+    const state = await prepareCountryCache(cache, main, "b");
     const [committed] = await Promise.all([
-      commitScannedCells(noNewConnections, state.generation, 1, [{ countryId: "Testland", parentId: parent, firstSeenAtMs: 1 }]),
-      resetCountryCache(noNewConnections),
+      commitScannedCells(cache, state.generation, 1, [{ countryId: "Testland", parentId: parent, firstSeenAtMs: 1 }]),
+      resetCountryCache(cache),
     ]);
     expect(committed).toBe(true);
     expect(await cache.all("SELECT * FROM country_visits")).toEqual([]);

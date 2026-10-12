@@ -7,15 +7,15 @@ import type {
   SqlValue,
 } from "./sql-database";
 
-const TRANSACTION_BUSY_TIMEOUT_MS = 5000;
-
 type ExpoSqliteConnection = Pick<
   SQLiteDatabase,
-  "execAsync" | "runAsync" | "getFirstAsync" | "getAllAsync"
+  "execAsync" | "runAsync" | "getFirstAsync" | "getAllAsync" | "serializeAsync" | "closeAsync"
 >;
 
-class ExpoSqliteExecutor implements SqlExecutor {
-  constructor(protected readonly connection: ExpoSqliteConnection) {}
+export class ExpoSqliteDatabase implements SqlDatabase {
+  private transactionQueue: Promise<unknown> = Promise.resolve();
+
+  constructor(private readonly connection: ExpoSqliteConnection) {}
 
   async execute(sql: string): Promise<void> {
     await this.connection.execAsync(sql);
@@ -39,34 +39,42 @@ class ExpoSqliteExecutor implements SqlExecutor {
   all<T>(sql: string, parameters: readonly SqlValue[] = []): Promise<T[]> {
     return this.connection.getAllAsync<T>(sql, [...parameters]);
   }
-}
 
-export class ExpoSqliteDatabase
-  extends ExpoSqliteExecutor
-  implements SqlDatabase
-{
-  constructor(private readonly database: SQLiteDatabase) {
-    super(database);
-  }
-
-  async withExclusiveTransaction<T>(
+  /**
+   * Runs transactions one at a time on this connection. Expo's exclusive
+   * transactions open and close a new connection each time; on Android that
+   * churn, once per location update, left the long-lived connection failing
+   * every read with "file is not a database". Reads issued meanwhile on this
+   * connection see the transaction's uncommitted rows.
+   */
+  withExclusiveTransaction<T>(
     task: (transaction: SqlExecutor) => Promise<T>,
   ): Promise<T> {
-    let outcome: { value: T } | undefined;
-
-    await this.database.withExclusiveTransactionAsync(async (transaction) => {
-      // Expo runs exclusive transactions on a new connection, which does not
-      // inherit the main connection's busy timeout. Without one, a concurrent
-      // background write fails the transaction at once with "database is locked".
-      await transaction.execAsync(`PRAGMA busy_timeout = ${TRANSACTION_BUSY_TIMEOUT_MS}`);
-      outcome = {
-        value: await task(new ExpoSqliteExecutor(transaction)),
-      };
+    return this.enqueue(async () => {
+      await this.execute("BEGIN IMMEDIATE");
+      try {
+        const result = await task(this);
+        await this.execute("COMMIT");
+        return result;
+      } catch (error: unknown) {
+        await this.execute("ROLLBACK").catch(() => undefined);
+        throw error;
+      }
     });
+  }
 
-    if (outcome === undefined) {
-      throw new Error("exclusive transaction completed without a result");
-    }
-    return outcome.value;
+  /** A copy of the database file between transactions, never mid-way. */
+  serialize(): Promise<Uint8Array> {
+    return this.enqueue(() => this.connection.serializeAsync());
+  }
+
+  close(): Promise<void> {
+    return this.enqueue(() => this.connection.closeAsync());
+  }
+
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const run = this.transactionQueue.then(operation);
+    this.transactionQueue = run.catch(() => undefined);
+    return run;
   }
 }
