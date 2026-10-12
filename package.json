@@ -4,6 +4,7 @@
   "main": "index.ts",
   "dependencies": {
     "@maplibre/maplibre-react-native": "^11.3.6",
+    "@shopify/react-native-skia": "2.6.2",
     "@turf/area": "^7.4.0",
     "@turf/boolean-point-in-polygon": "^7.4.0",
     "@turf/intersect": "^7.4.0",
@@ -25,10 +26,11 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
-    "react-native-svg": "15.15.4",
-    "react-native-web": "^0.21.2"
+    "react-native-web": "^0.21.2",
+    "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
     "@types/geojson": "^7946.0.16",
