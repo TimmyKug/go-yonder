@@ -1,14 +1,19 @@
-/** Orthographic globe projection: the hemisphere facing the viewer, drawn as SVG paths. */
+/**
+ * Orthographic globe: the outlines are painted once onto an equirectangular
+ * world texture, and a shader samples it for each pixel of the sphere.
+ */
 
 export type GlobeRotation = { latitude: number; longitude: number };
 export type GlobeRing = readonly number[];
 export type GlobeFeature = { id: string; name: string; rings: readonly GlobeRing[] };
-export type GlobeLayers = { land: string; visited: string };
+export type GlobeMapPaths = { land: string; visited: string };
 /** Where the centre of the sphere sits on the canvas it is drawn into. */
 export type GlobeCentre = { x: number; y: number };
 
 const DEGREES = Math.PI / 180;
-const MIN_RUN_POINTS = 3;
+const MIN_TEXTURE_WIDTH = 1024;
+const MAX_TEXTURE_WIDTH = 4096;
+
 function wrapLongitude(longitude: number): number {
   return ((((longitude + 180) % 360) + 360) % 360) - 180;
 }
@@ -48,167 +53,69 @@ export function projectToGlobe(
   };
 }
 
-/** Rounds to a tenth of a pixel; cheaper than `toFixed` on Hermes, which runs per point per frame. */
-function coordinate(value: number): number {
-  return Math.round(value * 10) / 10;
-}
-
-/** One outline as unit vectors on the sphere, packed x, y, z, so a frame needs no trigonometry. */
-type PreparedRing = Float64Array;
-
 /**
- * A country's outline on the unit sphere, with the smallest cap around it: the mean
- * direction and the cosine of the widest angle from it to any outline point.
+ * The coordinate shown at a canvas point, or undefined off the sphere. This is
+ * the inverse of `projectToGlobe`, and the sphere shader computes the same.
  */
-type PreparedFeature = {
-  id: string;
-  rings: PreparedRing[];
-  capX: number;
-  capY: number;
-  capZ: number;
-  capCos: number;
-};
-
-const preparedFeatures = new WeakMap<readonly GlobeFeature[], PreparedFeature[]>();
-
-function prepareFeature({ id, rings }: GlobeFeature): PreparedFeature {
-  let sumX = 0;
-  let sumY = 0;
-  let sumZ = 0;
-  const prepared = rings.map((ring) => {
-    const vectors = new Float64Array((ring.length / 2) * 3);
-    for (let index = 0, offset = 0; index < ring.length; index += 2, offset += 3) {
-      const lambda = ring[index]! * DEGREES;
-      const phi = ring[index + 1]! * DEGREES;
-      const cosPhi = Math.cos(phi);
-      vectors[offset] = cosPhi * Math.cos(lambda);
-      vectors[offset + 1] = cosPhi * Math.sin(lambda);
-      vectors[offset + 2] = Math.sin(phi);
-      sumX += vectors[offset]!;
-      sumY += vectors[offset + 1]!;
-      sumZ += vectors[offset + 2]!;
-    }
-    return vectors;
-  });
-  const length = Math.hypot(sumX, sumY, sumZ);
-  // A degenerate mean (an outline wrapping the whole sphere) gets a cap that is never culled.
-  if (length < 1e-9) return { id, rings: prepared, capX: 0, capY: 0, capZ: 1, capCos: -1 };
-  const capX = sumX / length;
-  const capY = sumY / length;
-  const capZ = sumZ / length;
-  let capCos = 1;
-  for (const vectors of prepared) {
-    for (let offset = 0; offset < vectors.length; offset += 3) {
-      capCos = Math.min(
-        capCos,
-        vectors[offset]! * capX + vectors[offset + 1]! * capY + vectors[offset + 2]! * capZ,
-      );
-    }
-  }
-  return { id, rings: prepared, capX, capY, capZ, capCos };
-}
-
-function prepareFeatures(features: readonly GlobeFeature[]): PreparedFeature[] {
-  let prepared = preparedFeatures.get(features);
-  if (!prepared) {
-    prepared = features.map(prepareFeature);
-    preparedFeatures.set(features, prepared);
-  }
-  return prepared;
-}
-
-/** Sines and cosines of the rotation, computed once per frame rather than per point. */
-type Frame = {
-  sinLat: number;
-  cosLat: number;
-  sinLon: number;
-  cosLon: number;
-  radius: number;
-  centre: GlobeCentre;
-};
-
-/**
- * Whether the whole cap lies beyond the horizon. The viewer faces the direction
- * `view`; the cap is hidden once its centre is more than 90° plus its own angular
- * radius away, which is cheaper to test than every point and exact enough to keep
- * every visible point.
- */
-function isCapHidden(feature: PreparedFeature, frame: Frame): boolean {
-  if (feature.capCos <= 0) return false;
-  const facing =
-    frame.cosLat * (feature.capX * frame.cosLon + feature.capY * frame.sinLon) +
-    frame.sinLat * feature.capZ;
-  return facing < -Math.sqrt(1 - feature.capCos * feature.capCos) - 1e-9;
-}
-
-/**
- * Every visible run of one ring as SVG subpaths. Runs broken by the horizon are
- * closed along the chord between their end points, which reads as a clean limb at
- * country scale. Consecutive points that round to the same position are drawn once.
- * Paths may fall outside the canvas: the sphere is often wider than the screen, and
- * the canvas clips it.
- */
-function ringPath(vectors: PreparedRing, frame: Frame): string {
-  const { sinLat, cosLat, sinLon, cosLon, radius, centre } = frame;
-  let path = "";
-  let run = "";
-  let runPoints = 0;
-  let lastX = Number.NaN;
-  let lastY = Number.NaN;
-  for (let offset = 0; offset < vectors.length; offset += 3) {
-    const x = vectors[offset]!;
-    const y = vectors[offset + 1]!;
-    const z = vectors[offset + 2]!;
-    // Longitude relative to the rotation: cos φ cos Δλ and cos φ sin Δλ.
-    const along = x * cosLon + y * sinLon;
-    const across = y * cosLon - x * sinLon;
-    if (sinLat * z + cosLat * along < 0) {
-      if (runPoints >= MIN_RUN_POINTS) path += `M${run}Z`;
-      run = "";
-      runPoints = 0;
-      lastX = Number.NaN;
-      continue;
-    }
-    const screenX = coordinate(centre.x + radius * across);
-    const screenY = coordinate(centre.y - radius * (cosLat * z - sinLat * along));
-    if (screenX === lastX && screenY === lastY) continue;
-    run += runPoints === 0 ? `${screenX} ${screenY}` : `L${screenX} ${screenY}`;
-    runPoints += 1;
-    lastX = screenX;
-    lastY = screenY;
-  }
-  if (runPoints >= MIN_RUN_POINTS) path += `M${run}Z`;
-  return path;
-}
-
-/**
- * All visible land as two SVG paths, unvisited and visited. The outlines are outer
- * rings that never overlap, so one combined path fills exactly like one path per
- * country, while the renderer redraws two native shapes per frame instead of ~200.
- * Outlines are converted to unit vectors once per feature list, and countries
- * entirely on the far side are skipped without projecting their points.
- */
-export function globeLayers(
-  features: readonly GlobeFeature[],
-  visitedIds: ReadonlySet<string>,
+export function globePointToCoordinate(
+  x: number,
+  y: number,
   rotation: GlobeRotation,
   radius: number,
   centre: GlobeCentre,
-): GlobeLayers {
-  const frame: Frame = {
-    sinLat: Math.sin(rotation.latitude * DEGREES),
-    cosLat: Math.cos(rotation.latitude * DEGREES),
-    sinLon: Math.sin(rotation.longitude * DEGREES),
-    cosLon: Math.cos(rotation.longitude * DEGREES),
-    radius,
-    centre,
+): { longitude: number; latitude: number } | undefined {
+  const across = (x - centre.x) / radius;
+  const up = (centre.y - y) / radius;
+  const remaining = 1 - across * across - up * up;
+  if (remaining < 0) return undefined;
+  const depth = Math.sqrt(remaining);
+  const sinLat = Math.sin(rotation.latitude * DEGREES);
+  const cosLat = Math.cos(rotation.latitude * DEGREES);
+  const along = cosLat * depth - sinLat * up;
+  const z = sinLat * depth + cosLat * up;
+  return {
+    longitude: wrapLongitude(rotation.longitude + Math.atan2(across, along) / DEGREES),
+    latitude: Math.asin(Math.max(-1, Math.min(1, z))) / DEGREES,
   };
+}
+
+/**
+ * The world texture's size: about the sphere's circumference in device pixels,
+ * so the texture is not magnified at the centre of the sphere.
+ */
+export function globeTextureSize(radiusPx: number): { width: number; height: number } {
+  const circumference = Math.ceil((2 * Math.PI * radiusPx) / 256) * 256;
+  const width = Math.min(MAX_TEXTURE_WIDTH, Math.max(MIN_TEXTURE_WIDTH, circumference));
+  return { width, height: width / 2 };
+}
+
+/** One ring in texture pixels: longitude −180…180 left to right, latitude 90…−90 top to bottom. */
+function ringPath(ring: GlobeRing, width: number, height: number): string {
+  let path = "";
+  for (let index = 0; index + 1 < ring.length; index += 2) {
+    const x = Math.round(((ring[index]! + 180) / 360) * width * 10) / 10;
+    const y = Math.round(((90 - ring[index + 1]!) / 180) * height * 10) / 10;
+    path += `${index === 0 ? "M" : "L"}${x} ${y}`;
+  }
+  return path.length > 0 ? `${path}Z` : "";
+}
+
+/**
+ * All outlines as two SVG paths on the world texture, unvisited and visited.
+ * The source rings are already cut at the antimeridian, so none wraps across
+ * the texture's edges; Antarctica's ring runs along the bottom edge.
+ */
+export function globeMapPaths(
+  features: readonly GlobeFeature[],
+  visitedIds: ReadonlySet<string>,
+  width: number,
+  height: number,
+): GlobeMapPaths {
   let land = "";
   let visited = "";
-  for (const feature of prepareFeatures(features)) {
-    if (isCapHidden(feature, frame)) continue;
+  for (const feature of features) {
     let path = "";
-    for (const vectors of feature.rings) path += ringPath(vectors, frame);
+    for (const ring of feature.rings) path += ringPath(ring, width, height);
     if (visitedIds.has(feature.id)) visited += path;
     else land += path;
   }
