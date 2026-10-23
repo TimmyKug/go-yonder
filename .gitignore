@@ -7,8 +7,9 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
-ios/
-android/
+/ios/
+/android/
+modules/*/android/build/
 *.db
 *.sqlite
 *.sqlite3
