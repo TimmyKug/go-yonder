@@ -40,6 +40,7 @@ vi.mock("@/src/location/location-ingestion", () => ({
   ingestExpoLocations: vi.fn(async () => undefined),
 }));
 
+import { sanitizeDetail } from "@/src/domain/diagnostic-event";
 import { initializeLocationTracking } from "@/src/location/location-service";
 
 const grantedPermission = {
@@ -87,6 +88,15 @@ describe("initializeLocationTracking", () => {
       }),
     );
     expect(checkBatteryWarning).toHaveBeenCalledWith(true);
+  });
+
+  it("records a tracking state the diagnostics sanitizer keeps whole", async () => {
+    await initializeLocationTracking();
+
+    const call = recordDiagnostic.mock.calls.find(([kind]) => kind === "tracking-state");
+    const detail = call![1] as Record<string, unknown>;
+    expect(detail.os).toBe("android");
+    expect(Object.keys(sanitizeDetail(detail))).toEqual(Object.keys(detail));
   });
 
   it("keeps background tracking when re-registering fails", async () => {

@@ -550,7 +550,7 @@ function recordTrackingState(
 ): void {
   recordDiagnostic("tracking-state", {
     operation,
-    platform: Platform.OS,
+    os: Platform.OS,
     mode: state.trackingMode,
     foreground: state.permissions.foreground,
     background: state.permissions.background,

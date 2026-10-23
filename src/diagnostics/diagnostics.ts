@@ -89,7 +89,7 @@ export function installDiagnostics(
 
   recordDiagnostic("process-start", {
     appState: AppState.currentState ?? "unknown",
-    platform: Platform.OS,
+    os: Platform.OS,
     osVersion: String(Platform.Version),
     ...startDetail,
   });
