@@ -12,6 +12,11 @@ vi.mock("expo-task-manager", () => ({
   defineTask: vi.fn(),
   isTaskDefined: vi.fn(() => true),
 }));
+const checkBatteryWarning = vi.hoisted(() => vi.fn());
+vi.mock("@/src/device-health/device-health", () => ({
+  checkBatteryWarning,
+  describePowerForDiagnostics: () => ({ battery: "optimized" }),
+}));
 vi.mock("@/src/location/location-ingestion", () => ({
   ingestExpoLocations: vi.fn(),
 }));

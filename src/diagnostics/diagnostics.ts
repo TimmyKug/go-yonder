@@ -79,7 +79,9 @@ let installed = false;
  * Records the process start and every app state change. Call once from the
  * entry module so headless background launches are recorded too.
  */
-export function installDiagnostics(): void {
+export function installDiagnostics(
+  startDetail: Readonly<Record<string, unknown>> = {},
+): void {
   if (installed) {
     return;
   }
@@ -87,8 +89,9 @@ export function installDiagnostics(): void {
 
   recordDiagnostic("process-start", {
     appState: AppState.currentState ?? "unknown",
-    platform: Platform.OS,
+    os: Platform.OS,
     osVersion: String(Platform.Version),
+    ...startDetail,
   });
 
   AppState.addEventListener("change", (state) => {

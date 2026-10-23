@@ -11,6 +11,7 @@ import { exportGpx } from "@/src/data/gpx-export";
 import { importLocationFile, type LocationFileImportResult } from "@/src/data/import-location-file";
 import { recordDiagnostic } from "@/src/diagnostics/diagnostics";
 import { useAppearance } from "@/src/features/appearance/appearance-provider";
+import { BatteryWarning } from "@/src/features/settings/battery-warning";
 import { ChoiceRow, type ChoiceColors } from "@/src/features/settings/choice-row";
 import { FolderBackupSection } from "@/src/features/settings/folder-backup-section";
 import { useMaxLiveAccuracyM } from "@/src/features/settings/use-max-live-accuracy";
@@ -108,6 +109,15 @@ export function SettingsScreen() {
 
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" style={{ backgroundColor: dark ? "#071520" : "#F3F6F5" }} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 24, gap: 20 }}>
+      <BatteryWarning
+        colors={{
+          accent: dark ? "#6CD4BD" : "#1F7A68",
+          foreground,
+          secondary,
+          surface,
+          warning: dark ? "#F5B971" : "#A35B00",
+        }}
+      />
       <Text selectable style={{ color: secondary, fontSize: 16, lineHeight: 24 }}>Keep your exploration with you. Your GPS points are your map: export them as GPX, and importing adds points while preserving everything already on this device.</Text>
       <View style={{ gap: 10 }}>
         <Text style={{ color: foreground, fontSize: 18, fontWeight: "600" }}>Appearance</Text>

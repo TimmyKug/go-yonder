@@ -31,10 +31,16 @@ vi.mock("@/src/location/background-location-task", () => ({
 }));
 const recordDiagnostic = vi.hoisted(() => vi.fn());
 vi.mock("@/src/diagnostics/diagnostics", () => ({ recordDiagnostic }));
+const checkBatteryWarning = vi.hoisted(() => vi.fn());
+vi.mock("@/src/device-health/device-health", () => ({
+  checkBatteryWarning,
+  describePowerForDiagnostics: () => ({ battery: "optimized" }),
+}));
 vi.mock("@/src/location/location-ingestion", () => ({
   ingestExpoLocations: vi.fn(async () => undefined),
 }));
 
+import { sanitizeDetail } from "@/src/domain/diagnostic-event";
 import { initializeLocationTracking } from "@/src/location/location-service";
 
 const grantedPermission = {
@@ -56,6 +62,7 @@ describe("initializeLocationTracking", () => {
     location.startLocationUpdatesAsync.mockReset();
     location.startLocationUpdatesAsync.mockResolvedValue(undefined);
     recordDiagnostic.mockReset();
+    checkBatteryWarning.mockReset();
   });
 
   it("re-registers a restored Android task so its foreground service restarts", async () => {
@@ -77,8 +84,19 @@ describe("initializeLocationTracking", () => {
         operation: "initialize",
         mode: "background",
         background: "granted",
+        battery: "optimized",
       }),
     );
+    expect(checkBatteryWarning).toHaveBeenCalledWith(true);
+  });
+
+  it("records a tracking state the diagnostics sanitizer keeps whole", async () => {
+    await initializeLocationTracking();
+
+    const call = recordDiagnostic.mock.calls.find(([kind]) => kind === "tracking-state");
+    const detail = call![1] as Record<string, unknown>;
+    expect(detail.os).toBe("android");
+    expect(Object.keys(sanitizeDetail(detail))).toEqual(Object.keys(detail));
   });
 
   it("keeps background tracking when re-registering fails", async () => {

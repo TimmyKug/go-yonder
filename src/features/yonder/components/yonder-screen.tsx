@@ -19,6 +19,10 @@ import {
   refreshAutomaticYonderBackup,
 } from "@/src/data/yonder-backup";
 import {
+  checkBatteryWarning,
+  requestNotificationPermissionOnce,
+} from "@/src/device-health/device-health";
+import {
   getLocationSnapshot,
   initializeLocationTracking,
   requestBackgroundLocationPermission,
@@ -55,6 +59,13 @@ export function YonderScreen() {
 
     return () => subscription.remove();
   }, []);
+
+  // The battery warning and the tracking notification need this permission
+  // on Android 13 and later.
+  useEffect(() => {
+    if (location.trackingMode !== "background" || AppState.currentState !== "active") return;
+    void requestNotificationPermissionOnce().then(() => checkBatteryWarning(true));
+  }, [location.trackingMode]);
 
   const tracking = useMemo<TrackingPresentation>(() => {
     if (visibleCells.error) {

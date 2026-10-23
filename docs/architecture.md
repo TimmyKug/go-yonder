@@ -35,6 +35,11 @@ and release history live in the git history.
   shader; they are the app's only 2D drawing libraries.
 - **Expo Location and Task Manager** deliver readings; the background task is
   defined at module scope.
+- **`modules/yonder-device-health`** is a local Expo module (Android only,
+  autolinked from `modules/`) that reads the battery and standby state and
+  Android's recorded process exits, opens the battery settings and posts the
+  battery warning notification. Its JavaScript returns neutral values on other
+  platforms.
 
 ## Data flow
 
@@ -72,11 +77,13 @@ src/data/               SQLite databases, migrations, repositories, backups,
 src/location/           Permissions, foreground/background tracking, ingestion
 src/countries/          Background country and region scan
 src/tiles/              Background tile derivation for imported points
-src/diagnostics/        On-device diagnostics recorder and report
+src/diagnostics/        On-device diagnostics recorder and report, JS error handler
+src/device-health/      Battery state, process exits and the battery warning
 src/features/           Screens, map view, hooks, appearance, globe
 src/import/             Source-neutral import adapter contract
 src/map/                Native map network configuration
 tests/                  Vitest suite; tests/support has a Node SQLite adapter
+modules/                Local Expo modules (device health)
 patches/                h3-js, MapLibre and Expo Location patches applied on postinstall
 scripts/                Country/region/globe data preparation and iOS QA
 site/                   Landing page published to GitHub Pages
@@ -164,6 +171,31 @@ outside a transaction are not retried.
   restarts it.
 - An already-authorized app requests one foreground fix on activation to seed
   the map; failing to get it never stops background collection.
+
+### Battery restrictions (Android)
+
+Android and phone makers' battery managers kill or throttle background apps,
+which stops tracking until the app is opened. The app reads its battery state
+as **unrestricted** (exempt from battery optimization), **optimized** (the
+default) or **restricted** (background use restricted), from
+`PowerManager.isIgnoringBatteryOptimizations` and
+`ActivityManager.isBackgroundRestricted`.
+
+- While background tracking is registered and the state is not unrestricted,
+  Settings shows a warning at the top with a button. For optimized it opens the
+  system dialog that exempts Yonder (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, so
+  the app is not eligible for Google Play as is); for restricted, which that
+  dialog cannot lift, it opens Yonder's app settings page.
+- The same condition posts a notification, "Battery saving can stop Yonder",
+  that opens Settings. It is checked whenever the tracking state is refreshed
+  and after each background batch, and posted at most once a day; becoming
+  unrestricted resets that, so a later regression notifies at once. Each
+  posted warning is recorded as a `battery-warning` diagnostics event.
+- Android 13 and later need the notification permission for this and for the
+  tracking notification to be visible. It is requested once, the first time
+  background tracking is active while the app is open; the answer is kept in
+  the key-value store and never asked for again by the app. The answer is
+  recorded as a `notification-permission` diagnostics event.
 
 For each sample:
 
@@ -388,6 +420,20 @@ changes, permission and tracking state, background-task (re)registration, each
 background batch (count, age, accuracy range, accepted and unlocked counts),
 and task, update, ingestion, backup and map-load errors, and main database
 reconnections.
+
+A process cannot record its own death, so on Android each process start also
+reads `ActivityManager.getHistoricalProcessExitReasons` and records a
+`process-exit` event for every exit newer than the newest one already recorded
+(its timestamp is kept in the key-value store). Each has the exit time, the
+reason (for example `low-memory`, `crash`, `crash-native`, `anr`,
+`user-requested`, `excessive-resource-usage`, `freezer`, `other`), the process
+importance at the time (for example `foreground-service`, `cached`), its memory,
+and Android's description with URIs, paths and decimal numbers removed. The
+`process-start` and `tracking-state` events include the battery state
+(`battery`) and standby bucket (`standbyBucket`). A global JavaScript error
+handler records uncaught errors as `js-error` (name, scrubbed message, whether
+fatal), waits up to one second for the write, then hands the error to React
+Native's handler.
 
 Events never contain coordinates, place names, cell IDs or raw records; details
 are scalar values and coordinate-like keys are rejected. Writes are queued,
