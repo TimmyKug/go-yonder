@@ -4,6 +4,7 @@ import * as TaskManager from "expo-task-manager";
 import { ingestExpoLocations } from "./location-ingestion";
 import { updateLocationState } from "./location-state";
 
+import { checkBatteryWarning } from "@/src/device-health/device-health";
 import { flushDiagnostics, recordDiagnostic } from "@/src/diagnostics/diagnostics";
 import { describeError } from "@/src/domain/diagnostic-event";
 
@@ -46,6 +47,7 @@ if (!TaskManager.isTaskDefined(BACKGROUND_LOCATION_TASK_NAME)) {
         ...summary,
         ...describeBatch(data.locations, Date.now()),
       });
+      checkBatteryWarning(true);
       await flushDiagnostics();
     },
   );

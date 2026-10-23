@@ -31,6 +31,11 @@ vi.mock("@/src/location/background-location-task", () => ({
 }));
 const recordDiagnostic = vi.hoisted(() => vi.fn());
 vi.mock("@/src/diagnostics/diagnostics", () => ({ recordDiagnostic }));
+const checkBatteryWarning = vi.hoisted(() => vi.fn());
+vi.mock("@/src/device-health/device-health", () => ({
+  checkBatteryWarning,
+  describePowerForDiagnostics: () => ({ battery: "optimized" }),
+}));
 vi.mock("@/src/location/location-ingestion", () => ({
   ingestExpoLocations: vi.fn(async () => undefined),
 }));
@@ -56,6 +61,7 @@ describe("initializeLocationTracking", () => {
     location.startLocationUpdatesAsync.mockReset();
     location.startLocationUpdatesAsync.mockResolvedValue(undefined);
     recordDiagnostic.mockReset();
+    checkBatteryWarning.mockReset();
   });
 
   it("re-registers a restored Android task so its foreground service restarts", async () => {
@@ -77,8 +83,10 @@ describe("initializeLocationTracking", () => {
         operation: "initialize",
         mode: "background",
         background: "granted",
+        battery: "optimized",
       }),
     );
+    expect(checkBatteryWarning).toHaveBeenCalledWith(true);
   });
 
   it("keeps background tracking when re-registering fails", async () => {

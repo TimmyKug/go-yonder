@@ -15,6 +15,10 @@ import {
   updateLocationState,
 } from "./location-state";
 
+import {
+  checkBatteryWarning,
+  describePowerForDiagnostics,
+} from "@/src/device-health/device-health";
 import { recordDiagnostic } from "@/src/diagnostics/diagnostics";
 import { describeError } from "@/src/domain/diagnostic-event";
 
@@ -534,6 +538,7 @@ function runExclusive(
     .then(() => {
       const state = getLocationSnapshot();
       recordTrackingState(label, state, failure);
+      checkBatteryWarning(state.trackingMode === "background");
       return state;
     });
 }
@@ -554,5 +559,6 @@ function recordTrackingState(
     backgroundAvailable: state.backgroundAvailable,
     error: state.error?.code ?? null,
     failure,
+    ...describePowerForDiagnostics(),
   });
 }
