@@ -189,11 +189,13 @@ default) or **restricted** (background use restricted), from
 - The same condition posts a notification, "Battery saving can stop Yonder",
   that opens Settings. It is checked whenever the tracking state is refreshed
   and after each background batch, and posted at most once a day; becoming
-  unrestricted resets that, so a later regression notifies at once.
+  unrestricted resets that, so a later regression notifies at once. Each
+  posted warning is recorded as a `battery-warning` diagnostics event.
 - Android 13 and later need the notification permission for this and for the
   tracking notification to be visible. It is requested once, the first time
   background tracking is active while the app is open; the answer is kept in
-  the key-value store and never asked for again by the app.
+  the key-value store and never asked for again by the app. The answer is
+  recorded as a `notification-permission` diagnostics event.
 
 For each sample:
 
