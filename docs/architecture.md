@@ -160,7 +160,11 @@ outside a transaction are not retried.
   batching in the background. Android runs a foreground-service notification
   while background tracking is active.
 - On Android, Task Manager restores the registered background task after a
-  reboot or app update. `patches/expo-location+57.0.22.patch` starts the
+  reboot or app update. Expo links a precompiled expo-location library by
+  default, which would leave out the patch below, so `package.json` sets
+  `expo.autolinking.android.buildFromSource` to build expo-location from its
+  patched source; a test guards that setting.
+  `patches/expo-location+57.0.22.patch` starts the
   foreground service from that boot or package-replaced broadcast when
   background location is granted, so tracking resumes without opening the app;
   a test guards the patch. Devices that block apps from starting at boot, and
