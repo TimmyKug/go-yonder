@@ -65,6 +65,23 @@ class YonderDeviceHealthModule : Module() {
       }
     }
 
+    // Written by patches/expo-location when it restarts the location task
+    // after a reboot or app update. Each entry is read once.
+    Function("takeTaskRestores") {
+      val preferences = context.getSharedPreferences(RESTORE_PREFERENCES, Context.MODE_PRIVATE)
+      val entries = preferences.getString(RESTORE_ENTRIES_KEY, null)
+      preferences.edit().remove(RESTORE_ENTRIES_KEY).commit()
+      (entries?.split("\n") ?: emptyList()).mapNotNull { line ->
+        val parts = line.split("|")
+        val atMs = parts.getOrNull(0)?.toLongOrNull() ?: return@mapNotNull null
+        mapOf(
+          "atMs" to atMs.toDouble(),
+          "trigger" to parts.getOrNull(1),
+          "outcome" to parts.getOrNull(2)
+        )
+      }
+    }
+
     Function("canPostNotifications") {
       canPostNotifications()
     }
@@ -157,5 +174,7 @@ class YonderDeviceHealthModule : Module() {
 
   companion object {
     private const val CHANNEL_ID = "yonder-tracking-problems"
+    private const val RESTORE_PREFERENCES = "yonder-task-restore"
+    private const val RESTORE_ENTRIES_KEY = "entries"
   }
 }

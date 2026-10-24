@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
-index 915b6bf..88bce8f 100644
+index 915b6bf..679c510 100644
 --- a/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
 +++ b/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
 @@ -1,5 +1,6 @@
@@ -17,7 +17,7 @@ index 915b6bf..88bce8f 100644
  import android.location.Location
  import android.os.Build
  import android.os.Bundle
-@@ -78,8 +80,22 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+@@ -78,8 +80,27 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
      maybeStartForegroundService()
    }
  
@@ -32,20 +32,28 @@ index 915b6bf..88bce8f 100644
 +    // allows a location foreground service to start from these broadcasts, so
 +    // start it here when location access is granted all the time.
 +    if (intent.action in RESTORE_ACTIONS) {
++      val trigger = if (intent.action == Intent.ACTION_BOOT_COMPLETED) "boot" else "package-replaced"
++      val restoredAtMs = System.currentTimeMillis()
++      val record = { outcome: String -> recordRestore(restoredAtMs, trigger, outcome) }
 +      if (hasBackgroundLocationPermission()) {
-+        maybeStartForegroundService(allowFromBackground = true)
++        maybeStartForegroundService(allowFromBackground = true, onRestoreOutcome = record)
++      } else {
++        record("no-background-permission")
 +      }
 +      return
 +    }
      val result = LocationResult.extractResult(intent)
      if (result != null) {
        handleLocationUpdate(result.locations)
-@@ -177,12 +193,12 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+@@ -177,12 +198,15 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
      }
    }
  
 -  private fun maybeStartForegroundService() {
-+  private fun maybeStartForegroundService(allowFromBackground: Boolean = false) {
++  private fun maybeStartForegroundService(
++    allowFromBackground: Boolean = false,
++    onRestoreOutcome: ((String) -> Unit)? = null
++  ) {
      // Foreground service is available as of Android Oreo.
      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
        return
@@ -55,7 +63,15 @@ index 915b6bf..88bce8f 100644
        Log.w(TAG, "Foreground location task cannot be started while the app is in the background!")
        return
      }
-@@ -215,7 +231,16 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+@@ -201,6 +225,7 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+ 
+     // Service is not running and the user don't want to start foreground service.
+     if (!useForegroundService) {
++      onRestoreOutcome?.invoke("no-foreground-service")
+       return
+     }
+ 
+@@ -215,7 +240,18 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
        extras.putString("taskName", task.name)
        extras.putBoolean("killService", serviceOptions.getBoolean("killServiceOnDestroy", false))
        serviceIntent.putExtras(extras)
@@ -65,31 +81,58 @@ index 915b6bf..88bce8f 100644
 +      } catch (e: IllegalStateException) {
 +        // Yonder patch: ForegroundServiceStartNotAllowedException.
 +        Log.w(TAG, "Foreground location service could not be started: " + e.message)
++        onRestoreOutcome?.invoke("start-not-allowed")
 +        return
 +      } catch (e: SecurityException) {
 +        Log.w(TAG, "Foreground location service could not be started: " + e.message)
++        onRestoreOutcome?.invoke("start-not-allowed")
 +        return
 +      }
        context.bindService(
          serviceIntent,
          object : ServiceConnection {
-@@ -223,7 +248,14 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+@@ -223,7 +259,16 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
              mService = (service as? ServiceBinder)?.service
              mService?.let {
                it.setParentContext(context)
 -              it.startForeground(serviceOptions)
 +              try {
 +                it.startForeground(serviceOptions)
++                onRestoreOutcome?.invoke("service-started")
 +              } catch (e: RuntimeException) {
 +                // Yonder patch: background updates keep running without the service.
 +                Log.w(TAG, "Foreground location service could not be promoted: " + e.message)
++                onRestoreOutcome?.invoke("service-not-promoted")
 +                it.stop()
 +                mService = null
 +              }
              }
            }
  
-@@ -244,6 +276,15 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+@@ -237,6 +282,22 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+     } else {
+       // Restart the service with new service options.
+       mService?.startForeground(options.getArguments(FOREGROUND_SERVICE_KEY).toBundle())
++      onRestoreOutcome?.invoke("service-started")
++    }
++  }
++
++  // Yonder patch: a restart runs no JavaScript until a location arrives, so
++  // its outcome is kept for the app's diagnostics log to pick up later.
++  private fun recordRestore(atMs: Long, trigger: String, outcome: String) {
++    try {
++      val preferences = context.getSharedPreferences(RESTORE_PREFERENCES, Context.MODE_PRIVATE)
++      val entries = (preferences.getString(RESTORE_ENTRIES_KEY, null)?.split("\n") ?: emptyList())
++        .filter { it.isNotEmpty() }
++        .plus("$atMs|$trigger|$outcome")
++        .takeLast(MAX_RESTORE_ENTRIES)
++      preferences.edit().putString(RESTORE_ENTRIES_KEY, entries.joinToString("\n")).commit()
++    } catch (e: Exception) {
++      Log.w(TAG, "Task restore could not be recorded: " + e.message)
+     }
+   }
+ 
+@@ -244,6 +305,15 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
      mService?.stop()
    }
  
@@ -105,10 +148,13 @@ index 915b6bf..88bce8f 100644
    /**
     * Reports locations immediately without deferred batching.
     * Used in foreground mode to provide responsive location updates (matches iOS behavior).
-@@ -356,6 +397,10 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+@@ -356,6 +426,13 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
    companion object {
      private const val TAG = "LocationTaskConsumer"
      private const val FOREGROUND_SERVICE_KEY = "foregroundService"
++    private const val RESTORE_PREFERENCES = "yonder-task-restore"
++    private const val RESTORE_ENTRIES_KEY = "entries"
++    private const val MAX_RESTORE_ENTRIES = 20
 +    private val RESTORE_ACTIONS = setOf(
 +      Intent.ACTION_BOOT_COMPLETED,
 +      Intent.ACTION_MY_PACKAGE_REPLACED

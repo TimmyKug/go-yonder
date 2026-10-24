@@ -172,7 +172,7 @@ outside a transaction are not retried.
   JavaScript unless a location arrives, so the next process start moves these
   entries into the diagnostics log as `task-restore` events. An update or
   reboot without any `task-restore` entry means the broadcast never reached the
-  restored task.
+  restored task, or its service never connected.
 - On Android, when the app becomes active with background tracking registered,
   the task is registered again: Android restores tasks after other process
   restarts without starting the foreground service, and re-registering

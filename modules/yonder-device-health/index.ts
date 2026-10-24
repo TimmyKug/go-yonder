@@ -17,9 +17,17 @@ export type NativeProcessExit = {
   description: string | null;
 };
 
+/** A restart of the location task after a reboot or app update. */
+export type NativeTaskRestore = {
+  atMs: number;
+  trigger: string | null;
+  outcome: string | null;
+};
+
 type YonderDeviceHealthModule = {
   getPowerState(): NativePowerState;
   getProcessExits(): NativeProcessExit[];
+  takeTaskRestores(): NativeTaskRestore[];
   canPostNotifications(): boolean;
   openBatterySettings(backgroundRestricted: boolean): boolean;
   showNotification(id: number, title: string, body: string, url: string): boolean;
