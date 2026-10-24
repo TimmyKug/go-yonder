@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt b/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
-index b4f6c06..27f0016 100644
+index 915b6bf..88bce8f 100644
 --- a/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
 +++ b/node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt
 @@ -1,5 +1,6 @@
@@ -40,7 +40,7 @@ index b4f6c06..27f0016 100644
      val result = LocationResult.extractResult(intent)
      if (result != null) {
        handleLocationUpdate(result.locations)
-@@ -173,12 +189,12 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+@@ -177,12 +193,12 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
      }
    }
  
@@ -55,7 +55,7 @@ index b4f6c06..27f0016 100644
        Log.w(TAG, "Foreground location task cannot be started while the app is in the background!")
        return
      }
-@@ -211,7 +227,16 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+@@ -215,7 +231,16 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
        extras.putString("taskName", task.name)
        extras.putBoolean("killService", serviceOptions.getBoolean("killServiceOnDestroy", false))
        serviceIntent.putExtras(extras)
@@ -73,7 +73,7 @@ index b4f6c06..27f0016 100644
        context.bindService(
          serviceIntent,
          object : ServiceConnection {
-@@ -219,7 +244,14 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+@@ -223,7 +248,14 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
              mService = (service as? ServiceBinder)?.service
              mService?.let {
                it.setParentContext(context)
@@ -89,7 +89,7 @@ index b4f6c06..27f0016 100644
              }
            }
  
-@@ -240,6 +272,15 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+@@ -244,6 +276,15 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
      mService?.stop()
    }
  
@@ -105,7 +105,7 @@ index b4f6c06..27f0016 100644
    /**
     * Reports locations immediately without deferred batching.
     * Used in foreground mode to provide responsive location updates (matches iOS behavior).
-@@ -352,6 +393,10 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
+@@ -356,6 +397,10 @@ class LocationTaskConsumer(context: Context, taskManagerUtils: TaskManagerUtilsI
    companion object {
      private const val TAG = "LocationTaskConsumer"
      private const val FOREGROUND_SERVICE_KEY = "foregroundService"
