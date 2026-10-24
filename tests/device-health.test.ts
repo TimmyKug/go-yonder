@@ -6,6 +6,7 @@ const native = vi.hoisted(() => ({
   getProcessExits: vi.fn(),
   openBatterySettings: vi.fn(() => true),
   showNotification: vi.fn(() => true),
+  takeCrashes: vi.fn(),
   takeTaskRestores: vi.fn(),
 }));
 const storage = vi.hoisted(() => new Map<string, string>());
@@ -33,7 +34,9 @@ vi.mock("@/src/diagnostics/diagnostics", () => ({ recordDiagnostic }));
 import {
   checkBatteryWarning,
   describePowerForDiagnostics,
+  markJsStart,
   openBatterySettings,
+  recordCrashes,
   recordProcessExits,
   recordTaskRestores,
   requestNotificationPermissionOnce,
@@ -41,6 +44,7 @@ import {
 import { installJsErrorRecorder } from "@/src/diagnostics/js-errors";
 import {
   BATTERY_WARNING_INTERVAL_MS,
+  crashReachedJavaScript,
   describeExitReason,
   describeImportance,
   selectNewExits,
@@ -136,6 +140,45 @@ describe("process exits", () => {
     }));
     expect(recordDiagnostic).toHaveBeenNthCalledWith(2, "process-exit", expect.objectContaining({
       reason: "user-requested",
+    }));
+    const detail = recordDiagnostic.mock.calls[0]![1] as Record<string, unknown>;
+    expect(Object.keys(sanitizeDetail(detail))).toEqual(Object.keys(detail));
+  });
+});
+
+describe("native crashes", () => {
+  const crash = {
+    atMs: NOW,
+    cause: "java.lang.IllegalStateException: bad value 13.4050 in /data/user/0/app",
+    exception: "java.lang.RuntimeException: wrapped",
+    frames: ["a.b.c(SourceFile:12)", "d.e.f(SourceFile:3)"],
+    processStartedAtMs: NOW - 2_000,
+    thread: "main",
+  };
+
+  it("tells whether the crashed process reached JavaScript", () => {
+    expect(crashReachedJavaScript(crash, NOW - 1_000)).toBe(true);
+    expect(crashReachedJavaScript(crash, NOW - 5_000)).toBe(false);
+    expect(crashReachedJavaScript(crash, null)).toBeNull();
+    expect(crashReachedJavaScript({ ...crash, processStartedAtMs: 0 }, NOW)).toBeNull();
+  });
+
+  it("returns the previous JavaScript start and keeps this one", () => {
+    expect(markJsStart(NOW)).toBeNull();
+    expect(markJsStart(NOW + 1_000)).toBe(NOW);
+  });
+
+  it("records each crash with a scrubbed cause and numbered frames the sanitizer keeps", () => {
+    native.takeCrashes.mockReturnValue([crash]);
+    recordCrashes(NOW - 1_000);
+
+    expect(recordDiagnostic).toHaveBeenCalledWith("native-crash", expect.objectContaining({
+      cause: "java.lang.IllegalStateException: bad value <number> in <path>",
+      exception: "java.lang.RuntimeException: wrapped",
+      frame1: "a.b.c(SourceFile:12)",
+      frame2: "d.e.f(SourceFile:3)",
+      jsStarted: true,
+      thread: "main",
     }));
     const detail = recordDiagnostic.mock.calls[0]![1] as Record<string, unknown>;
     expect(Object.keys(sanitizeDetail(detail))).toEqual(Object.keys(detail));

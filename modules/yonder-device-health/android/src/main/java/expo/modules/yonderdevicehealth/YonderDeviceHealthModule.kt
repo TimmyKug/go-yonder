@@ -82,6 +82,10 @@ class YonderDeviceHealthModule : Module() {
       }
     }
 
+    Function("takeCrashes") {
+      CrashRecorder.take(context)
+    }
+
     Function("canPostNotifications") {
       canPostNotifications()
     }

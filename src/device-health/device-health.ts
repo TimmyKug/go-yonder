@@ -6,6 +6,7 @@ import { describeBackupCause } from "@/src/data/backup-failure";
 import { recordDiagnostic } from "@/src/diagnostics/diagnostics";
 import { formatDiagnosticTime } from "@/src/diagnostics/diagnostics-report";
 import {
+  crashReachedJavaScript,
   describeExitReason,
   describeImportance,
   describeStandbyBucket,
@@ -16,6 +17,7 @@ import {
 } from "@/src/domain/device-health";
 
 const LAST_EXIT_KEY = "diagnostics-last-process-exit-ms";
+const JS_START_KEY = "diagnostics-js-start-ms";
 const WARNED_AT_KEY = "battery-warning-notified-at-ms";
 const NOTIFICATION_PERMISSION_ASKED_KEY = "notification-permission-asked";
 
@@ -70,6 +72,44 @@ export function recordProcessExits(): void {
     }
     const newest = exits.at(-1);
     if (newest) Storage.setItemSync(LAST_EXIT_KEY, String(newest.timestampMs));
+  } catch {
+    // Diagnostics must never disturb the code that records them.
+  }
+}
+
+/**
+ * Writes this JavaScript start synchronously, so it survives a crash moments
+ * later, and returns the previous one.
+ */
+export function markJsStart(nowMs = Date.now()): number | null {
+  try {
+    const stored = Storage.getItemSync(JS_START_KEY);
+    Storage.setItemSync(JS_START_KEY, String(nowMs));
+    const previous = stored === null ? null : Number(stored);
+    return Number.isFinite(previous) ? previous : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Records each crash the native crash recorder kept, oldest first. */
+export function recordCrashes(previousJsStartMs: number | null): void {
+  if (!YonderDeviceHealth) return;
+  try {
+    for (const crash of YonderDeviceHealth.takeCrashes()) {
+      const frames = Object.fromEntries(
+        crash.frames.map((frame, index) => [`frame${index + 1}`, frame]),
+      );
+      recordDiagnostic("native-crash", {
+        crashedAt: formatDiagnosticTime(crash.atMs),
+        processStartedAt: crash.processStartedAtMs > 0 ? formatDiagnosticTime(crash.processStartedAtMs) : null,
+        jsStarted: crashReachedJavaScript(crash, previousJsStartMs),
+        thread: crash.thread,
+        exception: describeBackupCause(crash.exception),
+        cause: crash.cause === null ? null : describeBackupCause(crash.cause),
+        ...frames,
+      });
+    }
   } catch {
     // Diagnostics must never disturb the code that records them.
   }

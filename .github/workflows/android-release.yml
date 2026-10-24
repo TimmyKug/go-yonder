@@ -91,6 +91,9 @@ jobs:
       - name: Name release APK
         run: mv android/app/build/outputs/apk/release/app-release.apk "Yonder-${RELEASE_TAG#v}.apk"
 
+      - name: Name R8 mapping file
+        run: mv android/app/build/outputs/mapping/release/mapping.txt "Yonder-${RELEASE_TAG#v}-mapping.txt"
+
       - name: Verify APK signature and version
         run: |
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
@@ -106,4 +109,4 @@ jobs:
           case "$RELEASE_TAG" in
             *-beta.*) PRERELEASE_FLAG="--prerelease" ;;
           esac
-          gh release create "$RELEASE_TAG" "Yonder-${RELEASE_TAG#v}.apk" --verify-tag --generate-notes $PRERELEASE_FLAG --title "Yonder ${RELEASE_TAG#v} — Unveil your world"
+          gh release create "$RELEASE_TAG" "Yonder-${RELEASE_TAG#v}.apk" "Yonder-${RELEASE_TAG#v}-mapping.txt" --verify-tag --generate-notes $PRERELEASE_FLAG --title "Yonder ${RELEASE_TAG#v} — Unveil your world"
