@@ -12,6 +12,7 @@ export type DiagnosticEventKind =
   | "js-error"
   | "location-update-error"
   | "map-load-error"
+  | "native-crash"
   | "notification-permission"
   | "process-exit"
   | "process-start"

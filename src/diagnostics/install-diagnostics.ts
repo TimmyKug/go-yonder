@@ -7,12 +7,16 @@ import { describeBackupCause } from "@/src/data/backup-failure";
 import { setDatabaseReconnectListener } from "@/src/data/database";
 import {
   describePowerForDiagnostics,
+  markJsStart,
+  recordCrashes,
   recordProcessExits,
   recordTaskRestores,
 } from "@/src/device-health/device-health";
 
+const previousJsStartMs = markJsStart();
 installDiagnostics(describePowerForDiagnostics());
 recordProcessExits();
+recordCrashes(previousJsStartMs);
 recordTaskRestores();
 setDatabaseReconnectListener((error) => {
   recordDiagnostic("database-reopen", { reason: describeBackupCause(error) });

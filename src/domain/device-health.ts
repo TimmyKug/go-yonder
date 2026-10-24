@@ -110,3 +110,16 @@ export function shouldNotifyBatteryWarning(input: {
     input.nowMs < input.lastNotifiedAtMs
   );
 }
+
+/**
+ * Whether the crashed process reached JavaScript: the startup marker left by
+ * the previous JavaScript start falls between that process's start and crash.
+ * Null when there is no marker to compare.
+ */
+export function crashReachedJavaScript(
+  crash: Readonly<{ atMs: number; processStartedAtMs: number }>,
+  previousJsStartMs: number | null,
+): boolean | null {
+  if (previousJsStartMs === null || crash.processStartedAtMs <= 0) return null;
+  return previousJsStartMs >= crash.processStartedAtMs && previousJsStartMs <= crash.atMs;
+}
