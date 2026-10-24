@@ -1,6 +1,6 @@
 {
   "name": "yonder",
-  "version": "0.6.1-beta.5",
+  "version": "0.6.1-beta.6",
   "main": "index.ts",
   "dependencies": {
     "@maplibre/maplibre-react-native": "^11.3.6",
@@ -36,12 +36,12 @@
     "@types/geojson": "^7946.0.16",
     "@types/node": "^26.2.0",
     "@types/react": "~19.2.2",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.12",
     "eslint": "^9.39.5",
     "eslint-config-expo": "~57.0.2",
     "patch-package": "^8.0.1",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "scripts": {
     "start": "expo start",
