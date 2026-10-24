@@ -165,6 +165,14 @@ outside a transaction are not retried.
   background location is granted, so tracking resumes without opening the app;
   a test guards the patch. Devices that block apps from starting at boot, and
   apps the user force-stopped, still wait for the app to be opened.
+  The patch notes each restart attempt (`boot` or `package-replaced`) and its
+  outcome in a small SharedPreferences list (`yonder-task-restore`, at most 20
+  entries): `service-started`, `service-not-promoted`, `start-not-allowed`,
+  `no-background-permission` or `no-foreground-service`. The restart runs no
+  JavaScript unless a location arrives, so the next process start moves these
+  entries into the diagnostics log as `task-restore` events. An update or
+  reboot without any `task-restore` entry means the broadcast never reached the
+  restored task.
 - On Android, when the app becomes active with background tracking registered,
   the task is registered again: Android restores tasks after other process
   restarts without starting the foreground service, and re-registering
