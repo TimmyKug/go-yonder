@@ -34,7 +34,6 @@ This repository contains a local-first Expo application that records accepted de
 
 ## Change safety
 
-- Never use `rm`. Use `trash <path>`. If `trash` is unavailable, stop and tell the user.
 - Preserve user changes and avoid destructive Git operations.
 - Do not commit credentials, signing material, private exports, generated native build directories, or personal location data.
 - Use synthetic coordinates and routes in fixtures and automated tests.
