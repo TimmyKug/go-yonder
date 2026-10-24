@@ -55,6 +55,15 @@
     "test:watch": "vitest",
     "postinstall": "patch-package"
   },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": [
+          "expo-location"
+        ]
+      }
+    }
+  },
   "license": "MIT",
   "private": true,
   "overrides": {

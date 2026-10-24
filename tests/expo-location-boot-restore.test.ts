@@ -51,6 +51,14 @@ describe("expo-location boot restore patch", () => {
     }
   });
 
+  it("builds expo-location from its patched source instead of Expo's precompiled library", () => {
+    const packageJson = JSON.parse(read("package.json")) as {
+      expo?: { autolinking?: { android?: { buildFromSource?: string[] } } };
+    };
+
+    expect(packageJson.expo?.autolinking?.android?.buildFromSource).toContain("expo-location");
+  });
+
   it("relies on Task Manager receiving those broadcasts", () => {
     const manifest = read(TASK_MANAGER_MANIFEST);
 
