@@ -447,6 +447,20 @@ handler records uncaught errors as `js-error` (name, scrubbed message, whether
 fatal), waits up to one second for the write, then hands the error to React
 Native's handler.
 
+Android's exit records carry no stack trace for a Java crash, so a content
+provider in the device-health module installs a default uncaught-exception
+handler when each process starts, before the app or any JavaScript loads. It
+keeps the last 5 crashes in SharedPreferences (`yonder-crashes`): the time, the
+process start time, the thread, the exception and its root cause (class and
+message) and the root cause's first 8 stack frames, then hands the crash on.
+Uncaught JavaScript errors in release builds reach it as a
+`JavascriptException`. At each start the JavaScript entry first writes a
+startup marker synchronously to the key-value store, so the next process start
+can tell whether the crashed process reached JavaScript. That start records
+each crash as a `native-crash` event (messages with URIs, paths and decimal
+numbers removed, `jsStarted`) and clears the list. Release builds are
+obfuscated by R8; each release attaches its `mapping.txt` to read the frames.
+
 Events never contain coordinates, place names, cell IDs or raw records; details
 are scalar values and coordinate-like keys are rejected. Writes are queued,
 never throw and never block ingestion. Events older than seven days are pruned
@@ -459,6 +473,8 @@ much longer than that.
 ## Android releases
 
 Signed APKs are published as GitHub releases for installers such as Obtainium.
+Each release also attaches R8's `mapping.txt` as `Yonder-<version>-mapping.txt`
+to translate obfuscated stack frames in `native-crash` events.
 
 - The `CI` workflow's `Checks` job runs typecheck, lint and tests on every pull
   request and on `main`, and checks the version: `app.json`, `package.json` and
