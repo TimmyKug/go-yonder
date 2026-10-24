@@ -5,10 +5,15 @@ import { installJsErrorRecorder } from "./js-errors";
 
 import { describeBackupCause } from "@/src/data/backup-failure";
 import { setDatabaseReconnectListener } from "@/src/data/database";
-import { describePowerForDiagnostics, recordProcessExits } from "@/src/device-health/device-health";
+import {
+  describePowerForDiagnostics,
+  recordProcessExits,
+  recordTaskRestores,
+} from "@/src/device-health/device-health";
 
 installDiagnostics(describePowerForDiagnostics());
 recordProcessExits();
+recordTaskRestores();
 setDatabaseReconnectListener((error) => {
   recordDiagnostic("database-reopen", { reason: describeBackupCause(error) });
 });

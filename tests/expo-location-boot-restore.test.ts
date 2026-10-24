@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 const LOCATION_TASK_CONSUMER =
   "node_modules/expo-location/android/src/main/java/expo/modules/location/taskConsumers/LocationTaskConsumer.kt";
+const DEVICE_HEALTH_MODULE =
+  "modules/yonder-device-health/android/src/main/java/expo/modules/yonderdevicehealth/YonderDeviceHealthModule.kt";
 const TASK_MANAGER_MANIFEST =
   "node_modules/expo-task-manager/android/src/main/AndroidManifest.xml";
 
@@ -22,9 +24,39 @@ describe("expo-location boot restore patch", () => {
       "override fun canReceiveCustomBroadcast(action: String?): Boolean",
     );
     expect(source).toContain(
-      "maybeStartForegroundService(allowFromBackground = true)",
+      "maybeStartForegroundService(allowFromBackground = true,",
     );
     expect(source).toContain("Manifest.permission.ACCESS_BACKGROUND_LOCATION");
+  });
+
+  it("notes each restart where the device-health module reads it", () => {
+    const source = read(LOCATION_TASK_CONSUMER);
+    const module = read(DEVICE_HEALTH_MODULE);
+
+    for (const outcome of [
+      "service-started",
+      "service-not-promoted",
+      "start-not-allowed",
+      "no-background-permission",
+      "no-foreground-service",
+    ]) {
+      expect(source).toContain(`"${outcome}"`);
+    }
+    for (const constant of [
+      'RESTORE_PREFERENCES = "yonder-task-restore"',
+      'RESTORE_ENTRIES_KEY = "entries"',
+    ]) {
+      expect(source).toContain(constant);
+      expect(module).toContain(constant);
+    }
+  });
+
+  it("builds expo-location from its patched source instead of Expo's precompiled library", () => {
+    const packageJson = JSON.parse(read("package.json")) as {
+      expo?: { autolinking?: { android?: { buildFromSource?: string[] } } };
+    };
+
+    expect(packageJson.expo?.autolinking?.android?.buildFromSource).toContain("expo-location");
   });
 
   it("relies on Task Manager receiving those broadcasts", () => {

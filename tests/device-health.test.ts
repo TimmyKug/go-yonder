@@ -6,6 +6,7 @@ const native = vi.hoisted(() => ({
   getProcessExits: vi.fn(),
   openBatterySettings: vi.fn(() => true),
   showNotification: vi.fn(() => true),
+  takeTaskRestores: vi.fn(),
 }));
 const storage = vi.hoisted(() => new Map<string, string>());
 const recordDiagnostic = vi.hoisted(() => vi.fn());
@@ -34,6 +35,7 @@ import {
   describePowerForDiagnostics,
   openBatterySettings,
   recordProcessExits,
+  recordTaskRestores,
   requestNotificationPermissionOnce,
 } from "@/src/device-health/device-health";
 import { installJsErrorRecorder } from "@/src/diagnostics/js-errors";
@@ -137,6 +139,24 @@ describe("process exits", () => {
     }));
     const detail = recordDiagnostic.mock.calls[0]![1] as Record<string, unknown>;
     expect(Object.keys(sanitizeDetail(detail))).toEqual(Object.keys(detail));
+  });
+});
+
+describe("task restores", () => {
+  it("records each restart the native side noted, keeping every field", () => {
+    native.takeTaskRestores.mockReturnValue([
+      { atMs: NOW, outcome: "service-started", trigger: "package-replaced" },
+      { atMs: NOW + 1_000, outcome: "start-not-allowed", trigger: "boot" },
+    ]);
+    recordTaskRestores();
+
+    expect(recordDiagnostic).toHaveBeenCalledTimes(2);
+    expect(recordDiagnostic).toHaveBeenNthCalledWith(1, "task-restore", expect.objectContaining({
+      outcome: "service-started",
+      trigger: "package-replaced",
+    }));
+    const detail = recordDiagnostic.mock.calls[0]![1] as Record<string, unknown>;
+    expect(Object.keys(sanitizeDetail(detail))).toEqual(["restoredAt", "trigger", "outcome"]);
   });
 });
 

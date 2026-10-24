@@ -76,6 +76,25 @@ export function recordProcessExits(): void {
 }
 
 /**
+ * Records each restart of the location task after a reboot or app update,
+ * noted natively because a restart runs no JavaScript until a location arrives.
+ */
+export function recordTaskRestores(): void {
+  if (!YonderDeviceHealth) return;
+  try {
+    for (const restore of YonderDeviceHealth.takeTaskRestores()) {
+      recordDiagnostic("task-restore", {
+        restoredAt: formatDiagnosticTime(restore.atMs),
+        trigger: restore.trigger,
+        outcome: restore.outcome,
+      });
+    }
+  } catch {
+    // Diagnostics must never disturb the code that records them.
+  }
+}
+
+/**
  * Posts the battery warning notification when battery saving can stop
  * background tracking, at most once a day.
  */

@@ -16,6 +16,7 @@ export type DiagnosticEventKind =
   | "process-exit"
   | "process-start"
   | "task-reregister"
+  | "task-restore"
   | "tiles-derived"
   | "tracking-state";
 
