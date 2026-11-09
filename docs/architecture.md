@@ -177,6 +177,13 @@ outside a transaction are not retried.
   entries into the diagnostics log as `task-restore` events. An update or
   reboot without any `task-restore` entry means the broadcast never reached the
   restored task, or its service never connected.
+- When Android starts the app in the background (a location update or a
+  restored task with no app open), expo-task-manager starts JavaScript through
+  a headless app loader that Expo looks up by the class name in its manifest
+  metadata. R8 cannot see that use, so `app.json` passes an
+  `expo-build-properties` `extraProguardRules` entry that keeps every
+  `HeadlessAppLoader` implementation; without it release builds crash on each
+  background start. A test guards the rule.
 - On Android, when the app becomes active with background tracking registered,
   the task is registered again: Android restores tasks after other process
   restarts without starting the foreground service, and re-registering
