@@ -66,7 +66,8 @@
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
             "useLegacyPackaging": true,
-            "enableBundleCompression": true
+            "enableBundleCompression": true,
+            "extraProguardRules": "# expo-task-manager loads the headless JS loader by its class name from manifest metadata.\n-keep class * implements expo.modules.apploader.HeadlessAppLoader { <init>(); }"
           }
         }
       ],
