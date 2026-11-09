@@ -54,19 +54,16 @@ object CrashRecorder {
         "frames",
         JSONArray(root.stackTrace.take(MAX_FRAMES).map { it.toString().take(MAX_TEXT_LENGTH) })
       )
-    val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-    val entries = try {
-      JSONArray(preferences.getString(ENTRIES_KEY, null) ?: "[]")
-    } catch (_: Exception) {
-      JSONArray()
-    }
+    val entries = readEntries(context)
     entries.put(entry)
     val kept = JSONArray()
     for (index in maxOf(0, entries.length() - MAX_ENTRIES) until entries.length()) {
       kept.put(entries.get(index))
     }
     // The process is about to die, so write synchronously.
-    preferences.edit().putString(ENTRIES_KEY, kept.toString()).commit()
+    context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit()
+      .putString(ENTRIES_KEY, kept.toString())
+      .commit()
   }
 
   private fun describe(error: Throwable): String {
@@ -74,16 +71,32 @@ object CrashRecorder {
     return (error.javaClass.name + message).take(MAX_TEXT_LENGTH)
   }
 
-  /** Returns the recorded crashes, oldest first, and forgets them. */
-  fun take(context: Context): List<Map<String, Any?>> {
-    val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-    val stored = preferences.getString(ENTRIES_KEY, null) ?: return emptyList()
-    preferences.edit().remove(ENTRIES_KEY).commit()
-    val entries = try {
+  private fun readEntries(context: Context): JSONArray {
+    val stored = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+      .getString(ENTRIES_KEY, null) ?: return JSONArray()
+    return try {
       JSONArray(stored)
     } catch (_: Exception) {
-      return emptyList()
+      JSONArray()
     }
+  }
+
+  /** Forgets the crashes recorded at or before [atMs], once they are saved elsewhere. */
+  fun clearThrough(context: Context, atMs: Long) {
+    val entries = readEntries(context)
+    val kept = JSONArray()
+    for (index in 0 until entries.length()) {
+      val entry = entries.optJSONObject(index) ?: continue
+      if (entry.optLong("atMs") > atMs) kept.put(entry)
+    }
+    context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit()
+      .putString(ENTRIES_KEY, kept.toString())
+      .commit()
+  }
+
+  /** Returns the recorded crashes, oldest first, keeping them until [clearThrough]. */
+  fun peek(context: Context): List<Map<String, Any?>> {
+    val entries = readEntries(context)
     return (0 until entries.length()).mapNotNull { index ->
       val entry = entries.optJSONObject(index) ?: return@mapNotNull null
       val frames = entry.optJSONArray("frames")

@@ -3,6 +3,7 @@ export type DiagnosticEventKind =
   | "background-batch"
   | "backup-error"
   | "battery-warning"
+  | "crash-log"
   | "database-reopen"
   | "folder-backup"
   | "import-finished"

@@ -189,6 +189,23 @@ describe("diagnostics recorder", () => {
       detail: { state: "background" },
     });
   });
+
+  it("confirms a write only once it reached the log", async () => {
+    const repository = {
+      record: vi.fn(async () => undefined),
+      listNewest: vi.fn(async () => []),
+      prune: vi.fn(),
+      clear: vi.fn(),
+    } satisfies DiagnosticsRepository;
+    const getRepository = vi
+      .fn<() => Promise<DiagnosticsRepository>>()
+      .mockRejectedValueOnce(new Error("disk full"))
+      .mockResolvedValue(repository);
+    const recorder = createDiagnosticsRecorder(getRepository, () => NOW, "p1");
+
+    await expect(recorder.recordConfirmed("process-exit")).resolves.toBe(false);
+    await expect(recorder.recordConfirmed("process-exit")).resolves.toBe(true);
+  });
 });
 
 describe("diagnostics report", () => {

@@ -37,8 +37,11 @@ export type NativeCrash = {
 type YonderDeviceHealthModule = {
   getPowerState(): NativePowerState;
   getProcessExits(): NativeProcessExit[];
-  takeTaskRestores(): NativeTaskRestore[];
-  takeCrashes(): NativeCrash[];
+  peekTaskRestores(): NativeTaskRestore[];
+  clearTaskRestoresThrough(atMs: number): void;
+  peekCrashes(): NativeCrash[];
+  clearCrashesThrough(atMs: number): void;
+  readCrashLog(): Promise<string>;
   canPostNotifications(): boolean;
   openBatterySettings(backgroundRestricted: boolean): boolean;
   showNotification(id: number, title: string, body: string, url: string): boolean;
