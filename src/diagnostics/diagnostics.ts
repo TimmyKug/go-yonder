@@ -13,6 +13,11 @@ export type DiagnosticsRecorder = {
     kind: DiagnosticEventKind,
     detail?: Readonly<Record<string, unknown>>,
   ): void;
+  /** Resolves to whether the event reached the database. */
+  recordConfirmed(
+    kind: DiagnosticEventKind,
+    detail?: Readonly<Record<string, unknown>>,
+  ): Promise<boolean>;
   flush(): Promise<void>;
   listNewest(limit: number): Promise<DiagnosticEvent[]>;
   clear(): Promise<void>;
@@ -44,6 +49,20 @@ export function createDiagnosticsRecorder(
       }
     },
 
+    async recordConfirmed(kind, detail = {}) {
+      let saved = false;
+      try {
+        const event = createDiagnosticEvent(kind, detail, now(), processId);
+        await enqueue(async (repository) => {
+          await repository.record(event);
+          saved = true;
+        });
+      } catch {
+        // Diagnostics must never disturb the code that records them.
+      }
+      return saved;
+    },
+
     flush() {
       return queue;
     },
@@ -69,6 +88,7 @@ const recorder = createDiagnosticsRecorder(
 );
 
 export const recordDiagnostic = recorder.record;
+export const recordConfirmedDiagnostic = recorder.recordConfirmed;
 export const flushDiagnostics = recorder.flush;
 export const listDiagnostics = recorder.listNewest;
 export const clearDiagnostics = recorder.clear;

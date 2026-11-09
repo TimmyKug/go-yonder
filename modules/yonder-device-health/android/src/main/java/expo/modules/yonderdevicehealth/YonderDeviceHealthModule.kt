@@ -66,12 +66,10 @@ class YonderDeviceHealthModule : Module() {
     }
 
     // Written by patches/expo-location when it restarts the location task
-    // after a reboot or app update. Each entry is read once.
-    Function("takeTaskRestores") {
-      val preferences = context.getSharedPreferences(RESTORE_PREFERENCES, Context.MODE_PRIVATE)
-      val entries = preferences.getString(RESTORE_ENTRIES_KEY, null)
-      preferences.edit().remove(RESTORE_ENTRIES_KEY).commit()
-      (entries?.split("\n") ?: emptyList()).mapNotNull { line ->
+    // after a reboot or app update. Entries stay until cleared, so a process
+    // that crashes before saving them leaves them for the next start.
+    Function("peekTaskRestores") {
+      readRestoreLines().mapNotNull { line ->
         val parts = line.split("|")
         val atMs = parts.getOrNull(0)?.toLongOrNull() ?: return@mapNotNull null
         mapOf(
@@ -82,8 +80,36 @@ class YonderDeviceHealthModule : Module() {
       }
     }
 
-    Function("takeCrashes") {
-      CrashRecorder.take(context)
+    Function("clearTaskRestoresThrough") { atMs: Double ->
+      val kept = readRestoreLines().filter { line ->
+        (line.substringBefore("|").toLongOrNull() ?: 0L) > atMs.toLong()
+      }
+      context.getSharedPreferences(RESTORE_PREFERENCES, Context.MODE_PRIVATE).edit()
+        .putString(RESTORE_ENTRIES_KEY, kept.joinToString("\n"))
+        .commit()
+    }
+
+    Function("peekCrashes") {
+      CrashRecorder.peek(context)
+    }
+
+    Function("clearCrashesThrough") { atMs: Double ->
+      CrashRecorder.clearThrough(context, atMs.toLong())
+    }
+
+    // Android's crash log, which shows an app only its own entries. It holds
+    // crashes from before any of Yonder's code ran.
+    AsyncFunction("readCrashLog") {
+      try {
+        val process = ProcessBuilder("logcat", "-d", "-b", "crash", "-v", "threadtime", "-v", "year")
+          .redirectErrorStream(true)
+          .start()
+        val text = process.inputStream.bufferedReader().use { it.readText() }
+        process.waitFor()
+        text.takeLast(MAX_CRASH_LOG_LENGTH)
+      } catch (e: Exception) {
+        ""
+      }
     }
 
     Function("canPostNotifications") {
@@ -135,6 +161,12 @@ class YonderDeviceHealthModule : Module() {
     }
   }
 
+  private fun readRestoreLines(): List<String> {
+    val entries = context.getSharedPreferences(RESTORE_PREFERENCES, Context.MODE_PRIVATE)
+      .getString(RESTORE_ENTRIES_KEY, null)
+    return (entries?.split("\n") ?: emptyList()).filter { it.isNotEmpty() }
+  }
+
   private fun canPostNotifications(): Boolean {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
       context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -180,5 +212,6 @@ class YonderDeviceHealthModule : Module() {
     private const val CHANNEL_ID = "yonder-tracking-problems"
     private const val RESTORE_PREFERENCES = "yonder-task-restore"
     private const val RESTORE_ENTRIES_KEY = "entries"
+    private const val MAX_CRASH_LOG_LENGTH = 200_000
   }
 }

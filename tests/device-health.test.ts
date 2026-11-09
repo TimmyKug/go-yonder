@@ -6,11 +6,15 @@ const native = vi.hoisted(() => ({
   getProcessExits: vi.fn(),
   openBatterySettings: vi.fn(() => true),
   showNotification: vi.fn(() => true),
-  takeCrashes: vi.fn(),
-  takeTaskRestores: vi.fn(),
+  clearCrashesThrough: vi.fn(),
+  clearTaskRestoresThrough: vi.fn(),
+  peekCrashes: vi.fn(),
+  peekTaskRestores: vi.fn(),
+  readCrashLog: vi.fn(async () => ""),
 }));
 const storage = vi.hoisted(() => new Map<string, string>());
 const recordDiagnostic = vi.hoisted(() => vi.fn());
+const recordConfirmedDiagnostic = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => true));
 const requestPermission = vi.hoisted(() => vi.fn(async () => "granted"));
 const platform = vi.hoisted(() => ({ OS: "android", Version: 36 }));
 
@@ -29,14 +33,18 @@ vi.mock("react-native", () => ({
   },
   Platform: platform,
 }));
-vi.mock("@/src/diagnostics/diagnostics", () => ({ recordDiagnostic }));
+vi.mock("@/src/diagnostics/diagnostics", () => ({ recordConfirmedDiagnostic, recordDiagnostic }));
 
 import {
   checkBatteryWarning,
   describePowerForDiagnostics,
   markJsStart,
+  forgetFatalJsError,
+  keepFatalJsError,
   openBatterySettings,
   recordCrashes,
+  recordCrashLog,
+  recordKeptFatalJsError,
   recordProcessExits,
   recordTaskRestores,
   requestNotificationPermissionOnce,
@@ -78,6 +86,10 @@ function power(ignoringBatteryOptimizations: boolean, backgroundRestricted = fal
 beforeEach(() => {
   storage.clear();
   recordDiagnostic.mockReset();
+  recordConfirmedDiagnostic.mockReset();
+  recordConfirmedDiagnostic.mockResolvedValue(true);
+  native.clearCrashesThrough.mockClear();
+  native.clearTaskRestoresThrough.mockClear();
   native.showNotification.mockReset();
   native.showNotification.mockReturnValue(true);
   native.canPostNotifications.mockReturnValue(true);
@@ -125,24 +137,34 @@ describe("process exits", () => {
     expect(selectNewExits(exits, NOW - 1_000).map((e) => e.timestampMs)).toEqual([NOW]);
   });
 
-  it("records each new exit once, scrubbed and in megabytes", () => {
+  it("records each new exit once, scrubbed and in megabytes", async () => {
     native.getProcessExits.mockReturnValue([exit(NOW - 1_000), exit(NOW, 10)]);
-    recordProcessExits();
-    recordProcessExits();
+    await recordProcessExits();
+    await recordProcessExits();
 
-    expect(recordDiagnostic).toHaveBeenCalledTimes(2);
-    expect(recordDiagnostic).toHaveBeenNthCalledWith(1, "process-exit", expect.objectContaining({
+    expect(recordConfirmedDiagnostic).toHaveBeenCalledTimes(2);
+    expect(recordConfirmedDiagnostic).toHaveBeenNthCalledWith(1, "process-exit", expect.objectContaining({
       description: "stop com.example due to <path> <number> kill",
       importance: "foreground-service",
       pssMb: 200,
       reason: "low-memory",
       rssMb: 300,
     }));
-    expect(recordDiagnostic).toHaveBeenNthCalledWith(2, "process-exit", expect.objectContaining({
+    expect(recordConfirmedDiagnostic).toHaveBeenNthCalledWith(2, "process-exit", expect.objectContaining({
       reason: "user-requested",
     }));
-    const detail = recordDiagnostic.mock.calls[0]![1] as Record<string, unknown>;
+    const detail = recordConfirmedDiagnostic.mock.calls[0]![1] as Record<string, unknown>;
     expect(Object.keys(sanitizeDetail(detail))).toEqual(Object.keys(detail));
+  });
+
+  it("records the same exits again when the previous start could not save them", async () => {
+    native.getProcessExits.mockReturnValue([exit(NOW)]);
+    recordConfirmedDiagnostic.mockResolvedValueOnce(false);
+    await recordProcessExits();
+    await recordProcessExits();
+    await recordProcessExits();
+
+    expect(recordConfirmedDiagnostic).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -168,11 +190,11 @@ describe("native crashes", () => {
     expect(markJsStart(NOW + 1_000)).toBe(NOW);
   });
 
-  it("records each crash with a scrubbed cause and numbered frames the sanitizer keeps", () => {
-    native.takeCrashes.mockReturnValue([crash]);
-    recordCrashes(NOW - 1_000);
+  it("records each crash with a scrubbed cause and numbered frames the sanitizer keeps", async () => {
+    native.peekCrashes.mockReturnValue([crash]);
+    await recordCrashes(NOW - 1_000);
 
-    expect(recordDiagnostic).toHaveBeenCalledWith("native-crash", expect.objectContaining({
+    expect(recordConfirmedDiagnostic).toHaveBeenCalledWith("native-crash", expect.objectContaining({
       cause: "java.lang.IllegalStateException: bad value <number> in <path>",
       exception: "java.lang.RuntimeException: wrapped",
       frame1: "a.b.c(SourceFile:12)",
@@ -180,26 +202,90 @@ describe("native crashes", () => {
       jsStarted: true,
       thread: "main",
     }));
-    const detail = recordDiagnostic.mock.calls[0]![1] as Record<string, unknown>;
+    const detail = recordConfirmedDiagnostic.mock.calls[0]![1] as Record<string, unknown>;
     expect(Object.keys(sanitizeDetail(detail))).toEqual(Object.keys(detail));
+    expect(native.clearCrashesThrough).toHaveBeenCalledWith(NOW);
+  });
+
+  it("keeps the crashes when their events could not be saved", async () => {
+    native.peekCrashes.mockReturnValue([crash]);
+    recordConfirmedDiagnostic.mockResolvedValue(false);
+    await recordCrashes(null);
+
+    expect(native.clearCrashesThrough).not.toHaveBeenCalled();
+  });
+});
+
+describe("crash log", () => {
+  const log = [
+    "--------- beginning of crash",
+    "2026-10-25 08:02:58.950  7025  7025 E AndroidRuntime: FATAL EXCEPTION: main",
+    "2026-10-25 08:02:58.950  7025  7025 E AndroidRuntime: Process: com.example, PID: 7025",
+    "2026-10-25 08:02:58.950  7025  7025 E AndroidRuntime: java.lang.IllegalStateException: bad value 13.4050",
+    "2026-10-25 08:02:58.950  7025  7025 E AndroidRuntime: \tat a.b.c(SourceFile:12)",
+    "2026-10-25 08:03:30.100  7100  7100 E AndroidRuntime: FATAL EXCEPTION: mqt_js",
+    "2026-10-25 08:03:30.100  7100  7100 E AndroidRuntime: Process: com.example, PID: 7100",
+  ].join("\n");
+
+  it("records each FATAL EXCEPTION once, with its lines scrubbed", async () => {
+    native.readCrashLog.mockResolvedValue(log);
+    await recordCrashLog();
+    await recordCrashLog();
+
+    expect(recordConfirmedDiagnostic).toHaveBeenCalledTimes(2);
+    expect(recordConfirmedDiagnostic).toHaveBeenNthCalledWith(1, "crash-log", {
+      crashedAt: "2026-10-25 08:02:58",
+      line1: "FATAL EXCEPTION: main",
+      line2: "Process: com.example, PID: 7025",
+      line3: "java.lang.IllegalStateException: bad value <number>",
+      line4: "at a.b.c(SourceFile:12)",
+    });
+    expect(recordConfirmedDiagnostic).toHaveBeenNthCalledWith(2, "crash-log", expect.objectContaining({
+      line1: "FATAL EXCEPTION: mqt_js",
+    }));
+  });
+});
+
+describe("kept fatal JavaScript errors", () => {
+  it("records a fatal error kept by a process that died, once", async () => {
+    keepFatalJsError({ fatal: true, message: "boom", name: "Error" });
+    await recordKeptFatalJsError();
+    await recordKeptFatalJsError();
+
+    expect(recordConfirmedDiagnostic).toHaveBeenCalledTimes(1);
+    expect(recordConfirmedDiagnostic).toHaveBeenCalledWith("js-error", {
+      fatal: true,
+      message: "boom",
+      name: "Error",
+      recovered: true,
+    });
+  });
+
+  it("records nothing once the kept error was forgotten", async () => {
+    keepFatalJsError({ fatal: true, message: "boom", name: "Error" });
+    forgetFatalJsError();
+    await recordKeptFatalJsError();
+
+    expect(recordConfirmedDiagnostic).not.toHaveBeenCalled();
   });
 });
 
 describe("task restores", () => {
-  it("records each restart the native side noted, keeping every field", () => {
-    native.takeTaskRestores.mockReturnValue([
+  it("records each restart the native side noted, keeping every field", async () => {
+    native.peekTaskRestores.mockReturnValue([
       { atMs: NOW, outcome: "service-started", trigger: "package-replaced" },
       { atMs: NOW + 1_000, outcome: "start-not-allowed", trigger: "boot" },
     ]);
-    recordTaskRestores();
+    await recordTaskRestores();
 
-    expect(recordDiagnostic).toHaveBeenCalledTimes(2);
-    expect(recordDiagnostic).toHaveBeenNthCalledWith(1, "task-restore", expect.objectContaining({
+    expect(recordConfirmedDiagnostic).toHaveBeenCalledTimes(2);
+    expect(recordConfirmedDiagnostic).toHaveBeenNthCalledWith(1, "task-restore", expect.objectContaining({
       outcome: "service-started",
       trigger: "package-replaced",
     }));
-    const detail = recordDiagnostic.mock.calls[0]![1] as Record<string, unknown>;
+    const detail = recordConfirmedDiagnostic.mock.calls[0]![1] as Record<string, unknown>;
     expect(Object.keys(sanitizeDetail(detail))).toEqual(["restoredAt", "trigger", "outcome"]);
+    expect(native.clearTaskRestoresThrough).toHaveBeenCalledWith(NOW + 1_000);
   });
 });
 
@@ -258,43 +344,46 @@ describe("battery warning notification", () => {
 });
 
 describe("JavaScript error recorder", () => {
-  function install(flush: () => Promise<void>) {
+  function install(record: () => Promise<boolean>) {
     const previous = vi.fn();
     let handler: ((error: unknown, isFatal?: boolean) => void) | undefined;
-    const record = vi.fn();
+    const sinks = { forgetFatal: vi.fn(), keepFatal: vi.fn(), record: vi.fn(record) };
     installJsErrorRecorder(
       { getGlobalHandler: () => previous, setGlobalHandler: (next) => { handler = next; } },
-      record,
-      flush,
+      sinks,
     );
-    return { handler: handler!, previous, record };
+    return { handler: handler!, previous, sinks };
   }
 
   it("records a scrubbed error and passes a non-fatal one straight on", () => {
-    const { handler, previous, record } = install(async () => undefined);
+    const { handler, previous, sinks } = install(async () => true);
     const error = new TypeError("bad value 13.4050 at /data/file");
     handler(error, false);
-    expect(record).toHaveBeenCalledWith({ fatal: false, message: "bad value <number> at <path>", name: "TypeError" });
+    expect(sinks.record).toHaveBeenCalledWith({ fatal: false, message: "bad value <number> at <path>", name: "TypeError" });
+    expect(sinks.keepFatal).not.toHaveBeenCalled();
     expect(previous).toHaveBeenCalledWith(error, false);
   });
 
-  it("waits for the write before handing a fatal error on", async () => {
-    let finish!: () => void;
-    const { handler, previous } = install(() => new Promise((resolve) => { finish = resolve; }));
+  it("keeps a fatal error, waits for the write, then forgets it and hands it on", async () => {
+    let finish!: (saved: boolean) => void;
+    const { handler, previous, sinks } = install(() => new Promise((resolve) => { finish = resolve; }));
     handler(new Error("boom"), true);
+    expect(sinks.keepFatal).toHaveBeenCalledWith({ fatal: true, message: "boom", name: "Error" });
     await Promise.resolve();
     expect(previous).not.toHaveBeenCalled();
-    finish();
+    finish(true);
     await vi.waitFor(() => expect(previous).toHaveBeenCalledTimes(1));
+    expect(sinks.forgetFatal).toHaveBeenCalledTimes(1);
   });
 
-  it("hands a fatal error on after a timeout when the write hangs", async () => {
+  it("hands a fatal error on after a timeout and keeps it when the write hangs", async () => {
     vi.useFakeTimers();
     try {
-      const { handler, previous } = install(() => new Promise(() => undefined));
+      const { handler, previous, sinks } = install(() => new Promise(() => undefined));
       handler(new Error("boom"), true);
       await vi.advanceTimersByTimeAsync(1_000);
       expect(previous).toHaveBeenCalledTimes(1);
+      expect(sinks.forgetFatal).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

@@ -3,8 +3,9 @@ import { PermissionsAndroid, Platform } from "react-native";
 
 import { YonderDeviceHealth } from "@/modules/yonder-device-health";
 import { describeBackupCause } from "@/src/data/backup-failure";
-import { recordDiagnostic } from "@/src/diagnostics/diagnostics";
+import { recordConfirmedDiagnostic, recordDiagnostic } from "@/src/diagnostics/diagnostics";
 import { formatDiagnosticTime } from "@/src/diagnostics/diagnostics-report";
+import { parseCrashLog } from "@/src/domain/crash-log";
 import {
   crashReachedJavaScript,
   describeExitReason,
@@ -18,6 +19,8 @@ import {
 
 const LAST_EXIT_KEY = "diagnostics-last-process-exit-ms";
 const JS_START_KEY = "diagnostics-js-start-ms";
+const LAST_CRASH_LOG_KEY = "diagnostics-last-crash-log-ms";
+const PENDING_JS_ERROR_KEY = "diagnostics-pending-js-error";
 const WARNED_AT_KEY = "battery-warning-notified-at-ms";
 const NOTIFICATION_PERMISSION_ASKED_KEY = "notification-permission-asked";
 
@@ -46,32 +49,40 @@ export function describePowerForDiagnostics(): Record<string, string | null> {
   return state ? { battery: state.battery, standbyBucket: state.standbyBucket } : {};
 }
 
+async function recordAll(
+  kind: Parameters<typeof recordConfirmedDiagnostic>[0],
+  details: readonly Record<string, unknown>[],
+): Promise<boolean> {
+  const saved = await Promise.all(details.map((detail) => recordConfirmedDiagnostic(kind, detail)));
+  return saved.every(Boolean);
+}
+
+function readNumber(key: string): number | null {
+  const stored = Storage.getItemSync(key);
+  const value = stored === null ? null : Number(stored);
+  return value !== null && Number.isFinite(value) ? value : null;
+}
+
 /**
  * Records each process exit Android reported since the newest one already
  * recorded. Runs at every process start, headless ones included.
  */
-export function recordProcessExits(): void {
+export async function recordProcessExits(): Promise<void> {
   if (!YonderDeviceHealth) return;
   try {
-    const stored = Storage.getItemSync(LAST_EXIT_KEY);
-    const lastRecordedMs = stored === null ? null : Number(stored);
-    const exits = selectNewExits(
-      YonderDeviceHealth.getProcessExits(),
-      Number.isFinite(lastRecordedMs) ? lastRecordedMs : null,
-    );
-    for (const exit of exits) {
-      recordDiagnostic("process-exit", {
-        exitedAt: formatDiagnosticTime(exit.timestampMs),
-        reason: describeExitReason(exit.reason),
-        importance: describeImportance(exit.importance),
-        status: exit.status,
-        pssMb: Math.round(exit.pssKb / 1024),
-        rssMb: Math.round(exit.rssKb / 1024),
-        description: exit.description ? describeBackupCause(exit.description) : null,
-      });
-    }
+    const exits = selectNewExits(YonderDeviceHealth.getProcessExits(), readNumber(LAST_EXIT_KEY));
     const newest = exits.at(-1);
-    if (newest) Storage.setItemSync(LAST_EXIT_KEY, String(newest.timestampMs));
+    if (!newest) return;
+    const saved = await recordAll("process-exit", exits.map((exit) => ({
+      exitedAt: formatDiagnosticTime(exit.timestampMs),
+      reason: describeExitReason(exit.reason),
+      importance: describeImportance(exit.importance),
+      status: exit.status,
+      pssMb: Math.round(exit.pssKb / 1024),
+      rssMb: Math.round(exit.rssKb / 1024),
+      description: exit.description ? describeBackupCause(exit.description) : null,
+    })));
+    if (saved) Storage.setItemSync(LAST_EXIT_KEY, String(newest.timestampMs));
   } catch {
     // Diagnostics must never disturb the code that records them.
   }
@@ -83,33 +94,51 @@ export function recordProcessExits(): void {
  */
 export function markJsStart(nowMs = Date.now()): number | null {
   try {
-    const stored = Storage.getItemSync(JS_START_KEY);
+    const previous = readNumber(JS_START_KEY);
     Storage.setItemSync(JS_START_KEY, String(nowMs));
-    const previous = stored === null ? null : Number(stored);
-    return Number.isFinite(previous) ? previous : null;
+    return previous;
   } catch {
     return null;
   }
 }
 
 /** Records each crash the native crash recorder kept, oldest first. */
-export function recordCrashes(previousJsStartMs: number | null): void {
+export async function recordCrashes(previousJsStartMs: number | null): Promise<void> {
   if (!YonderDeviceHealth) return;
   try {
-    for (const crash of YonderDeviceHealth.takeCrashes()) {
-      const frames = Object.fromEntries(
-        crash.frames.map((frame, index) => [`frame${index + 1}`, frame]),
-      );
-      recordDiagnostic("native-crash", {
-        crashedAt: formatDiagnosticTime(crash.atMs),
-        processStartedAt: crash.processStartedAtMs > 0 ? formatDiagnosticTime(crash.processStartedAtMs) : null,
-        jsStarted: crashReachedJavaScript(crash, previousJsStartMs),
-        thread: crash.thread,
-        exception: describeBackupCause(crash.exception),
-        cause: crash.cause === null ? null : describeBackupCause(crash.cause),
-        ...frames,
-      });
-    }
+    const crashes = YonderDeviceHealth.peekCrashes();
+    if (crashes.length === 0) return;
+    const saved = await recordAll("native-crash", crashes.map((crash) => ({
+      crashedAt: formatDiagnosticTime(crash.atMs),
+      processStartedAt: crash.processStartedAtMs > 0 ? formatDiagnosticTime(crash.processStartedAtMs) : null,
+      jsStarted: crashReachedJavaScript(crash, previousJsStartMs),
+      thread: crash.thread,
+      exception: describeBackupCause(crash.exception),
+      cause: crash.cause === null ? null : describeBackupCause(crash.cause),
+      ...Object.fromEntries(crash.frames.map((frame, index) => [`frame${index + 1}`, frame])),
+    })));
+    if (saved) YonderDeviceHealth.clearCrashesThrough(Math.max(...crashes.map((crash) => crash.atMs)));
+  } catch {
+    // Diagnostics must never disturb the code that records them.
+  }
+}
+
+/**
+ * Records each Yonder crash in Android's crash log newer than the newest one
+ * already recorded, including crashes from before any of Yonder's code ran.
+ */
+export async function recordCrashLog(): Promise<void> {
+  if (!YonderDeviceHealth) return;
+  try {
+    const lastRecordedMs = readNumber(LAST_CRASH_LOG_KEY);
+    const entries = parseCrashLog(await YonderDeviceHealth.readCrashLog())
+      .filter((entry) => lastRecordedMs === null || entry.atMs > lastRecordedMs);
+    if (entries.length === 0) return;
+    const saved = await recordAll("crash-log", entries.map((entry) => ({
+      crashedAt: formatDiagnosticTime(entry.atMs),
+      ...Object.fromEntries(entry.lines.map((line, index) => [`line${index + 1}`, describeBackupCause(line)])),
+    })));
+    if (saved) Storage.setItemSync(LAST_CRASH_LOG_KEY, String(Math.max(...entries.map((entry) => entry.atMs))));
   } catch {
     // Diagnostics must never disturb the code that records them.
   }
@@ -119,16 +148,47 @@ export function recordCrashes(previousJsStartMs: number | null): void {
  * Records each restart of the location task after a reboot or app update,
  * noted natively because a restart runs no JavaScript until a location arrives.
  */
-export function recordTaskRestores(): void {
+export async function recordTaskRestores(): Promise<void> {
   if (!YonderDeviceHealth) return;
   try {
-    for (const restore of YonderDeviceHealth.takeTaskRestores()) {
-      recordDiagnostic("task-restore", {
-        restoredAt: formatDiagnosticTime(restore.atMs),
-        trigger: restore.trigger,
-        outcome: restore.outcome,
-      });
-    }
+    const restores = YonderDeviceHealth.peekTaskRestores();
+    if (restores.length === 0) return;
+    const saved = await recordAll("task-restore", restores.map((restore) => ({
+      restoredAt: formatDiagnosticTime(restore.atMs),
+      trigger: restore.trigger,
+      outcome: restore.outcome,
+    })));
+    if (saved) YonderDeviceHealth.clearTaskRestoresThrough(Math.max(...restores.map((restore) => restore.atMs)));
+  } catch {
+    // Diagnostics must never disturb the code that records them.
+  }
+}
+
+/** Keeps a fatal JavaScript error synchronously until its event is saved. */
+export function keepFatalJsError(detail: Record<string, string | boolean>): void {
+  try {
+    Storage.setItemSync(PENDING_JS_ERROR_KEY, JSON.stringify(detail));
+  } catch {
+    // Diagnostics must never disturb the code that records them.
+  }
+}
+
+export function forgetFatalJsError(): void {
+  try {
+    Storage.removeItemSync(PENDING_JS_ERROR_KEY);
+  } catch {
+    // Diagnostics must never disturb the code that records them.
+  }
+}
+
+/** Records a fatal JavaScript error whose process died before saving it. */
+export async function recordKeptFatalJsError(): Promise<void> {
+  try {
+    const stored = Storage.getItemSync(PENDING_JS_ERROR_KEY);
+    if (stored === null) return;
+    const parsed: unknown = JSON.parse(stored);
+    const detail = parsed !== null && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+    if (await recordConfirmedDiagnostic("js-error", { ...detail, recovered: true })) forgetFatalJsError();
   } catch {
     // Diagnostics must never disturb the code that records them.
   }
