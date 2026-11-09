@@ -445,7 +445,15 @@ and Android's description with URIs, paths and decimal numbers removed. The
 (`battery`) and standby bucket (`standbyBucket`). A global JavaScript error
 handler records uncaught errors as `js-error` (name, scrubbed message, whether
 fatal), waits up to one second for the write, then hands the error to React
-Native's handler.
+Native's handler. A fatal error is also kept synchronously in the key-value
+store until its event is saved, so the next start records it (`recovered=true`)
+if the process died first.
+
+Startup records (process exits, native crashes, task restores, crash log
+entries, kept fatal errors) are marked as recorded only after their events are
+written to the diagnostics database: a process that crashes right after
+reading them leaves them for the next start, which may repeat an event but
+never loses one.
 
 Android's exit records carry no stack trace for a Java crash, so a content
 provider in the device-health module installs a default uncaught-exception
@@ -458,8 +466,14 @@ Uncaught JavaScript errors in release builds reach it as a
 startup marker synchronously to the key-value store, so the next process start
 can tell whether the crashed process reached JavaScript. That start records
 each crash as a `native-crash` event (messages with URIs, paths and decimal
-numbers removed, `jsStarted`) and clears the list. Release builds are
-obfuscated by R8; each release attaches its `mapping.txt` to read the frames.
+numbers removed, `jsStarted`) and then clears those entries. Release builds
+are obfuscated by R8; each release attaches its `mapping.txt` to read the
+frames.
+
+Each start also reads Android's crash log (`logcat -b crash`), which holds
+Yonder's own entries only and catches crashes before any of Yonder's code runs.
+Every `FATAL EXCEPTION` newer than the newest one already recorded becomes a
+`crash-log` event with its time and its first 22 lines, scrubbed the same way.
 
 Events never contain coordinates, place names, cell IDs or raw records; details
 are scalar values and coordinate-like keys are rejected. Writes are queued,
